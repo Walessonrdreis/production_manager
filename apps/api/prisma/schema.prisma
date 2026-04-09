@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model OmieProduct {
+  id          String   @id @default(uuid())
+  omieId      String   @unique
+  sku         String?
+  description String
+  active      Boolean  @default(true)
+  rawPayload  Json
+  lastSyncAt  DateTime @default(now())
+
+  product Product?
+
+  @@index([description])
+}
+
+model Product {
+  id            String      @id @default(uuid())
+  omieProductId String      @unique
+  omieProduct   OmieProduct @relation(fields: [omieProductId], references: [id], onDelete: Cascade)
+  nickname      String?
+  active        Boolean     @default(true)
+
+  productSector ProductSector?
+  planItems     ProductionPlanItem[]
+}
+
+model Sector {
+  id     String  @id @default(uuid())
+  name   String  @unique
+  order  Int     @default(0)
+  active Boolean @default(true)
+
+  productSectors ProductSector[]
+  planItems      ProductionPlanItem[]
+}
+
+model ProductSector {
+  productId String  @id
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sectorId  String
+  sector    Sector  @relation(fields: [sectorId], references: [id], onDelete: Restrict)
+  notes     String?
+}
+
+enum PlanStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+model ProductionPlan {
+  id        String               @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  status    PlanStatus           @default(DRAFT)
+  createdAt DateTime             @default(now())
+  
+  items     ProductionPlanItem[]
+
+  @@index([startDate, endDate])
+}
+
+model ProductionPlanItem {
+  id        String         @id @default(uuid())
+  planId    String
+  plan      ProductionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  sectorId  String
+  sector    Sector         @relation(fields: [sectorId], references: [id], onDelete: Restrict)
+  quantity  Int
+  notes     String?
+
+  @@index([planId, sectorId])
+  @@index([productId])
+}
