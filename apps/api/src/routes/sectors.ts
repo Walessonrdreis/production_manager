@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db';
+import { sendError, ErrorCodes } from '../utils/errors';
 
 export async function sectorRoutes(app: FastifyInstance) {
   // POST /v1/sectors
@@ -10,17 +11,20 @@ export async function sectorRoutes(app: FastifyInstance) {
       order: z.number().int().optional().default(0),
     });
 
-    const data = bodySchema.parse(request.body);
+    const parseResult = bodySchema.safeParse(request.body);
+    
+    if (!parseResult.success) {
+      return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'Dados inválidos.', parseResult.error.format());
+    }
+
+    const data = parseResult.data;
 
     const existingSector = await prisma.sector.findUnique({
       where: { name: data.name },
     });
 
     if (existingSector) {
-      return reply.status(409).send({
-        code: 'CONFLICT',
-        message: 'Um setor com este nome já existe.',
-      });
+      return sendError(reply, 409, ErrorCodes.CONFLICT, 'Um setor com este nome já existe.');
     }
 
     const sector = await prisma.sector.create({
@@ -61,8 +65,18 @@ export async function sectorRoutes(app: FastifyInstance) {
       active: z.boolean().optional(),
     });
 
-    const { id } = paramsSchema.parse(request.params);
-    const data = bodySchema.parse(request.body);
+    const paramsResult = paramsSchema.safeParse(request.params);
+    if (!paramsResult.success) {
+       return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'ID de rota inválido.', paramsResult.error.format());
+    }
+
+    const bodyResult = bodySchema.safeParse(request.body);
+    if (!bodyResult.success) {
+       return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'Dados de atualização inválidos.', bodyResult.error.format());
+    }
+
+    const { id } = paramsResult.data;
+    const data = bodyResult.data;
 
     // Verifica se o setor existe
     const sector = await prisma.sector.findUnique({
@@ -70,10 +84,7 @@ export async function sectorRoutes(app: FastifyInstance) {
     });
 
     if (!sector) {
-      return reply.status(404).send({
-        code: 'NOT_FOUND',
-        message: 'Setor não encontrado.',
-      });
+      return sendError(reply, 404, ErrorCodes.NOT_FOUND, 'Setor não encontrado.');
     }
 
     // Se estiver tentando alterar o nome, verifica colisão
@@ -83,10 +94,7 @@ export async function sectorRoutes(app: FastifyInstance) {
       });
 
       if (existingName) {
-        return reply.status(409).send({
-          code: 'CONFLICT',
-          message: 'Um setor com este nome já existe.',
-        });
+        return sendError(reply, 409, ErrorCodes.CONFLICT, 'Um setor com este nome já existe.');
       }
     }
 
@@ -104,17 +112,19 @@ export async function sectorRoutes(app: FastifyInstance) {
       id: z.string().uuid('ID inválido'),
     });
 
-    const { id } = paramsSchema.parse(request.params);
+    const paramsResult = paramsSchema.safeParse(request.params);
+    if (!paramsResult.success) {
+       return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'ID de rota inválido.', paramsResult.error.format());
+    }
+
+    const { id } = paramsResult.data;
 
     const sector = await prisma.sector.findUnique({
       where: { id },
     });
 
     if (!sector) {
-      return reply.status(404).send({
-        code: 'NOT_FOUND',
-        message: 'Setor não encontrado.',
-      });
+      return sendError(reply, 404, ErrorCodes.NOT_FOUND, 'Setor não encontrado.');
     }
 
     const deletedSector = await prisma.sector.update({

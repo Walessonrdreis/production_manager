@@ -1,6 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db';
+import { sendError, ErrorCodes } from '../utils/errors';
+import { CreatePlanItemService, AppError } from '../services/CreatePlanItemService';
 
 export async function plansRoutes(app: FastifyInstance) {
   // 1. POST /v1/plans
@@ -11,7 +13,12 @@ export async function plansRoutes(app: FastifyInstance) {
       endDate: z.string().datetime({ offset: true }),
     });
 
-    const data = bodySchema.parse(request.body);
+    const parseResult = bodySchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'Dados inválidos.', parseResult.error.format());
+    }
+
+    const data = parseResult.data;
 
     const plan = await prisma.productionPlan.create({
       data: {
@@ -38,7 +45,12 @@ export async function plansRoutes(app: FastifyInstance) {
       id: z.string().uuid(),
     });
 
-    const { id } = paramsSchema.parse(request.params);
+    const paramsResult = paramsSchema.safeParse(request.params);
+    if (!paramsResult.success) {
+      return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'ID inválido.');
+    }
+
+    const { id } = paramsResult.data;
 
     const plan = await prisma.productionPlan.findUnique({
       where: { id },
@@ -53,7 +65,7 @@ export async function plansRoutes(app: FastifyInstance) {
     });
 
     if (!plan) {
-      return reply.status(404).send({ code: 'NOT_FOUND', message: 'Plano não encontrado' });
+      return sendError(reply, 404, ErrorCodes.NOT_FOUND, 'Plano não encontrado');
     }
 
     return reply.send(plan);
@@ -72,51 +84,33 @@ export async function plansRoutes(app: FastifyInstance) {
       notes: z.string().optional(),
     });
 
-    const { id } = paramsSchema.parse(request.params);
-    const { productId, quantity, sectorId, notes } = bodySchema.parse(request.body);
+    const paramsResult = paramsSchema.safeParse(request.params);
+    if (!paramsResult.success) return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'ID inválido.');
+    
+    const bodyResult = bodySchema.safeParse(request.body);
+    if (!bodyResult.success) return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'Corpo inválido.', bodyResult.error.format());
 
-    const plan = await prisma.productionPlan.findUnique({ where: { id } });
-    if (!plan) {
-      return reply.status(404).send({ code: 'NOT_FOUND', message: 'Plano não encontrado' });
-    }
+    const { id } = paramsResult.data;
+    const { productId, quantity, sectorId, notes } = bodyResult.data;
 
-    const product = await prisma.product.findUnique({ where: { id: productId } });
-    if (!product) {
-      return reply.status(404).send({ code: 'NOT_FOUND', message: 'Produto não encontrado' });
-    }
-
-    let finalSectorId = sectorId;
-
-    if (!finalSectorId) {
-      const productSector = await prisma.productSector.findUnique({
-        where: { productId },
-      });
-
-      if (!productSector) {
-        return reply.status(400).send({
-          code: 'MISSING_DEFAULT_SECTOR',
-          message: 'Produto não possui setor padrão. Informe o sectorId.',
-        });
-      }
-      finalSectorId = productSector.sectorId;
-    } else {
-      const sector = await prisma.sector.findUnique({ where: { id: finalSectorId } });
-      if (!sector || !sector.active) {
-        return reply.status(400).send({ code: 'BAD_REQUEST', message: 'Setor inválido ou inativo' });
-      }
-    }
-
-    const item = await prisma.productionPlanItem.create({
-      data: {
+    try {
+      const service = new CreatePlanItemService();
+      const item = await service.execute({
         planId: id,
         productId,
-        sectorId: finalSectorId,
         quantity,
+        sectorId,
         notes,
-      },
-    });
+      });
 
-    return reply.status(201).send(item);
+      return reply.status(201).send(item);
+    } catch (error: any) {
+      if (error instanceof AppError) {
+        const statusCode = error.code === ErrorCodes.NOT_FOUND ? 404 : 400;
+        return sendError(reply, statusCode, error.code as any, error.message);
+      }
+      return sendError(reply, 500, ErrorCodes.INTERNAL_SERVER_ERROR, 'Erro interno', error.message);
+    }
   });
 
   // 5. GET /v1/plans/:id/by-sector
@@ -125,7 +119,10 @@ export async function plansRoutes(app: FastifyInstance) {
       id: z.string().uuid(),
     });
 
-    const { id } = paramsSchema.parse(request.params);
+    const paramsResult = paramsSchema.safeParse(request.params);
+    if (!paramsResult.success) return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'ID inválido.');
+
+    const { id } = paramsResult.data;
 
     const plan = await prisma.productionPlan.findUnique({
       where: { id },
@@ -139,9 +136,7 @@ export async function plansRoutes(app: FastifyInstance) {
       },
     });
 
-    if (!plan) {
-      return reply.status(404).send({ code: 'NOT_FOUND', message: 'Plano não encontrado' });
-    }
+    if (!plan) return sendError(reply, 404, ErrorCodes.NOT_FOUND, 'Plano não encontrado');
 
     // Agrupamento manual em memória
     const groupedMap = new Map<string, { sector: any; items: any[] }>();
@@ -184,7 +179,10 @@ export async function plansRoutes(app: FastifyInstance) {
       id: z.string().uuid(),
     });
 
-    const { id } = paramsSchema.parse(request.params);
+    const paramsResult = paramsSchema.safeParse(request.params);
+    if (!paramsResult.success) return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'ID inválido.');
+
+    const { id } = paramsResult.data;
 
     const plan = await prisma.productionPlan.findUnique({
       where: { id },
@@ -198,9 +196,7 @@ export async function plansRoutes(app: FastifyInstance) {
       },
     });
 
-    if (!plan) {
-      return reply.status(404).send({ code: 'NOT_FOUND', message: 'Plano não encontrado' });
-    }
+    if (!plan) return sendError(reply, 404, ErrorCodes.NOT_FOUND, 'Plano não encontrado');
 
     // Sort items by Sector order, then sector name, then product description
     const sortedItems = plan.items.sort((a, b) => {
