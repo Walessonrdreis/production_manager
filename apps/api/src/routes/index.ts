@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { omieRoutes } from './omie';
 import { sectorRoutes } from './sectors';
+import { productSectorRoutes } from './product-sector';
 
 export async function appRoutes(app: FastifyInstance) {
   // Rota Health no root
@@ -13,4 +14,7 @@ export async function appRoutes(app: FastifyInstance) {
   
   // Registro das rotas de Setores
   app.register(sectorRoutes);
+
+  // Registro das rotas de Mapeamento Produto-Setor
+  app.register(productSectorRoutes);
 }
