@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { omieRoutes } from './omie';
 import { sectorRoutes } from './sectors';
+import { productsRoutes } from './products';
 import { productSectorRoutes } from './product-sector';
 import { plansRoutes } from './plans';
 
@@ -15,6 +16,9 @@ export async function appRoutes(app: FastifyInstance) {
   
   // Registro das rotas de Setores
   app.register(sectorRoutes);
+
+  // Registro das rotas de Produtos
+  app.register(productsRoutes);
 
   // Registro das rotas de Mapeamento Produto-Setor
   app.register(productSectorRoutes);
