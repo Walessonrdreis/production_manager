@@ -2,7 +2,9 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db';
 import { sendError, ErrorCodes } from '../utils/errors';
-import { CreatePlanItemService, AppError } from '../services/CreatePlanItemService';
+import { CreatePlanItemService } from '../services/CreatePlanItemService';
+import { CreatePlanService } from '../services/CreatePlanService';
+import { NotFoundError, ValidationError } from '../utils/domainErrors';
 
 export async function plansRoutes(app: FastifyInstance) {
   // 1. POST /v1/plans
@@ -15,18 +17,13 @@ export async function plansRoutes(app: FastifyInstance) {
 
     const parseResult = bodySchema.safeParse(request.body);
     if (!parseResult.success) {
-      return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'Dados inválidos.', parseResult.error.format());
+      throw new ValidationError('Dados inválidos.', parseResult.error.format());
     }
 
-    const data = parseResult.data;
+    const { name, startDate, endDate } = parseResult.data;
 
-    const plan = await prisma.productionPlan.create({
-      data: {
-        name: data.name,
-        startDate: new Date(data.startDate),
-        endDate: new Date(data.endDate),
-      },
-    });
+    const service = new CreatePlanService();
+    const plan = await service.execute({ name, startDate, endDate });
 
     return reply.status(201).send(plan);
   });
@@ -47,7 +44,7 @@ export async function plansRoutes(app: FastifyInstance) {
 
     const paramsResult = paramsSchema.safeParse(request.params);
     if (!paramsResult.success) {
-      return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'ID inválido.');
+      throw new ValidationError('ID inválido.');
     }
 
     const { id } = paramsResult.data;
@@ -65,7 +62,7 @@ export async function plansRoutes(app: FastifyInstance) {
     });
 
     if (!plan) {
-      return sendError(reply, 404, ErrorCodes.NOT_FOUND, 'Plano não encontrado');
+      throw new NotFoundError('Plano');
     }
 
     return reply.send(plan);
@@ -85,32 +82,24 @@ export async function plansRoutes(app: FastifyInstance) {
     });
 
     const paramsResult = paramsSchema.safeParse(request.params);
-    if (!paramsResult.success) return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'ID inválido.');
+    if (!paramsResult.success) throw new ValidationError('ID inválido.');
     
     const bodyResult = bodySchema.safeParse(request.body);
-    if (!bodyResult.success) return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'Corpo inválido.', bodyResult.error.format());
+    if (!bodyResult.success) throw new ValidationError('Corpo inválido.', bodyResult.error.format());
 
     const { id } = paramsResult.data;
     const { productId, quantity, sectorId, notes } = bodyResult.data;
 
-    try {
-      const service = new CreatePlanItemService();
-      const item = await service.execute({
-        planId: id,
-        productId,
-        quantity,
-        sectorId,
-        notes,
-      });
+    const service = new CreatePlanItemService();
+    const item = await service.execute({
+      planId: id,
+      productId,
+      quantity,
+      sectorId,
+      notes,
+    });
 
-      return reply.status(201).send(item);
-    } catch (error: any) {
-      if (error instanceof AppError) {
-        const statusCode = error.code === ErrorCodes.NOT_FOUND ? 404 : 400;
-        return sendError(reply, statusCode, error.code as any, error.message);
-      }
-      return sendError(reply, 500, ErrorCodes.INTERNAL_SERVER_ERROR, 'Erro interno', error.message);
-    }
+    return reply.status(201).send(item);
   });
 
   // 5. GET /v1/plans/:id/by-sector
@@ -120,7 +109,7 @@ export async function plansRoutes(app: FastifyInstance) {
     });
 
     const paramsResult = paramsSchema.safeParse(request.params);
-    if (!paramsResult.success) return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'ID inválido.');
+    if (!paramsResult.success) throw new ValidationError('ID inválido.');
 
     const { id } = paramsResult.data;
 
@@ -136,7 +125,7 @@ export async function plansRoutes(app: FastifyInstance) {
       },
     });
 
-    if (!plan) return sendError(reply, 404, ErrorCodes.NOT_FOUND, 'Plano não encontrado');
+    if (!plan) throw new NotFoundError('Plano');
 
     // Agrupamento manual em memória
     const groupedMap = new Map<string, { sector: any; items: any[] }>();
@@ -180,7 +169,7 @@ export async function plansRoutes(app: FastifyInstance) {
     });
 
     const paramsResult = paramsSchema.safeParse(request.params);
-    if (!paramsResult.success) return sendError(reply, 400, ErrorCodes.VALIDATION_ERROR, 'ID inválido.');
+    if (!paramsResult.success) throw new ValidationError('ID inválido.');
 
     const { id } = paramsResult.data;
 
@@ -196,7 +185,7 @@ export async function plansRoutes(app: FastifyInstance) {
       },
     });
 
-    if (!plan) return sendError(reply, 404, ErrorCodes.NOT_FOUND, 'Plano não encontrado');
+    if (!plan) throw new NotFoundError('Plano');
 
     // Sort items by Sector order, then sector name, then product description
     const sortedItems = plan.items.sort((a, b) => {

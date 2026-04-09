@@ -1,6 +1,9 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import { env } from './env';
+import { appRoutes } from './routes';
+import { AppError } from './utils/domainErrors';
+import { ErrorCodes } from './utils/errors';
 
 const app = Fastify({
   logger: true,
@@ -9,19 +12,22 @@ const app = Fastify({
 // Error Handler Padronizado
 app.setErrorHandler((error, request, reply) => {
   app.log.error(error);
-  
-  reply.status(error.statusCode || 500).send({
-    code: error.code || 'INTERNAL_SERVER_ERROR',
-    message: error.message || 'An unexpected error occurred.',
+
+  // Captura erros de domínio customizados
+  if (error instanceof AppError) {
+    return reply.status(error.statusCode).send({
+      code: error.code,
+      message: error.message,
+      ...(error.details && { details: error.details }),
+    });
+  }
+
+  // Fallback 500 para erros não mapeados
+  reply.status(500).send({
+    code: ErrorCodes.INTERNAL_SERVER_ERROR,
+    message: 'An unexpected error occurred.',
   });
 });
-
-// Simulação de rotas (poderia estar em um arquivo separado)
-async function registerRoutes(fastify: FastifyInstance) {
-  fastify.get('/health', async () => {
-    return { status: 'ok' };
-  });
-}
 
 async function bootstrap() {
   try {
@@ -31,7 +37,7 @@ async function bootstrap() {
     });
 
     // Rotas
-    await app.register(registerRoutes);
+    await app.register(appRoutes);
 
     // Iniciar servidor
     await app.listen({ port: env.PORT, host: '0.0.0.0' });

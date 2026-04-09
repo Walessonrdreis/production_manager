@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CreatePlanItemService, AppError } from '../src/services/CreatePlanItemService';
+import { CreatePlanItemService } from '../src/services/CreatePlanItemService';
+import { MissingDefaultSectorError } from '../src/utils/domainErrors';
 import { prisma } from '../src/db';
-import { ErrorCodes } from '../src/utils/errors';
 
 // Realiza o mock do db.ts (Prisma Client)
 vi.mock('../src/db', () => ({
@@ -81,9 +81,7 @@ describe('CreatePlanItemService', () => {
         productId: 'prod-1',
         quantity: 5,
       })
-    ).rejects.toThrowError(
-      new AppError(ErrorCodes.MISSING_DEFAULT_SECTOR, 'Produto não possui setor padrão. Informe o sectorId.')
-    );
+    ).rejects.toThrowError(new MissingDefaultSectorError());
 
     // Garante que não tentou criar
     expect(prisma.productionPlanItem.create).not.toHaveBeenCalled();

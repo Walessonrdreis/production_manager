@@ -1,14 +1,15 @@
-import { prisma } from '../db';
-import { ErrorCodes } from '../utils/errors';
-
-export class AppError extends Error {
-  constructor(public code: string, message: string) {
-    super(message);
-    this.name = 'AppError';
-  }
-}
+import { NotFoundError, ValidationError, MissingDefaultSectorError } from '../utils/domainErrors';
+import { PlanRepository } from '../repositories/PlanRepository';
+import { ProductRepository } from '../repositories/ProductRepository';
+import { SectorRepository } from '../repositories/SectorRepository';
 
 export class CreatePlanItemService {
+  constructor(
+    private planRepo = new PlanRepository(),
+    private productRepo = new ProductRepository(),
+    private sectorRepo = new SectorRepository()
+  ) {}
+
   async execute({
     planId,
     productId,
@@ -22,42 +23,38 @@ export class CreatePlanItemService {
     sectorId?: string;
     notes?: string;
   }) {
-    const plan = await prisma.productionPlan.findUnique({ where: { id: planId } });
+    const plan = await this.planRepo.findById(planId);
     if (!plan) {
-      throw new AppError(ErrorCodes.NOT_FOUND, 'Plano não encontrado');
+      throw new NotFoundError('Plano');
     }
 
-    const product = await prisma.product.findUnique({ where: { id: productId } });
+    const product = await this.productRepo.findById(productId);
     if (!product) {
-      throw new AppError(ErrorCodes.NOT_FOUND, 'Produto não encontrado');
+      throw new NotFoundError('Produto');
     }
 
     let finalSectorId = sectorId;
 
     if (!finalSectorId) {
-      const productSector = await prisma.productSector.findUnique({
-        where: { productId },
-      });
+      const productSector = await this.productRepo.findProductSector(productId);
 
       if (!productSector) {
-        throw new AppError(ErrorCodes.MISSING_DEFAULT_SECTOR, 'Produto não possui setor padrão. Informe o sectorId.');
+        throw new MissingDefaultSectorError();
       }
       finalSectorId = productSector.sectorId;
     } else {
-      const sector = await prisma.sector.findUnique({ where: { id: finalSectorId } });
+      const sector = await this.sectorRepo.findById(finalSectorId);
       if (!sector || !sector.active) {
-        throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Setor inválido ou inativo');
+        throw new ValidationError('Setor inválido ou inativo');
       }
     }
 
-    const item = await prisma.productionPlanItem.create({
-      data: {
-        planId,
-        productId,
-        sectorId: finalSectorId,
-        quantity,
-        notes,
-      },
+    const item = await this.planRepo.createItem({
+      planId,
+      productId,
+      sectorId: finalSectorId,
+      quantity,
+      notes,
     });
 
     return item;

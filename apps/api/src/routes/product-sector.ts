@@ -1,6 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db';
+import { SetProductDefaultSectorService } from '../services/SetProductDefaultSectorService';
+import { NotFoundError, ValidationError } from '../utils/domainErrors';
 
 export async function productSectorRoutes(app: FastifyInstance) {
   // PUT /v1/products/:productId/sector
@@ -14,46 +16,17 @@ export async function productSectorRoutes(app: FastifyInstance) {
       notes: z.string().optional(),
     });
 
-    const { productId } = paramsSchema.parse(request.params);
-    const { sectorId, notes } = bodySchema.parse(request.body);
+    const paramsResult = paramsSchema.safeParse(request.params);
+    if (!paramsResult.success) throw new ValidationError('ID inválido.', paramsResult.error.format());
 
-    // 1. Valida se o produto existe
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-    });
+    const bodyResult = bodySchema.safeParse(request.body);
+    if (!bodyResult.success) throw new ValidationError('Dados inválidos.', bodyResult.error.format());
 
-    if (!product) {
-      return reply.status(404).send({
-        code: 'NOT_FOUND',
-        message: 'Produto não encontrado.',
-      });
-    }
+    const { productId } = paramsResult.data;
+    const { sectorId, notes } = bodyResult.data;
 
-    // 2. Valida se o setor existe e está ativo
-    const sector = await prisma.sector.findUnique({
-      where: { id: sectorId },
-    });
-
-    if (!sector || !sector.active) {
-      return reply.status(400).send({
-        code: 'BAD_REQUEST',
-        message: 'Setor não encontrado ou inativo.',
-      });
-    }
-
-    // 3. Faz o Upsert do mapeamento
-    const productSector = await prisma.productSector.upsert({
-      where: { productId },
-      create: {
-        productId,
-        sectorId,
-        notes,
-      },
-      update: {
-        sectorId,
-        notes,
-      },
-    });
+    const service = new SetProductDefaultSectorService();
+    const productSector = await service.execute({ productId, sectorId, notes });
 
     return reply.status(200).send(productSector);
   });
@@ -64,7 +37,10 @@ export async function productSectorRoutes(app: FastifyInstance) {
       productId: z.string().uuid('ID de produto inválido'),
     });
 
-    const { productId } = paramsSchema.parse(request.params);
+    const paramsResult = paramsSchema.safeParse(request.params);
+    if (!paramsResult.success) throw new ValidationError('ID inválido.', paramsResult.error.format());
+
+    const { productId } = paramsResult.data;
 
     // Verifica se o produto existe
     const product = await prisma.product.findUnique({
@@ -72,10 +48,7 @@ export async function productSectorRoutes(app: FastifyInstance) {
     });
 
     if (!product) {
-      return reply.status(404).send({
-        code: 'NOT_FOUND',
-        message: 'Produto não encontrado.',
-      });
+      throw new NotFoundError('Produto');
     }
 
     // Busca o mapeamento com os dados do setor populados

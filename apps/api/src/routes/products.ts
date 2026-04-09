@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db';
+import { NotFoundError, ConflictError, ValidationError } from '../utils/domainErrors';
 
 export async function productsRoutes(app: FastifyInstance) {
   // POST /v1/products - Seleciona um produto do Omie para o Gerenciador
@@ -9,14 +10,19 @@ export async function productsRoutes(app: FastifyInstance) {
       omieProductId: z.string().uuid(),
     });
 
-    const { omieProductId } = bodySchema.parse(request.body);
+    const parseResult = bodySchema.safeParse(request.body);
+    if (!parseResult.success) {
+      throw new ValidationError('Corpo da requisição inválido', parseResult.error.format());
+    }
+
+    const { omieProductId } = parseResult.data;
 
     const omieProduct = await prisma.omieProduct.findUnique({
       where: { id: omieProductId },
     });
 
     if (!omieProduct) {
-      return reply.status(404).send({ code: 'NOT_FOUND', message: 'Produto Omie não encontrado.' });
+      throw new NotFoundError('Produto Omie');
     }
 
     const existing = await prisma.product.findUnique({
@@ -24,7 +30,7 @@ export async function productsRoutes(app: FastifyInstance) {
     });
 
     if (existing) {
-      return reply.status(409).send({ code: 'CONFLICT', message: 'Produto já está selecionado.' });
+      throw new ConflictError('Produto já está selecionado.');
     }
 
     const product = await prisma.product.create({
@@ -63,14 +69,19 @@ export async function productsRoutes(app: FastifyInstance) {
       id: z.string().uuid(),
     });
 
-    const { id } = paramsSchema.parse(request.params);
+    const parseResult = paramsSchema.safeParse(request.params);
+    if (!parseResult.success) {
+      throw new ValidationError('ID inválido', parseResult.error.format());
+    }
+
+    const { id } = parseResult.data;
 
     const product = await prisma.product.findUnique({
       where: { id },
     });
 
     if (!product) {
-      return reply.status(404).send({ code: 'NOT_FOUND', message: 'Produto não encontrado.' });
+      throw new NotFoundError('Produto');
     }
 
     await prisma.product.delete({
