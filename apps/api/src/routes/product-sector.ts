@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../db';
 import { SetProductDefaultSectorService } from '../services/SetProductDefaultSectorService';
 import { NotFoundError, ValidationError } from '../utils/domainErrors';
+import { UpdateProductSectorInputSchema } from '@shared/contracts';
 
 export async function productSectorRoutes(app: FastifyInstance) {
   // PUT /v1/products/:productId/sector
@@ -11,15 +12,10 @@ export async function productSectorRoutes(app: FastifyInstance) {
       productId: z.string().uuid('ID de produto inválido'),
     });
 
-    const bodySchema = z.object({
-      sectorId: z.string().uuid('ID de setor inválido'),
-      notes: z.string().optional(),
-    });
-
     const paramsResult = paramsSchema.safeParse(request.params);
     if (!paramsResult.success) throw new ValidationError('ID inválido.', paramsResult.error.format());
 
-    const bodyResult = bodySchema.safeParse(request.body);
+    const bodyResult = UpdateProductSectorInputSchema.safeParse(request.body);
     if (!bodyResult.success) throw new ValidationError('Dados inválidos.', bodyResult.error.format());
 
     const { productId } = paramsResult.data;

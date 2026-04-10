@@ -1,20 +1,8 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
-
-type Plan = {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  status: string;
-  createdAt: string;
-};
-
-type PlansResponse = {
-  items: Plan[];
-};
+import { usePlans } from '../hooks/api/usePlans';
 
 export function PlansPage() {
   const queryClient = useQueryClient();
@@ -25,10 +13,7 @@ export function PlansPage() {
   const [endDate, setEndDate] = useState('');
 
   // Busca os planos
-  const { data, isLoading, isError } = useQuery<PlansResponse>({
-    queryKey: ['plans'],
-    queryFn: () => apiClient.get('/v1/plans'),
-  });
+  const { data, isLoading, isError } = usePlans();
 
   // Mutação para criar um novo plano
   const createMutation = useMutation({
@@ -38,16 +23,13 @@ export function PlansPage() {
       queryClient.invalidateQueries({ queryKey: ['plans'] });
       // Redireciona para a página de detalhes do plano recém-criado
       navigate(`/plans/${data.id}`);
-    },
-    onError: (error: any) => {
-      alert(`Erro ao criar plano: ${error.message}`);
-    },
+    }
   });
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !startDate || !endDate) {
-      alert('Preencha todos os campos.');
+      // Idealmente, usaríamos um toast aqui também, mas por simplicidade:
       return;
     }
 

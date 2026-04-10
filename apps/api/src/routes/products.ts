@@ -1,16 +1,12 @@
 import { FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import { prisma } from '../db';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/domainErrors';
+import { CreateProductInputSchema } from '@shared/contracts';
 
 export async function productsRoutes(app: FastifyInstance) {
   // POST /v1/products - Seleciona um produto do Omie para o Gerenciador
   app.post('/v1/products', async (request, reply) => {
-    const bodySchema = z.object({
-      omieProductId: z.string().uuid(),
-    });
-
-    const parseResult = bodySchema.safeParse(request.body);
+    const parseResult = CreateProductInputSchema.safeParse(request.body);
     if (!parseResult.success) {
       throw new ValidationError('Corpo da requisição inválido', parseResult.error.format());
     }
@@ -65,16 +61,8 @@ export async function productsRoutes(app: FastifyInstance) {
 
   // DELETE /v1/products/:id - Remove um produto do Gerenciador
   app.delete('/v1/products/:id', async (request, reply) => {
-    const paramsSchema = z.object({
-      id: z.string().uuid(),
-    });
-
-    const parseResult = paramsSchema.safeParse(request.params);
-    if (!parseResult.success) {
-      throw new ValidationError('ID inválido', parseResult.error.format());
-    }
-
-    const { id } = parseResult.data;
+    // Como é params não usamos contrato compartilhado aqui
+    const { id } = request.params as { id: string };
 
     const product = await prisma.product.findUnique({
       where: { id },

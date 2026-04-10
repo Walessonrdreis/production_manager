@@ -10,9 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@shared/contracts": "workspace:*",
     "@tanstack/react-query": "^5.29.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.6.0",
     "react-router-dom": "^6.22.3"
   },
   "devDependencies": {

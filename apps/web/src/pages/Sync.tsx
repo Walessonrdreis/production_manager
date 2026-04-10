@@ -1,10 +1,14 @@
 import { useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
+import { toast } from 'react-hot-toast';
 
 export function SyncPage() {
   const syncMutation = useMutation({
     mutationFn: () => apiClient.post<{ upserted: number }>('/v1/omie/sync/products'),
+    onSuccess: (data) => {
+      toast.success(`${data.upserted} produtos sincronizados com sucesso!`);
+    }
   });
 
   return (
@@ -30,18 +34,6 @@ export function SyncPage() {
           {syncMutation.isPending ? 'Sincronizando...' : 'Sincronizar produtos do Omie'}
         </button>
       </div>
-
-      {syncMutation.isError && (
-        <div style={{ color: 'red', marginBottom: '1rem' }}>
-          <strong>Erro na sincronização:</strong> {syncMutation.error.message}
-        </div>
-      )}
-
-      {syncMutation.isSuccess && (
-        <div style={{ color: 'green', marginBottom: '1rem' }}>
-          <strong>Sucesso!</strong> {syncMutation.data.upserted} produtos foram sincronizados/atualizados.
-        </div>
-      )}
 
       <hr style={{ margin: '2rem 0' }} />
 

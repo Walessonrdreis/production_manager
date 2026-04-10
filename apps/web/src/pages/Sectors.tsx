@@ -1,75 +1,34 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { apiClient } from '../api/client';
-
-type Sector = {
-  id: string;
-  name: string;
-  order: number;
-  active: boolean;
-};
-
-type SectorsResponse = {
-  items: Sector[];
-};
+import { useSectors } from '../hooks/api/useSectors';
+import { useCreateSector, useUpdateSector, useDeleteSector } from '../hooks/api/useSectorMutations';
 
 export function SectorsPage() {
-  const queryClient = useQueryClient();
   const [newSectorName, setNewSectorName] = useState('');
   const [newSectorOrder, setNewSectorOrder] = useState<number | ''>('');
 
-  // Busca de Setores (trazendo todos, inclusive inativos, para gerenciar o 'active')
-  const { data, isLoading, isError } = useQuery<SectorsResponse>({
-    queryKey: ['sectors', { includeInactive: true }],
-    queryFn: () => apiClient.get('/v1/sectors?includeInactive=true'),
-  });
+  const { data, isLoading, isError } = useSectors(true);
 
-  // Mutação: Criar Setor
-  const createMutation = useMutation({
-    mutationFn: (newSector: { name: string; order?: number }) =>
-      apiClient.post('/v1/sectors', newSector),
-    onSuccess: () => {
-      setNewSectorName('');
-      setNewSectorOrder('');
-      queryClient.invalidateQueries({ queryKey: ['sectors'] });
-    },
-    onError: (error: any) => {
-      alert(`Erro ao criar setor: ${error.message}`);
-    },
-  });
-
-  // Mutação: Atualizar Setor (order ou active)
-  const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<Sector> }) =>
-      apiClient.patch(`/v1/sectors/${id}`, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sectors'] });
-    },
-    onError: (error: any) => {
-      alert(`Erro ao atualizar setor: ${error.message}`);
-    },
-  });
-
-  // Mutação: Soft Delete Setor
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/v1/sectors/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sectors'] });
-    },
-    onError: (error: any) => {
-      alert(`Erro ao remover setor: ${error.message}`);
-    },
-  });
+  const createMutation = useCreateSector();
+  const updateMutation = useUpdateSector();
+  const deleteMutation = useDeleteSector();
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSectorName.trim()) return;
     
-    createMutation.mutate({
-      name: newSectorName.trim(),
-      order: newSectorOrder === '' ? 0 : Number(newSectorOrder),
-    });
+    createMutation.mutate(
+      {
+        name: newSectorName.trim(),
+        order: newSectorOrder === '' ? 0 : Number(newSectorOrder),
+      },
+      {
+        onSuccess: () => {
+          setNewSectorName('');
+          setNewSectorOrder('');
+        },
+      }
+    );
   };
 
   const sectors = data?.items || [];

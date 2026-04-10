@@ -1,72 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { apiClient } from '../api/client';
-
-type Sector = {
-  id: string;
-  name: string;
-};
-
-type Product = {
-  id: string;
-  omieProductId: string;
-  active: boolean;
-  omieProduct: {
-    description: string;
-    sku: string | null;
-  };
-  productSector: {
-    sectorId: string;
-    sector: Sector;
-  } | null;
-};
-
-type ProductsResponse = {
-  items: Product[];
-};
-
-type SectorsResponse = {
-  items: Sector[];
-};
+import { useProducts } from '../hooks/api/useProducts';
+import { useSectors } from '../hooks/api/useSectors';
+import { useUpdateProductSector, useDeleteProduct } from '../hooks/api/useProductMutations';
 
 export function MyProductsPage() {
-  const queryClient = useQueryClient();
-
-  // Busca dos Produtos
-  const { data: productsData, isLoading: isLoadingProducts } = useQuery<ProductsResponse>({
-    queryKey: ['myProducts'],
-    queryFn: () => apiClient.get('/v1/products'),
-  });
-
-  // Busca dos Setores Ativos (para o dropdown)
-  const { data: sectorsData, isLoading: isLoadingSectors } = useQuery<SectorsResponse>({
-    queryKey: ['sectors', { activeOnly: true }],
-    queryFn: () => apiClient.get('/v1/sectors'), // Por padrão nosso GET já não retorna os inativos
-  });
-
-  // Mutação para Atualizar o Setor Padrão do Produto
-  const updateSectorMutation = useMutation({
-    mutationFn: ({ productId, sectorId }: { productId: string; sectorId: string }) =>
-      apiClient.put(`/v1/products/${productId}/sector`, { sectorId }),
-    onSuccess: () => {
-      // Invalida a query de produtos para recarregar a lista e atualizar o dropdown
-      queryClient.invalidateQueries({ queryKey: ['myProducts'] });
-    },
-    onError: (error: Error) => {
-      alert(`Erro ao atualizar setor: ${error.message}`);
-    },
-  });
-
-  // Mutação para Remover o Produto
-  const deleteProductMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/v1/products/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myProducts'] });
-    },
-    onError: (error: Error) => {
-      alert(`Erro ao remover produto: ${error.message}`);
-    },
-  });
+  const { data: productsData, isLoading: isLoadingProducts } = useProducts();
+  const { data: sectorsData, isLoading: isLoadingSectors } = useSectors(false);
+  
+  const updateSectorMutation = useUpdateProductSector();
+  const deleteProductMutation = useDeleteProduct();
 
   if (isLoadingProducts || isLoadingSectors) {
     return <div style={{ padding: '2rem' }}>Carregando...</div>;
@@ -97,10 +39,10 @@ export function MyProductsPage() {
           {products.map((product) => (
             <tr key={product.id}>
               <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
-                {product.omieProduct.description}
+                {product.omieProduct?.description}
               </td>
               <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
-                {product.omieProduct.sku || '-'}
+                {product.omieProduct?.sku || '-'}
               </td>
               <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
                 <select

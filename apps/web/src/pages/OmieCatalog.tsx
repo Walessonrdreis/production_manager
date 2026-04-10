@@ -1,21 +1,10 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
-
-type OmieProduct = {
-  id: string;
-  omieId: string;
-  sku: string | null;
-  description: string;
-  active: boolean;
-};
-
-type OmieResponse = {
-  items: OmieProduct[];
-  total: number;
-};
+import { useOmieProducts } from '../hooks/api/useOmieProducts';
+import { toast } from 'react-hot-toast';
 
 export function OmieCatalogPage() {
   const queryClient = useQueryClient();
@@ -24,20 +13,8 @@ export function OmieCatalogPage() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // Busca do Catálogo
-  const { data, isLoading, isError } = useQuery<OmieResponse>({
-    queryKey: ['omieProducts', debouncedSearch, page, pageSize],
-    queryFn: () => {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: pageSize.toString(),
-      });
-      if (debouncedSearch) {
-        params.append('search', debouncedSearch);
-      }
-      return apiClient.get(`/v1/omie/products?${params.toString()}`);
-    },
-  });
+  // Busca do Catálogo usando o hook customizado
+  const { data, isLoading } = useOmieProducts(debouncedSearch, page, pageSize);
 
   // Reset de página caso busque algo novo
   useState(() => {
@@ -49,12 +26,9 @@ export function OmieCatalogPage() {
     mutationFn: (omieProductId: string) => 
       apiClient.post('/v1/products', { omieProductId }),
     onSuccess: () => {
-      alert('Produto selecionado com sucesso!');
+      toast.success('Produto selecionado com sucesso!');
       // Invalida a lista de 'Meus Produtos' para quando navegarmos para lá
       queryClient.invalidateQueries({ queryKey: ['myProducts'] });
-    },
-    onError: (error: Error) => {
-      alert(`Erro ao selecionar produto: ${error.message}`);
     }
   });
 
@@ -86,9 +60,8 @@ export function OmieCatalogPage() {
       </div>
 
       {isLoading && <p>Carregando catálogo...</p>}
-      {isError && <p style={{ color: 'red' }}>Erro ao carregar o catálogo do Omie.</p>}
 
-      {!isLoading && !isError && data && (
+      {!isLoading && data && (
         <>
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem' }}>
             <thead>

@@ -1,110 +1,53 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
-
-type PlanDetail = {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  status: string;
-};
-
-type SectorGroup = {
-  sector: { id: string; name: string };
-  items: {
-    itemId: string;
-    productId: string;
-    productDescription: string;
-    quantity: number;
-  }[];
-};
-
-type Product = {
-  id: string;
-  omieProduct: { description: string };
-};
-
-type Sector = {
-  id: string;
-  name: string;
-};
+import { useAddPlanItem } from '../hooks/api/useAddPlanItem';
+import { useProducts } from '../hooks/api/useProducts';
+import { useSectors } from '../hooks/api/useSectors';
+import { usePlanDetails, usePlanBySector } from '../hooks/api/usePlanQueries';
+import { toast } from 'react-hot-toast';
 
 export function PlanDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const queryClient = useQueryClient();
 
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState<number | ''>('');
   const [overrideSectorId, setOverrideSectorId] = useState('');
 
-  // Busca detalhes do plano
-  const { data: plan, isLoading: isLoadingPlan } = useQuery<PlanDetail>({
-    queryKey: ['plan', id],
-    queryFn: () => apiClient.get(`/v1/plans/${id}`),
-    enabled: !!id,
-  });
+  // Busca detalhes do plano usando hook customizado
+  const { data: plan, isLoading: isLoadingPlan } = usePlanDetails(id!);
 
-  // Busca a visão agrupada por setor
-  const { data: groupedItems, isLoading: isLoadingGroups } = useQuery<SectorGroup[]>({
-    queryKey: ['plan-by-sector', id],
-    queryFn: () => apiClient.get(`/v1/plans/${id}/by-sector`),
-    enabled: !!id,
-  });
+  // Busca a visão agrupada por setor usando hook customizado
+  const { data: groupedItems, isLoading: isLoadingGroups } = usePlanBySector(id!);
 
   // Busca lista de produtos disponíveis para adicionar ao plano
-  const { data: productsData } = useQuery<{ items: Product[] }>({
-    queryKey: ['myProducts'],
-    queryFn: () => apiClient.get('/v1/products'),
-  });
+  const { data: productsData } = useProducts();
 
   // Busca setores para o override
-  const { data: sectorsData } = useQuery<{ items: Sector[] }>({
-    queryKey: ['sectors'],
-    queryFn: () => apiClient.get('/v1/sectors'),
-  });
+  const { data: sectorsData } = useSectors();
 
-  // Mutação para adicionar um item ao plano
-  const addItemMutation = useMutation({
-    mutationFn: (payload: { productId: string; quantity: number; sectorId?: string }) =>
-      apiClient.post(`/v1/plans/${id}/items`, payload),
-    onSuccess: () => {
-      // Invalida as queries para recarregar a tela
-      queryClient.invalidateQueries({ queryKey: ['plan', id] });
-      queryClient.invalidateQueries({ queryKey: ['plan-by-sector', id] });
-      // Limpa os campos do formulário
-      setSelectedProductId('');
-      setQuantity('');
-      setOverrideSectorId('');
-    },
-    onError: (error: any) => {
-      // Tenta parsear o erro se for JSON (nosso backend devolve { code, message })
-      try {
-        const errorBody = error.message.replace('Erro na requisição: ', '');
-        // Como o fetch joga o statusText no Error nativo e a gente não parseou o JSON do erro no client
-        // A abordagem ideal seria alterar o client para jogar o JSON no throw, 
-        // mas faremos um match simples pelo texto caso contenha o código
-        if (error.message.includes('MISSING_DEFAULT_SECTOR') || error.message.includes('Bad Request')) {
-           alert('Este produto não possui um Setor Padrão configurado. Por favor, selecione um setor no campo "Sobrescrever Setor" ou configure um setor padrão na página "Meus Produtos".');
-        } else {
-           alert(`Erro ao adicionar item: ${error.message}`);
-        }
-      } catch (e) {
-        alert(`Erro ao adicionar item: ${error.message}`);
-      }
-    },
-  });
+  // Mutação customizada para adicionar um item ao plano
+  const addItemMutation = useAddPlanItem(id!);
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProductId || !quantity || quantity <= 0) return;
 
-    addItemMutation.mutate({
-      productId: selectedProductId,
-      quantity: Number(quantity),
-      ...(overrideSectorId ? { sectorId: overrideSectorId } : {}),
-    });
+    addItemMutation.mutate(
+      {
+        productId: selectedProductId,
+        quantity: Number(quantity),
+        ...(overrideSectorId ? { sectorId: overrideSectorId } : {}),
+      },
+      {
+        onSuccess: () => {
+          setSelectedProductId('');
+          setQuantity('');
+          setOverrideSectorId('');
+        }
+        // Repare que o onError sumiu! Ele será tratado de forma transparente pelo QueryCache no main.tsx
+      }
+    );
   };
 
   const handleExportCsv = async () => {
@@ -123,7 +66,7 @@ export function PlanDetailPage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error: any) {
-      alert(`Erro ao exportar: ${error.message}`);
+      toast.error(`Erro ao exportar: ${error.message}`);
     }
   };
 
@@ -183,7 +126,7 @@ export function PlanDetailPage() {
               <option value="" disabled>Selecione um produto...</option>
               {productsData?.items.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.omieProduct.description}
+                  {p.omieProduct?.description}
                 </option>
               ))}
             </select>
