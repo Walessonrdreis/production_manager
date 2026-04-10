@@ -1,31 +1,69 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import crypto from 'crypto';
 import { env } from './env';
 import { appRoutes } from './routes';
-import { AppError } from './utils/domainErrors';
-import { ErrorCodes } from './utils/errors';
+import { AppError } from './core/errors/AppError';
+
+// Extende a tipagem do Request do Fastify para aceitar a nova propriedade "requestId"
+declare module 'fastify' {
+  interface FastifyRequest {
+    requestId: string;
+  }
+}
 
 const app = Fastify({
   logger: true,
 });
 
+// Hook: Ler ou gerar requestId por request
+app.decorateRequest('requestId', '');
+app.addHook('onRequest', async (request, reply) => {
+  const incomingId = request.headers['x-request-id'] as string;
+  request.requestId = incomingId || crypto.randomUUID();
+  
+  // Opcional: Anexar o requestId aos logs padrão do Fastify caso queira rastreabilidade profunda
+  request.log = request.log.child({ reqId: request.requestId });
+});
+
+// Duck-typing para verificar se é um AppError válido (mesmo se falhar no instanceof por conta de transpilação/imports duplos)
+function isAppError(err: any): err is AppError {
+  return (
+    err !== null &&
+    typeof err === 'object' &&
+    typeof err.code === 'string' &&
+    typeof err.statusCode === 'number' &&
+    typeof err.message === 'string'
+  );
+}
+
 // Error Handler Padronizado
 app.setErrorHandler((error, request, reply) => {
-  app.log.error(error);
-
-  // Captura erros de domínio customizados
-  if (error instanceof AppError) {
+  if (isAppError(error)) {
+    app.log.warn(`[${error.code}] ${error.message} (requestId: ${request.requestId})`);
+    
+    const isDev = process.env.NODE_ENV !== 'production';
+    
     return reply.status(error.statusCode).send({
       code: error.code,
       message: error.message,
-      ...(error.details && { details: error.details }),
+      details: isDev ? {
+        ...(error.details || {}),
+        message: error.message,
+        stack: error.stack
+      } : error.details,
+      requestId: request.requestId
     });
   }
 
+  // Loga apenas os erros inesperados com detalhes completos
+  app.log.error({ err: error, requestId: request.requestId }, 'Erro Inesperado');
+
   // Fallback 500 para erros não mapeados
   reply.status(500).send({
-    code: ErrorCodes.INTERNAL_SERVER_ERROR,
-    message: 'An unexpected error occurred.',
+    code: 'INTERNAL_ERROR',
+    message: 'Erro interno',
+    requestId: request.requestId
   });
 });
 

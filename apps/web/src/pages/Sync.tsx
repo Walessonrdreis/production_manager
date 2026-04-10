@@ -1,15 +1,44 @@
+import { useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { toast } from 'react-hot-toast';
 
 export function SyncPage() {
+  const isSyncing = useRef(false);
+
   const syncMutation = useMutation({
-    mutationFn: () => apiClient.post<{ upserted: number }>('/v1/omie/sync/products'),
+    mutationFn: async () => {
+      const requestId = crypto.randomUUID();
+      console.log(`[SyncPage] sync clicked requestId=${requestId}`);
+      
+      // Chamada POST sem body, passando apenas o custom header
+      return apiClient.post<{ upserted: number }>(
+        '/v1/omie/sync/products', 
+        undefined, 
+        { 'X-Request-Id': requestId }
+      );
+    },
     onSuccess: (data) => {
       toast.success(`${data.upserted} produtos sincronizados com sucesso!`);
-    }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao sincronizar produtos.');
+    },
+    onSettled: () => {
+      // Libera o lock idependente de sucesso ou erro
+      isSyncing.current = false;
+    },
+    retry: false, // Não tentar novamente em caso de falha de rede/API
   });
+
+  const handleSync = () => {
+    // Single flight lock: impede dezenas de cliques rápidos
+    if (isSyncing.current || syncMutation.isPending) return;
+    
+    isSyncing.current = true;
+    syncMutation.mutate();
+  };
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
@@ -19,13 +48,13 @@ export function SyncPage() {
 
       <div style={{ marginBottom: '2rem' }}>
         <button 
-          onClick={() => syncMutation.mutate()} 
-          disabled={syncMutation.isPending}
+          onClick={handleSync} 
+          disabled={syncMutation.isPending || isSyncing.current}
           style={{
             padding: '0.5rem 1rem',
             fontSize: '1rem',
-            cursor: syncMutation.isPending ? 'not-allowed' : 'pointer',
-            backgroundColor: syncMutation.isPending ? '#ccc' : '#007bff',
+            cursor: (syncMutation.isPending || isSyncing.current) ? 'not-allowed' : 'pointer',
+            backgroundColor: (syncMutation.isPending || isSyncing.current) ? '#ccc' : '#007bff',
             color: 'white',
             border: 'none',
             borderRadius: '4px',

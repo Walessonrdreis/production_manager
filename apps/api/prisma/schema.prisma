@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model SyncLock {
+  key         String   @id
+  lockedUntil DateTime
+}
+
 model OmieProduct {
   id          String   @id @default(uuid())
   omieId      String   @unique

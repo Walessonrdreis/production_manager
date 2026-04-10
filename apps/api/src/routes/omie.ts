@@ -6,9 +6,16 @@ import { SyncOmieProductsService } from '../core/SyncOmieProductsService';
 export async function omieRoutes(app: FastifyInstance) {
   // Rota de Sincronização
   app.post('/v1/omie/sync/products', async (request, reply) => {
+    const querySchema = z.object({
+      force: z.coerce.boolean().optional().default(false),
+    });
+
+    const { force } = querySchema.parse(request.query);
+
+    // A rota instancia e delega ao Service passando o requestId e o param force
     const service = new SyncOmieProductsService();
-    // Utilizando o método execute() que foi criado no passo anterior
-    const result = await service.execute();
+    const result = await service.execute(request.requestId, force);
+    
     return reply.send(result);
   });
 
