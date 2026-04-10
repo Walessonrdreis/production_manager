@@ -5,17 +5,12 @@ import { sendError, ErrorCodes } from '../utils/errors';
 import { CreatePlanItemService } from '../services/CreatePlanItemService';
 import { CreatePlanService } from '../services/CreatePlanService';
 import { NotFoundError, ValidationError } from '../utils/domainErrors';
+import { CreatePlanInputSchema, AddPlanItemInputSchema } from '@shared/contracts';
 
 export async function plansRoutes(app: FastifyInstance) {
   // 1. POST /v1/plans
   app.post('/v1/plans', async (request, reply) => {
-    const bodySchema = z.object({
-      name: z.string().min(1, 'Nome é obrigatório'),
-      startDate: z.string().datetime({ offset: true }),
-      endDate: z.string().datetime({ offset: true }),
-    });
-
-    const parseResult = bodySchema.safeParse(request.body);
+    const parseResult = CreatePlanInputSchema.safeParse(request.body);
     if (!parseResult.success) {
       throw new ValidationError('Dados inválidos.', parseResult.error.format());
     }
@@ -74,17 +69,10 @@ export async function plansRoutes(app: FastifyInstance) {
       id: z.string().uuid(),
     });
 
-    const bodySchema = z.object({
-      productId: z.string().uuid(),
-      quantity: z.number().int().positive(),
-      sectorId: z.string().uuid().optional(),
-      notes: z.string().optional(),
-    });
-
     const paramsResult = paramsSchema.safeParse(request.params);
     if (!paramsResult.success) throw new ValidationError('ID inválido.');
     
-    const bodyResult = bodySchema.safeParse(request.body);
+    const bodyResult = AddPlanItemInputSchema.safeParse(request.body);
     if (!bodyResult.success) throw new ValidationError('Corpo inválido.', bodyResult.error.format());
 
     const { id } = paramsResult.data;

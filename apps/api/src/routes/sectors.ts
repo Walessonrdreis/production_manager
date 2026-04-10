@@ -1,19 +1,14 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { sendError, ErrorCodes } from '../utils/errors';
 import { CreateSectorService } from '../services/CreateSectorService';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/domainErrors';
+import { CreateSectorInputSchema, UpdateSectorInputSchema } from '@shared/contracts';
 
 export async function sectorRoutes(app: FastifyInstance) {
   // POST /v1/sectors
   app.post('/v1/sectors', async (request, reply) => {
-    const bodySchema = z.object({
-      name: z.string().min(1, 'Nome do setor é obrigatório'),
-      order: z.number().int().optional().default(0),
-    });
-
-    const parseResult = bodySchema.safeParse(request.body);
+    const parseResult = CreateSectorInputSchema.safeParse(request.body);
     
     if (!parseResult.success) {
       throw new ValidationError('Dados inválidos.', parseResult.error.format());
@@ -52,18 +47,12 @@ export async function sectorRoutes(app: FastifyInstance) {
       id: z.string().uuid('ID inválido'),
     });
 
-    const bodySchema = z.object({
-      name: z.string().min(1).optional(),
-      order: z.number().int().optional(),
-      active: z.boolean().optional(),
-    });
-
     const paramsResult = paramsSchema.safeParse(request.params);
     if (!paramsResult.success) {
        throw new ValidationError('ID de rota inválido.', paramsResult.error.format());
     }
 
-    const bodyResult = bodySchema.safeParse(request.body);
+    const bodyResult = UpdateSectorInputSchema.safeParse(request.body);
     if (!bodyResult.success) {
        throw new ValidationError('Dados de atualização inválidos.', bodyResult.error.format());
     }
