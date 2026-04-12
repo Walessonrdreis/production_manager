@@ -10,7 +10,7 @@ const envSchema = z.object({
   OMIE_APP_KEY: z.string(),
   OMIE_APP_SECRET: z.string(),
   OMIE_BASE_URL: z.string().url(),
-  CORS_ORIGIN: z.string().url().default('http://localhost:5174'),
+  CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:5174'),
 });
 
 const _env = envSchema.safeParse(process.env);
@@ -21,4 +21,3 @@ if (!_env.success) {
 }
 
 export const env = _env.data;
-

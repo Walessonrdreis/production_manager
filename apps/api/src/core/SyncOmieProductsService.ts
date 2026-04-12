@@ -16,12 +16,29 @@ const OMIE_PRODUCTS_PAYLOAD = {
   }]
 };
 
-// Variável em memória para guardar a data do último sync global
 let lastGlobalSyncAt: number = 0;
+let inMemoryLockUntil = 0;
 const THROTTLE_WINDOW_MS = 60 * 1000; // 60 segundos
+const LOCK_WINDOW_MS = 2 * 60 * 1000;
 const SYNC_LOCK_KEY = "omie_products_sync";
 
 export class SyncOmieProductsService {
+  private isSyncLockTableUnavailable(error: any): boolean {
+    return error?.code === 'P2021' || error?.code === 'P2022';
+  }
+
+  private acquireInMemoryLock(now: number): void {
+    if (inMemoryLockUntil > now) {
+      throw new AppError('SYNC_IN_PROGRESS', 409, 'Sincronização já em andamento');
+    }
+
+    inMemoryLockUntil = now + LOCK_WINDOW_MS;
+  }
+
+  private releaseInMemoryLock(): void {
+    inMemoryLockUntil = 0;
+  }
+
   async execute(requestId: string, force: boolean = false): Promise<{ upserted?: number, failed?: number, skipped?: boolean, reason?: string, nextAllowedInSec?: number }> {
     if (!env.OMIE_APP_KEY || !env.OMIE_APP_SECRET || !env.OMIE_BASE_URL) {
       throw new AppError('OMIE_NOT_CONFIGURED', 400, 'Omie não configurado');
@@ -41,8 +58,8 @@ export class SyncOmieProductsService {
     }
 
     let lockAcquired = false;
+    let usingInMemoryLock = false;
 
-    // Abordagem Segura e Simplificada de Concorrência (Optimistic Locking)
     try {
       let lock = await prisma.syncLock.findUnique({
         where: { key: SYNC_LOCK_KEY },
@@ -70,10 +87,9 @@ export class SyncOmieProductsService {
       const updated = await prisma.syncLock.updateMany({
         where: {
           key: SYNC_LOCK_KEY,
-          // Garante que só atualiza se a data for EXATAMENTE a que nós vimos
           lockedUntil: lock.lockedUntil,
         },
-        data: { lockedUntil: new Date(now + 2 * 60 * 1000) },
+        data: { lockedUntil: new Date(now + LOCK_WINDOW_MS) },
       });
 
       if (updated.count === 0) {
@@ -86,9 +102,24 @@ export class SyncOmieProductsService {
       if (dbError instanceof AppError) {
         throw dbError;
       }
-      
-      console.error(`Falha ao obter lock do Prisma requestId=${requestId}`, dbError);
-      throw new AppError('INTERNAL_ERROR', 500, 'Erro de comunicação com o banco de dados ao tentar travar sincronização');
+
+      if (this.isSyncLockTableUnavailable(dbError)) {
+        this.acquireInMemoryLock(now);
+        usingInMemoryLock = true;
+        lockAcquired = true;
+        console.warn(`sync lock fallback requestId=${requestId} strategy=in_memory prismaCode=${dbError?.code ?? 'UNKNOWN'}`);
+      } else {
+        console.error(`Falha ao obter lock do Prisma requestId=${requestId}`, dbError);
+        throw new AppError(
+          'SYNC_LOCK_DB_ERROR',
+          503,
+          'Falha ao acessar o lock de sincronização no banco',
+          {
+            prismaCode: dbError?.code,
+            message: dbError?.message,
+          }
+        );
+      }
     }
 
     const startTime = Date.now();
@@ -104,12 +135,10 @@ export class SyncOmieProductsService {
 
       // 3. Extrai items do payload
       const items = data.produtos ?? data.lista ?? [];
-      
-      // 4. Upsert para cada item de forma resiliente
+
       for (const item of items) {
         let dto;
         try {
-          // Extração dos dados pelo adapter pode falhar dependendo do formato do payload
           dto = OmieAdapter.toProductDTO(item);
           
           await prisma.omieProduct.upsert({
@@ -152,15 +181,18 @@ export class SyncOmieProductsService {
 
       return { upserted: upsertedCount, failed: failedCount };
     } finally {
-      // 5. Libera o lock distribuído (somente se eu o tiver adquirido com sucesso)
       if (lockAcquired) {
-        try {
-          await prisma.syncLock.update({
-            where: { key: SYNC_LOCK_KEY },
-            data: { lockedUntil: new Date(0) },
-          });
-        } catch (releaseErr: any) {
-           console.error(`Falha ao liberar lock do Prisma requestId=${requestId}`, releaseErr);
+        if (usingInMemoryLock) {
+          this.releaseInMemoryLock();
+        } else {
+          try {
+            await prisma.syncLock.update({
+              where: { key: SYNC_LOCK_KEY },
+              data: { lockedUntil: new Date(0) },
+            });
+          } catch (releaseErr: any) {
+             console.error(`Falha ao liberar lock do Prisma requestId=${requestId}`, releaseErr);
+          }
         }
       }
     }

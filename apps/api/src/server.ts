@@ -16,6 +16,20 @@ const app = Fastify({
   logger: true,
 });
 
+const allowedOrigins = new Set(
+  env.CORS_ORIGIN
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
+
+if (process.env.NODE_ENV !== 'production') {
+  allowedOrigins.add('http://localhost:5173');
+  allowedOrigins.add('http://localhost:5174');
+  allowedOrigins.add('http://127.0.0.1:5173');
+  allowedOrigins.add('http://127.0.0.1:5174');
+}
+
 // Hook: Ler ou gerar requestId por request
 app.decorateRequest('requestId', '');
 app.addHook('onRequest', async (request, reply) => {
@@ -69,15 +83,24 @@ app.setErrorHandler((error, request, reply) => {
 
 async function bootstrap() {
   try {
-    // CORS
     await app.register(cors, {
-      origin: env.CORS_ORIGIN,
+      origin: (origin, callback) => {
+        if (!origin) {
+          callback(null, true);
+          return;
+        }
+
+        if (allowedOrigins.has(origin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error(`Origin ${origin} not allowed by CORS`), false);
+      },
     });
 
-    // Rotas
     await app.register(appRoutes);
 
-    // Iniciar servidor
     await app.listen({ port: env.PORT, host: '0.0.0.0' });
     app.log.info(`Server running on http://localhost:${env.PORT}`);
   } catch (err) {
