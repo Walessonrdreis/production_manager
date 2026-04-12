@@ -1,9 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
-import { ProductionPlanItem, AddPlanItemInputSchema } from '@shared/contracts';
-import { z } from 'zod';
+import { ProductionPlanItem } from '@shared/contracts';
 
-type AddPlanItemInput = z.infer<typeof AddPlanItemInputSchema>;
+type AddPlanItemInput = {
+  productId: string;
+  quantity: number;
+  sectorId?: string;
+  notes?: string;
+};
 
 export function useAddPlanItem(planId: string) {
   const queryClient = useQueryClient();

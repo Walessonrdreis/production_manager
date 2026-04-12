@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
@@ -16,8 +16,7 @@ export function OmieCatalogPage() {
   // Busca do Catálogo usando o hook customizado
   const { data, isLoading } = useOmieProducts(debouncedSearch, page, pageSize);
 
-  // Reset de página caso busque algo novo
-  useState(() => {
+  useEffect(() => {
     setPage(1);
   }, [debouncedSearch]);
 
