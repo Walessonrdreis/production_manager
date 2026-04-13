@@ -4,7 +4,7 @@ import { prisma } from '../db';
 import { SyncOmieProductsService } from '../core/SyncOmieProductsService';
 import { OmieAdapter } from '../integrations/omie/OmieAdapter';
 import { omieStockCache } from '../integrations/omie/OmieStockCache';
-import { paginated } from '../lib/http';
+import { paginated, wantsLegacyResponse } from '../lib/http';
 
 export async function omieRoutes(app: FastifyInstance) {
   app.post('/v1/omie/sync/products', async (request, reply) => {
@@ -97,13 +97,24 @@ export async function omieRoutes(app: FastifyInstance) {
     const pageUsed = family ? 1 : page;
     const pageSizeUsed = family ? pagedItems.length : pageSize;
 
+    const stockCacheUpdatedAt = omieStockCache.getLastUpdatedAt();
+
+    if (wantsLegacyResponse(request)) {
+      return reply.send({
+        items: pagedItems,
+        total: filteredItems.length,
+        families,
+        stockCacheUpdatedAt,
+      });
+    }
+
     return reply.send(
       paginated(pagedItems, {
         page: pageUsed,
         pageSize: pageSizeUsed,
         total: filteredItems.length,
         families,
-        stockCacheUpdatedAt: omieStockCache.getLastUpdatedAt(),
+        stockCacheUpdatedAt,
       })
     );
   });

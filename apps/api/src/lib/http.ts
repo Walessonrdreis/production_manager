@@ -1,3 +1,5 @@
+import type { FastifyRequest } from 'fastify';
+
 export type HttpLinks = Record<string, string>;
 
 export type PaginationMeta = {
@@ -5,6 +7,19 @@ export type PaginationMeta = {
   pageSize: number;
   total: number;
 } & Record<string, unknown>;
+
+export function wantsLegacyResponse(request: FastifyRequest): boolean {
+  const headerValue = request.headers['x-response-format'];
+
+  const normalized =
+    typeof headerValue === 'string'
+      ? headerValue
+      : Array.isArray(headerValue)
+        ? headerValue[0]
+        : undefined;
+
+  return normalized?.trim().toLowerCase() === 'legacy';
+}
 
 export function ok<T>(
   data: T,

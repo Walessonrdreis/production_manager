@@ -77,12 +77,21 @@ async function omieRoutes(app) {
             : filteredItems.slice((page - 1) * pageSize, page * pageSize);
         const pageUsed = family ? 1 : page;
         const pageSizeUsed = family ? pagedItems.length : pageSize;
+        const stockCacheUpdatedAt = OmieStockCache_1.omieStockCache.getLastUpdatedAt();
+        if ((0, http_1.wantsLegacyResponse)(request)) {
+            return reply.send({
+                items: pagedItems,
+                total: filteredItems.length,
+                families,
+                stockCacheUpdatedAt,
+            });
+        }
         return reply.send((0, http_1.paginated)(pagedItems, {
             page: pageUsed,
             pageSize: pageSizeUsed,
             total: filteredItems.length,
             families,
-            stockCacheUpdatedAt: OmieStockCache_1.omieStockCache.getLastUpdatedAt(),
+            stockCacheUpdatedAt,
         }));
     });
 }

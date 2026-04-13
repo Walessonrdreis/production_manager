@@ -5,7 +5,7 @@ import { CreatePlanItemService } from '../services/CreatePlanItemService';
 import { CreatePlanService } from '../services/CreatePlanService';
 import { NotFoundError, ValidationError } from '../utils/domainErrors';
 import { CreatePlanInputSchema, AddPlanItemInputSchema } from '@shared/contracts';
-import { paginated } from '../lib/http';
+import { paginated, wantsLegacyResponse } from '../lib/http';
 
 export async function plansRoutes(app: FastifyInstance) {
   // 1. POST /v1/plans
@@ -28,6 +28,9 @@ export async function plansRoutes(app: FastifyInstance) {
     const plans = await prisma.productionPlan.findMany({
       orderBy: { createdAt: 'desc' },
     });
+    if (wantsLegacyResponse(request)) {
+      return reply.send({ items: plans });
+    }
     return reply.send(
       paginated(plans, {
         page: 1,

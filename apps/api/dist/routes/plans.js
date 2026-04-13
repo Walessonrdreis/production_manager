@@ -25,6 +25,9 @@ async function plansRoutes(app) {
         const plans = await db_1.prisma.productionPlan.findMany({
             orderBy: { createdAt: 'desc' },
         });
+        if ((0, http_1.wantsLegacyResponse)(request)) {
+            return reply.send({ items: plans });
+        }
         return reply.send((0, http_1.paginated)(plans, {
             page: 1,
             pageSize: plans.length,

@@ -32,6 +32,9 @@ async function sectorRoutes(app) {
                 { name: 'asc' },
             ],
         });
+        if ((0, http_1.wantsLegacyResponse)(request)) {
+            return reply.send({ items: sectors });
+        }
         return reply.send((0, http_1.paginated)(sectors, {
             page: 1,
             pageSize: sectors.length,

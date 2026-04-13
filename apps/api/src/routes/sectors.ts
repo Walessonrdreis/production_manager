@@ -4,7 +4,7 @@ import { prisma } from '../db';
 import { CreateSectorService } from '../services/CreateSectorService';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/domainErrors';
 import { CreateSectorInputSchema, UpdateSectorInputSchema } from '@shared/contracts';
-import { paginated } from '../lib/http';
+import { paginated, wantsLegacyResponse } from '../lib/http';
 
 export async function sectorRoutes(app: FastifyInstance) {
   // POST /v1/sectors
@@ -38,6 +38,10 @@ export async function sectorRoutes(app: FastifyInstance) {
         { name: 'asc' },
       ],
     });
+
+    if (wantsLegacyResponse(request)) {
+      return reply.send({ items: sectors });
+    }
 
     return reply.send(
       paginated(sectors, {

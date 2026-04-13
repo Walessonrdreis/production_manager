@@ -85,6 +85,9 @@ async function productsRoutes(app) {
                 }
             }
         });
+        if ((0, http_1.wantsLegacyResponse)(request)) {
+            return reply.send({ items: products });
+        }
         return reply.send((0, http_1.paginated)(products, {
             page: 1,
             pageSize: products.length,
