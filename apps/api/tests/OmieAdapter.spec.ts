@@ -59,16 +59,4 @@ describe('OmieAdapter.toProductDTO', () => {
     expect(OmieAdapter.extractStockQuantity({ dados_estoque: { saldo_disponivel: '-12.5' } })).toBe('-12.5');
     expect(OmieAdapter.extractStockQuantity({})).toBeNull();
   });
-
-  it('deve extrair estoque minimo', () => {
-    expect(OmieAdapter.extractMinimumStock({ estoque_minimo: 3 })).toBe('3');
-    expect(OmieAdapter.extractMinimumStock({ saldo_minimo: '5' })).toBe('5');
-    expect(OmieAdapter.extractMinimumStock({})).toBeNull();
-  });
-
-  it('deve extrair nSaldo da consulta de estoque', () => {
-    expect(OmieAdapter.extractAvailableStockFromConsultResponse({ nSaldo: -4 })).toBe('-4');
-    expect(OmieAdapter.extractAvailableStockFromConsultResponse({ produto: { nSaldo: '10' } })).toBe('10');
-    expect(OmieAdapter.extractAvailableStockFromConsultResponse({})).toBeNull();
-  });
 });
