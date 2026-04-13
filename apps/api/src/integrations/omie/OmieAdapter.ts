@@ -48,8 +48,23 @@ export class OmieAdapter {
     return value !== undefined && value !== null ? String(value) : '';
   }
 
+  static extractStockProductCode(raw: any): string {
+    return this.findNestedValue(raw, [
+      'cCodigo',
+      'codigo',
+      'codigo_produto',
+      'id_prod',
+      'idProd',
+      'codigo_item',
+      'cod_int',
+      'cCodInt',
+    ]) ?? '';
+  }
+
   static extractStockQuantity(raw: any): string | null {
     return this.findNestedValue(raw, [
+      'nSaldo',
+      'nSaldoEstoque',
       'quantidade_disponivel',
       'estoque_disponivel',
       'saldo_disponivel',
@@ -59,9 +74,19 @@ export class OmieAdapter {
       'estoque_atual',
       'saldo',
       'estoque',
-      'nSaldo',
-      'nSaldoEstoque',
       'quantidade',
+    ]);
+  }
+
+  static extractMinimumStock(raw: any): string | null {
+    return this.findNestedValue(raw, [
+      'nEstoqueMinimo',
+      'estoque_minimo',
+      'saldo_minimo',
+      'quantidade_minima',
+      'qtde_minima',
+      'minimo',
+      'estoqueMinimo',
     ]);
   }
 

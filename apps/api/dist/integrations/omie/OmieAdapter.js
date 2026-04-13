@@ -35,8 +35,22 @@ class OmieAdapter {
         const value = raw?.codigo ?? raw?.codigo_produto ?? raw?.id ?? raw?.codigo_item;
         return value !== undefined && value !== null ? String(value) : '';
     }
+    static extractStockProductCode(raw) {
+        return this.findNestedValue(raw, [
+            'cCodigo',
+            'codigo',
+            'codigo_produto',
+            'id_prod',
+            'idProd',
+            'codigo_item',
+            'cod_int',
+            'cCodInt',
+        ]) ?? '';
+    }
     static extractStockQuantity(raw) {
         return this.findNestedValue(raw, [
+            'nSaldo',
+            'nSaldoEstoque',
             'quantidade_disponivel',
             'estoque_disponivel',
             'saldo_disponivel',
@@ -46,27 +60,18 @@ class OmieAdapter {
             'estoque_atual',
             'saldo',
             'estoque',
-            'nSaldo',
-            'nSaldoEstoque',
             'quantidade',
         ]);
     }
     static extractMinimumStock(raw) {
         return this.findNestedValue(raw, [
+            'nEstoqueMinimo',
             'estoque_minimo',
             'saldo_minimo',
             'quantidade_minima',
             'qtde_minima',
-            'nEstoqueMinimo',
-        ]);
-    }
-    static extractAvailableStockFromConsultResponse(raw) {
-        return this.findNestedValue(raw, [
-            'nSaldo',
-            'saldo_disponivel',
-            'estoque_disponivel',
-            'saldo',
-            'quantidade',
+            'minimo',
+            'estoqueMinimo',
         ]);
     }
     static toProductDTO(raw) {

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../db';
 import { SyncOmieProductsService } from '../core/SyncOmieProductsService';
 import { OmieAdapter } from '../integrations/omie/OmieAdapter';
+import { omieStockCache } from '../integrations/omie/OmieStockCache';
 
 export async function omieRoutes(app: FastifyInstance) {
   // Rota de Sincronização
@@ -41,7 +42,7 @@ export async function omieRoutes(app: FastifyInstance) {
       : {};
 
     // Executa contagem total e busca paginada em paralelo
-    const [items, total] = await Promise.all([
+    const [items, total, stockSnapshot] = await Promise.all([
       prisma.omieProduct.findMany({
         where,
         skip: (page - 1) * pageSize,
@@ -51,13 +52,19 @@ export async function omieRoutes(app: FastifyInstance) {
         },
       }),
       prisma.omieProduct.count({ where }),
+      omieStockCache.getSnapshot(),
     ]);
 
     return reply.send({
       items: items.map((item) => ({
         ...item,
         code: OmieAdapter.extractProductCode(item.rawPayload),
-        stockQuantity: OmieAdapter.extractStockQuantity(item.rawPayload),
+        stockQuantity:
+          stockSnapshot.get(OmieAdapter.extractProductCode(item.rawPayload) || item.omieId)?.stockQuantity
+          ?? OmieAdapter.extractStockQuantity(item.rawPayload),
+        minimumStock:
+          stockSnapshot.get(OmieAdapter.extractProductCode(item.rawPayload) || item.omieId)?.minimumStock
+          ?? OmieAdapter.extractMinimumStock(item.rawPayload),
       })),
       total,
     });

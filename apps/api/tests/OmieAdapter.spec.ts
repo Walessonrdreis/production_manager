@@ -50,7 +50,14 @@ describe('OmieAdapter.toProductDTO', () => {
     expect(OmieAdapter.extractProductCode({ id: 30 })).toBe('30');
   });
 
+  it('deve extrair o codigo do produto a partir do payload do estoque', () => {
+    expect(OmieAdapter.extractStockProductCode({ cCodigo: 'ABC-10' })).toBe('ABC-10');
+    expect(OmieAdapter.extractStockProductCode({ id_prod: 20 })).toBe('20');
+    expect(OmieAdapter.extractStockProductCode({ produto: { codigo_produto: 30 } })).toBe('30');
+  });
+
   it('deve extrair quantidade de estoque de diferentes formatos', () => {
+    expect(OmieAdapter.extractStockQuantity({ nSaldo: -15 })).toBe('-15');
     expect(OmieAdapter.extractStockQuantity({ saldo_estoque: 12 })).toBe('12');
     expect(OmieAdapter.extractStockQuantity({ quantidade_estoque: 0 })).toBe('0');
     expect(OmieAdapter.extractStockQuantity({ estoque_disponivel: -7 })).toBe('-7');
@@ -58,5 +65,11 @@ describe('OmieAdapter.toProductDTO', () => {
     expect(OmieAdapter.extractStockQuantity({ produto_estoque: { saldo: '19' } })).toBe('19');
     expect(OmieAdapter.extractStockQuantity({ dados_estoque: { saldo_disponivel: '-12.5' } })).toBe('-12.5');
     expect(OmieAdapter.extractStockQuantity({})).toBeNull();
+  });
+
+  it('deve extrair estoque minimo com fallbacks', () => {
+    expect(OmieAdapter.extractMinimumStock({ nEstoqueMinimo: 4 })).toBe('4');
+    expect(OmieAdapter.extractMinimumStock({ dados_estoque: { estoque_minimo: '10' } })).toBe('10');
+    expect(OmieAdapter.extractMinimumStock({})).toBeNull();
   });
 });

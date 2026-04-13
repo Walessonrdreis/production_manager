@@ -5,27 +5,7 @@ const zod_1 = require("zod");
 const db_1 = require("../db");
 const SyncOmieProductsService_1 = require("../core/SyncOmieProductsService");
 const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
-const OmieClient_1 = require("../integrations/omie/OmieClient");
-const OMIE_STOCK_PATH = 'estoque/consulta/';
-function formatOmieDate(date) {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-}
-async function fetchStockByProductId(productId) {
-    const response = await OmieClient_1.omieClient.post(OMIE_STOCK_PATH, {
-        call: 'PosicaoEstoque',
-        param: [
-            {
-                codigo_local_estoque: 0,
-                id_prod: productId,
-                data: formatOmieDate(new Date()),
-            },
-        ],
-    });
-    return OmieAdapter_1.OmieAdapter.extractAvailableStockFromConsultResponse(response);
-}
+const OmieStockCache_1 = require("../integrations/omie/OmieStockCache");
 async function omieRoutes(app) {
     // Rota de Sincronização
     app.post('/v1/omie/sync/products', async (request, reply) => {
@@ -56,7 +36,7 @@ async function omieRoutes(app) {
             }
             : {};
         // Executa contagem total e busca paginada em paralelo
-        const [items, total] = await Promise.all([
+        const [items, total, stockSnapshot] = await Promise.all([
             db_1.prisma.omieProduct.findMany({
                 where,
                 skip: (page - 1) * pageSize,
@@ -66,30 +46,16 @@ async function omieRoutes(app) {
                 },
             }),
             db_1.prisma.omieProduct.count({ where }),
+            OmieStockCache_1.omieStockCache.getSnapshot(),
         ]);
-        const stockQuantities = new Map();
-        await Promise.all(items.map(async (item) => {
-            const rawPayload = item.rawPayload;
-            const productId = Number(rawPayload?.codigo_produto ?? rawPayload?.id_prod ?? rawPayload?.idProd);
-            const fallbackStock = OmieAdapter_1.OmieAdapter.extractStockQuantity(rawPayload);
-            if (!Number.isFinite(productId) || productId <= 0) {
-                stockQuantities.set(item.id, fallbackStock);
-                return;
-            }
-            try {
-                const availableStock = await fetchStockByProductId(productId);
-                stockQuantities.set(item.id, availableStock ?? fallbackStock);
-            }
-            catch {
-                stockQuantities.set(item.id, fallbackStock);
-            }
-        }));
         return reply.send({
             items: items.map((item) => ({
                 ...item,
                 code: OmieAdapter_1.OmieAdapter.extractProductCode(item.rawPayload),
-                stockQuantity: stockQuantities.get(item.id) ?? OmieAdapter_1.OmieAdapter.extractStockQuantity(item.rawPayload),
-                minimumStock: OmieAdapter_1.OmieAdapter.extractMinimumStock(item.rawPayload),
+                stockQuantity: stockSnapshot.get(OmieAdapter_1.OmieAdapter.extractProductCode(item.rawPayload) || item.omieId)?.stockQuantity
+                    ?? OmieAdapter_1.OmieAdapter.extractStockQuantity(item.rawPayload),
+                minimumStock: stockSnapshot.get(OmieAdapter_1.OmieAdapter.extractProductCode(item.rawPayload) || item.omieId)?.minimumStock
+                    ?? OmieAdapter_1.OmieAdapter.extractMinimumStock(item.rawPayload),
             })),
             total,
         });
