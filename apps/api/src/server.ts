@@ -1,6 +1,7 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import crypto from 'crypto';
+import { ZodError } from 'zod';
 import { env } from './env';
 import { appRoutes } from './routes';
 import { AppError } from './core/errors/AppError';
@@ -54,20 +55,40 @@ function isAppError(err: any): err is AppError {
 
 // Error Handler Padronizado
 app.setErrorHandler((error, request, reply) => {
+  const requestId = request.requestId;
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  if (error instanceof ZodError) {
+    const message = error.issues?.[0]?.message || 'Dados inválidos.';
+
+    const details = isDev
+      ? { ...error.format(), stack: error.stack }
+      : error.format();
+
+    return reply.status(400).send({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message,
+        details,
+        requestId,
+      },
+    });
+  }
+
   if (isAppError(error)) {
     app.log.warn(`[${error.code}] ${error.message} (requestId: ${request.requestId})`);
-    
-    const isDev = process.env.NODE_ENV !== 'production';
-    
+
+    const details = isDev
+      ? { ...(error.details || {}), stack: error.stack }
+      : error.details;
+
     return reply.status(error.statusCode).send({
-      code: error.code,
-      message: error.message,
-      details: isDev ? {
-        ...(error.details || {}),
+      error: {
+        code: error.code,
         message: error.message,
-        stack: error.stack
-      } : error.details,
-      requestId: request.requestId
+        ...(details ? { details } : {}),
+        requestId,
+      },
     });
   }
 
@@ -76,9 +97,11 @@ app.setErrorHandler((error, request, reply) => {
 
   // Fallback 500 para erros não mapeados
   reply.status(500).send({
-    code: 'INTERNAL_ERROR',
-    message: 'Erro interno',
-    requestId: request.requestId
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: 'Erro interno',
+      requestId,
+    },
   });
 });
 

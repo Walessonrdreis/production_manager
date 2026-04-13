@@ -34,13 +34,9 @@ async function plansRoutes(app) {
     // 3. GET /v1/plans/:id
     app.get('/v1/plans/:id', async (request, reply) => {
         const paramsSchema = zod_1.z.object({
-            id: zod_1.z.string().uuid(),
+            id: zod_1.z.string().uuid('ID inválido.'),
         });
-        const paramsResult = paramsSchema.safeParse(request.params);
-        if (!paramsResult.success) {
-            throw new domainErrors_1.ValidationError('ID inválido.');
-        }
-        const { id } = paramsResult.data;
+        const { id } = paramsSchema.parse(request.params);
         const plan = await db_1.prisma.productionPlan.findUnique({
             where: { id },
             include: {

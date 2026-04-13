@@ -1,7 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { sendError, ErrorCodes } from '../utils/errors';
 import { CreatePlanItemService } from '../services/CreatePlanItemService';
 import { CreatePlanService } from '../services/CreatePlanService';
 import { NotFoundError, ValidationError } from '../utils/domainErrors';
@@ -41,15 +40,10 @@ export async function plansRoutes(app: FastifyInstance) {
   // 3. GET /v1/plans/:id
   app.get('/v1/plans/:id', async (request, reply) => {
     const paramsSchema = z.object({
-      id: z.string().uuid(),
+      id: z.string().uuid('ID inválido.'),
     });
 
-    const paramsResult = paramsSchema.safeParse(request.params);
-    if (!paramsResult.success) {
-      throw new ValidationError('ID inválido.');
-    }
-
-    const { id } = paramsResult.data;
+    const { id } = paramsSchema.parse(request.params);
 
     const plan = await prisma.productionPlan.findUnique({
       where: { id },
