@@ -28,7 +28,7 @@ async function omieRoutes(app) {
             search: zod_1.z.string().optional(),
             family: zod_1.z.string().optional(),
             page: zod_1.z.coerce.number().min(1).default(1),
-            pageSize: zod_1.z.coerce.number().min(1).max(100).default(50),
+            pageSize: zod_1.z.coerce.number().min(1).max(5000).default(50),
         });
         const { search, family, page, pageSize } = querySchema.parse(request.query);
         const [items, stockSnapshot] = await Promise.all([
@@ -71,7 +71,9 @@ async function omieRoutes(app) {
         const families = Array.from(new Set(enrichedItems
             .map((item) => item.familyDescription?.trim())
             .filter((value) => Boolean(value)))).sort((a, b) => a.localeCompare(b));
-        const pagedItems = filteredItems.slice((page - 1) * pageSize, page * pageSize);
+        const pagedItems = family
+            ? filteredItems
+            : filteredItems.slice((page - 1) * pageSize, page * pageSize);
         return reply.send({
             items: pagedItems,
             total: filteredItems.length,

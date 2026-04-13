@@ -7,21 +7,35 @@ const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
 const env_1 = require("../env");
 const AppError_1 = require("./errors/AppError");
 const OMIE_PRODUCTS_PATH = "geral/produtos/";
-const OMIE_PRODUCTS_PAYLOAD = {
-    call: "ListarProdutos",
-    param: [{
-            pagina: 1,
-            registros_por_pagina: 100,
-            apenas_importado_api: "N",
-            filtrar_apenas_omiepdv: "N"
-        }]
-};
+const OMIE_PRODUCTS_PAGE_SIZE = 500;
 let lastGlobalSyncAt = 0;
 let inMemoryLockUntil = 0;
 const THROTTLE_WINDOW_MS = 60 * 1000; // 60 segundos
 const LOCK_WINDOW_MS = 2 * 60 * 1000;
 const SYNC_LOCK_KEY = "omie_products_sync";
 class SyncOmieProductsService {
+    buildProductsPayload(page) {
+        return {
+            call: "ListarProdutos",
+            param: [{
+                    pagina: page,
+                    registros_por_pagina: OMIE_PRODUCTS_PAGE_SIZE,
+                    apenas_importado_api: "N",
+                    filtrar_apenas_omiepdv: "N"
+                }]
+        };
+    }
+    extractProductsResponseItems(data) {
+        return data?.produtos ?? data?.lista ?? [];
+    }
+    extractProductsTotalPages(data) {
+        const totalPages = Number(data?.total_de_paginas ??
+            data?.nTotPaginas ??
+            data?.nTotalPaginas ??
+            data?.total_paginas ??
+            1);
+        return Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1;
+    }
     isSyncLockTableUnavailable(error) {
         return error?.code === 'P2021' || error?.code === 'P2022';
     }
@@ -106,50 +120,52 @@ class SyncOmieProductsService {
         }
         const startTime = Date.now();
         console.log(`sync start requestId=${requestId}`);
-        let data;
         let upsertedCount = 0;
         let failedCount = 0;
         try {
-            // 2. Chama a Omie via client
-            data = await OmieClient_1.omieClient.post(OMIE_PRODUCTS_PATH, OMIE_PRODUCTS_PAYLOAD);
-            // 3. Extrai items do payload
-            const items = data.produtos ?? data.lista ?? [];
-            for (const item of items) {
-                let dto;
-                try {
-                    dto = OmieAdapter_1.OmieAdapter.toProductDTO(item);
-                    await db_1.prisma.omieProduct.upsert({
-                        where: { omieId: dto.omieId },
-                        create: {
-                            omieId: dto.omieId,
-                            sku: dto.sku,
-                            description: dto.description,
-                            active: dto.active,
-                            rawPayload: dto.rawPayload,
-                            lastSyncAt: new Date(),
-                        },
-                        update: {
-                            sku: dto.sku,
-                            description: dto.description,
-                            active: dto.active,
-                            rawPayload: dto.rawPayload,
-                            lastSyncAt: new Date(),
-                        },
-                    });
-                    upsertedCount++;
+            let page = 1;
+            let totalPages = 1;
+            do {
+                const data = await OmieClient_1.omieClient.post(OMIE_PRODUCTS_PATH, this.buildProductsPayload(page));
+                const items = this.extractProductsResponseItems(data);
+                totalPages = this.extractProductsTotalPages(data);
+                for (const item of items) {
+                    let dto;
+                    try {
+                        dto = OmieAdapter_1.OmieAdapter.toProductDTO(item);
+                        await db_1.prisma.omieProduct.upsert({
+                            where: { omieId: dto.omieId },
+                            create: {
+                                omieId: dto.omieId,
+                                sku: dto.sku,
+                                description: dto.description,
+                                active: dto.active,
+                                rawPayload: dto.rawPayload,
+                                lastSyncAt: new Date(),
+                            },
+                            update: {
+                                sku: dto.sku,
+                                description: dto.description,
+                                active: dto.active,
+                                rawPayload: dto.rawPayload,
+                                lastSyncAt: new Date(),
+                            },
+                        });
+                        upsertedCount++;
+                    }
+                    catch (err) {
+                        failedCount++;
+                        const fallbackOmieId = dto?.omieId || item?.codigo_produto || item?.codigo || item?.id || 'DESCONHECIDO';
+                        console.error(JSON.stringify({
+                            event: "sync_item_failed",
+                            requestId,
+                            omieId: fallbackOmieId,
+                            errorMessage: err.message
+                        }));
+                    }
                 }
-                catch (err) {
-                    failedCount++;
-                    const fallbackOmieId = dto?.omieId || item?.codigo_produto || item?.codigo || item?.id || 'DESCONHECIDO';
-                    console.error(JSON.stringify({
-                        event: "sync_item_failed",
-                        requestId,
-                        omieId: fallbackOmieId,
-                        errorMessage: err.message
-                    }));
-                }
-            }
-            // Atualiza o tempo do último sync de sucesso em memória
+                page += 1;
+            } while (page <= totalPages);
             lastGlobalSyncAt = Date.now();
             const elapsedMs = Date.now() - startTime;
             console.log(`sync end requestId=${requestId} upserted=${upsertedCount} failed=${failedCount} ms=${elapsedMs}`);

@@ -33,7 +33,7 @@ export async function omieRoutes(app: FastifyInstance) {
       search: z.string().optional(),
       family: z.string().optional(),
       page: z.coerce.number().min(1).default(1),
-      pageSize: z.coerce.number().min(1).max(100).default(50),
+      pageSize: z.coerce.number().min(1).max(5000).default(50),
     });
 
     const { search, family, page, pageSize } = querySchema.parse(request.query);
@@ -89,7 +89,9 @@ export async function omieRoutes(app: FastifyInstance) {
       )
     ).sort((a, b) => a.localeCompare(b));
 
-    const pagedItems = filteredItems.slice((page - 1) * pageSize, page * pageSize);
+    const pagedItems = family
+      ? filteredItems
+      : filteredItems.slice((page - 1) * pageSize, page * pageSize);
 
     return reply.send({
       items: pagedItems,

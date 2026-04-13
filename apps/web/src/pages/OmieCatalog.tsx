@@ -12,7 +12,8 @@ export function OmieCatalogPage() {
   const [family, setFamily] = useState('');
   const debouncedSearch = useDebounce(search, 500);
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const isFamilyFiltered = Boolean(family);
+  const pageSize = isFamilyFiltered ? 5000 : 10;
 
   const { data, isLoading } = useOmieProducts(debouncedSearch, family, page, pageSize);
 
@@ -42,7 +43,7 @@ export function OmieCatalogPage() {
     },
   });
 
-  const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
+  const totalPages = data && !isFamilyFiltered ? Math.ceil(data.total / pageSize) : 0;
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
@@ -208,7 +209,7 @@ export function OmieCatalogPage() {
           </table>
 
           {/* Paginação */}
-          {totalPages > 1 && (
+          {!isFamilyFiltered && totalPages > 1 && (
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
               <button 
                 onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -225,6 +226,12 @@ export function OmieCatalogPage() {
               >
                 Próxima
               </button>
+            </div>
+          )}
+
+          {isFamilyFiltered && (
+            <div style={{ color: '#475569', fontSize: '0.95rem' }}>
+              Exibindo todos os produtos da família selecionada: <strong>{data.total}</strong> item(ns).
             </div>
           )}
         </>
