@@ -7,7 +7,8 @@ const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
 const env_1 = require("../env");
 const AppError_1 = require("./errors/AppError");
 const OMIE_PRODUCTS_PATH = "geral/produtos/";
-const OMIE_PRODUCTS_PAGE_SIZE = 500;
+const OMIE_PRODUCTS_PAGE_SIZE = 100;
+const OMIE_PRODUCTS_MAX_PAGES = 2000;
 let lastGlobalSyncAt = 0;
 let inMemoryLockUntil = 0;
 const THROTTLE_WINDOW_MS = 60 * 1000; // 60 segundos
@@ -26,15 +27,37 @@ class SyncOmieProductsService {
         };
     }
     extractProductsResponseItems(data) {
-        return data?.produtos ?? data?.lista ?? [];
+        return data?.produto_servico_cadastro ?? data?.produtos ?? data?.lista ?? data?.produto_servico ?? [];
     }
     extractProductsTotalPages(data) {
-        const totalPages = Number(data?.total_de_paginas ??
+        const value = data?.total_de_paginas ??
             data?.nTotPaginas ??
             data?.nTotalPaginas ??
-            data?.total_paginas ??
-            1);
-        return Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1;
+            data?.total_paginas;
+        if (value === undefined || value === null || value === '') {
+            return null;
+        }
+        const totalPages = Number(value);
+        return Number.isFinite(totalPages) && totalPages > 0 ? totalPages : null;
+    }
+    async fetchProductsPage(page, requestId) {
+        const maxAttempts = 3;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return await OmieClient_1.omieClient.post(OMIE_PRODUCTS_PATH, this.buildProductsPayload(page));
+            }
+            catch (error) {
+                if (attempt >= maxAttempts) {
+                    if (error instanceof AppError_1.AppError) {
+                        throw new AppError_1.AppError(error.code, error.statusCode, error.message, { ...(error.details || {}), page, attempt, requestId });
+                    }
+                    throw error;
+                }
+                console.warn(`omie page retry requestId=${requestId} page=${page} attempt=${attempt}`);
+                await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+            }
+        }
+        throw new AppError_1.AppError('OMIE_PAGINATION_ERROR', 502, 'Falha ao paginar produtos no Omie', { page, requestId });
     }
     isSyncLockTableUnavailable(error) {
         return error?.code === 'P2021' || error?.code === 'P2022';
@@ -122,13 +145,25 @@ class SyncOmieProductsService {
         console.log(`sync start requestId=${requestId}`);
         let upsertedCount = 0;
         let failedCount = 0;
+        let pagesProcessed = 0;
         try {
             let page = 1;
-            let totalPages = 1;
-            do {
-                const data = await OmieClient_1.omieClient.post(OMIE_PRODUCTS_PATH, this.buildProductsPayload(page));
+            let totalPages = null;
+            while (true) {
+                if (page > OMIE_PRODUCTS_MAX_PAGES) {
+                    throw new AppError_1.AppError('OMIE_PAGINATION_OVERFLOW', 502, 'Paginação do Omie excedeu o limite de segurança', {
+                        page,
+                    });
+                }
+                const data = await this.fetchProductsPage(page, requestId);
                 const items = this.extractProductsResponseItems(data);
-                totalPages = this.extractProductsTotalPages(data);
+                const reportedTotalPages = this.extractProductsTotalPages(data);
+                if (reportedTotalPages && totalPages === null) {
+                    totalPages = reportedTotalPages;
+                }
+                if (items.length === 0) {
+                    break;
+                }
                 for (const item of items) {
                     let dto;
                     try {
@@ -164,11 +199,22 @@ class SyncOmieProductsService {
                         }));
                     }
                 }
+                pagesProcessed += 1;
+                if (totalPages) {
+                    if (page >= totalPages) {
+                        break;
+                    }
+                }
+                else {
+                    if (items.length < OMIE_PRODUCTS_PAGE_SIZE) {
+                        break;
+                    }
+                }
                 page += 1;
-            } while (page <= totalPages);
+            }
             lastGlobalSyncAt = Date.now();
             const elapsedMs = Date.now() - startTime;
-            console.log(`sync end requestId=${requestId} upserted=${upsertedCount} failed=${failedCount} ms=${elapsedMs}`);
+            console.log(`sync end requestId=${requestId} upserted=${upsertedCount} failed=${failedCount} pages=${pagesProcessed} ms=${elapsedMs}`);
             return { upserted: upsertedCount, failed: failedCount };
         }
         finally {

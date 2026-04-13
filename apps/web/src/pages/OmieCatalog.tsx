@@ -13,7 +13,7 @@ export function OmieCatalogPage() {
   const debouncedSearch = useDebounce(search, 500);
   const [page, setPage] = useState(1);
   const isFamilyFiltered = Boolean(family);
-  const pageSize = isFamilyFiltered ? 5000 : 10;
+  const pageSize = isFamilyFiltered ? 5000 : 20;
 
   const { data, isLoading } = useOmieProducts(debouncedSearch, family, page, pageSize);
 
