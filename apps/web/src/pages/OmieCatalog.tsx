@@ -6,6 +6,45 @@ import { useDebounce } from '../hooks/useDebounce';
 import { useOmieProducts } from '../hooks/api/useOmieProducts';
 import { toast } from 'react-hot-toast';
 
+type ColumnKey =
+  | 'code'
+  | 'description'
+  | 'family'
+  | 'sku'
+  | 'stock'
+  | 'minimumStock'
+  | 'status'
+  | 'action';
+
+const COLUMNS: Array<{ key: ColumnKey; label: string }> = [
+  { key: 'code', label: 'Código' },
+  { key: 'description', label: 'Descrição' },
+  { key: 'family', label: 'Categoria' },
+  { key: 'sku', label: 'SKU' },
+  { key: 'stock', label: 'Estoque' },
+  { key: 'minimumStock', label: 'Mínimo' },
+  { key: 'status', label: 'Status' },
+  { key: 'action', label: 'Ação' },
+];
+
+const COLUMN_STORAGE_KEY = 'omieCatalog.hiddenColumns.v1';
+
+function ChevronLeftIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function OmieCatalogPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -18,6 +57,18 @@ export function OmieCatalogPage() {
 
   const { data, isLoading } = useOmieProducts(debouncedSearch, family, page, pageSize);
 
+  const [hiddenColumns, setHiddenColumns] = useState<Set<ColumnKey>>(() => {
+    try {
+      const raw = window.localStorage.getItem(COLUMN_STORAGE_KEY);
+      if (!raw) return new Set();
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return new Set();
+      return new Set(parsed.filter((value): value is ColumnKey => typeof value === 'string'));
+    } catch {
+      return new Set();
+    }
+  });
+
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, family]);
@@ -25,6 +76,10 @@ export function OmieCatalogPage() {
   useEffect(() => {
     setSelectedIds(new Set());
   }, [debouncedSearch, family, page]);
+
+  useEffect(() => {
+    window.localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(Array.from(hiddenColumns)));
+  }, [hiddenColumns]);
 
   const visibleIds = useMemo(() => (data?.items ?? []).map((item) => item.id), [data?.items]);
 
@@ -34,6 +89,21 @@ export function OmieCatalogPage() {
   }, [selectedIds, visibleIds]);
 
   const selectedCount = selectedIds.size;
+
+  const visibleColumns = useMemo(() => COLUMNS.filter((column) => !hiddenColumns.has(column.key)), [hiddenColumns]);
+  const hiddenColumnList = useMemo(() => COLUMNS.filter((column) => hiddenColumns.has(column.key)), [hiddenColumns]);
+
+  const hideColumn = (key: ColumnKey) => {
+    setHiddenColumns((current) => new Set([...current, key]));
+  };
+
+  const showColumn = (key: ColumnKey) => {
+    setHiddenColumns((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+  };
 
   const toggleSelected = (id: string) => {
     setSelectedIds((current) => {
@@ -105,7 +175,7 @@ export function OmieCatalogPage() {
   const totalPages = data && !isFamilyFiltered ? Math.ceil(data.total / pageSize) : 0;
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
+    <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Catálogo Omie</h1>
         <Link to="/" style={{ textDecoration: 'none', color: '#007bff' }}>
@@ -204,6 +274,35 @@ export function OmieCatalogPage() {
 
       {!isLoading && data && (
         <>
+          {hiddenColumnList.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem', color: '#475569' }}>
+              <div style={{ fontWeight: 700 }}>Colunas ocultas:</div>
+              {hiddenColumnList.map((column) => (
+                <button
+                  key={column.key}
+                  type="button"
+                  onClick={() => showColumn(column.key)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.35rem 0.6rem',
+                    borderRadius: '999px',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: 'white',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    color: '#334155',
+                  }}
+                  title="Mostrar coluna"
+                >
+                  <ChevronRightIcon />
+                  {column.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
             <div style={{ color: '#475569' }}>
               Selecionados: <strong>{selectedCount}</strong>
@@ -260,84 +359,171 @@ export function OmieCatalogPage() {
             </div>
           </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f5f5f5', textAlign: 'left' }}>
-                <th style={{ padding: '0.75rem', border: '1px solid #ddd', width: '52px', textAlign: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={isAllVisibleSelected}
-                    onChange={toggleSelectAllVisible}
-                    aria-label="Selecionar todos visíveis"
-                  />
-                </th>
-                <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Código</th>
-                <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Descrição</th>
-                <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Família</th>
-                <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>SKU</th>
-                <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Estoque</th>
-                <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Estoque mínimo</th>
-                <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Status Omie</th>
-                <th style={{ padding: '0.75rem', border: '1px solid #ddd', width: '120px' }}>Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.map((product) => (
-                <tr key={product.id}>
-                  <td style={{ padding: '0.75rem', border: '1px solid #ddd', textAlign: 'center' }}>
+          <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0, minWidth: '860px' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f5f5f5', textAlign: 'left' }}>
+                  <th style={{ padding: '0.75rem', border: '1px solid #ddd', width: '52px', textAlign: 'center' }}>
                     <input
                       type="checkbox"
-                      checked={selectedIds.has(product.id)}
-                      onChange={() => toggleSelected(product.id)}
-                      aria-label={`Selecionar ${product.description}`}
+                      checked={isAllVisibleSelected}
+                      onChange={toggleSelectAllVisible}
+                      aria-label="Selecionar todos visíveis"
                     />
-                  </td>
-                  <td style={{ padding: '0.75rem', border: '1px solid #ddd', fontFamily: 'monospace' }}>
-                    {product.code || product.omieId}
-                  </td>
-                  <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.description}</td>
-                  <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.familyDescription ?? '-'}</td>
-                  <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.sku || '-'}</td>
-                  <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.stockQuantity ?? 'Não informado'}</td>
-                  <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.minimumStock ?? 'Não informado'}</td>
-                  <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
-                    <span style={{ 
-                      padding: '0.25rem 0.5rem', 
-                      borderRadius: '4px',
-                      backgroundColor: product.active ? '#e6ffe6' : '#ffe6e6',
-                      color: product.active ? '#006600' : '#cc0000'
-                    }}>
-                      {product.active ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.75rem', border: '1px solid #ddd', textAlign: 'center' }}>
-                    <button
-                      onClick={() => selectMutation.mutate(product.id)}
-                      disabled={selectMutation.isPending}
+                  </th>
+                  {visibleColumns.map((column) => (
+                    <th
+                      key={column.key}
                       style={{
-                        padding: '0.4rem 0.8rem',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: selectMutation.isPending ? 'not-allowed' : 'pointer',
-                        opacity: selectMutation.isPending ? 0.7 : 1
+                        padding: '0.75rem',
+                        border: '1px solid #ddd',
+                        width: column.key === 'status' ? '90px' : column.key === 'action' ? '120px' : undefined,
+                        textAlign: column.key === 'status' ? 'center' : 'left',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      Adicionar
-                    </button>
-                  </td>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
+                        <span>{column.label}</span>
+                        <button
+                          type="button"
+                          onClick={() => hideColumn(column.key)}
+                          title="Ocultar coluna"
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            backgroundColor: 'white',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0,
+                            color: '#334155',
+                          }}
+                        >
+                          <ChevronLeftIcon />
+                        </button>
+                      </div>
+                    </th>
+                  ))}
                 </tr>
-              ))}
-              {data.items.length === 0 && (
-                <tr>
-                  <td colSpan={9} style={{ padding: '1rem', textAlign: 'center', border: '1px solid #ddd' }}>
-                    Nenhum produto encontrado.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.items.map((product) => (
+                  <tr key={product.id}>
+                    <td style={{ padding: '0.75rem', border: '1px solid #ddd', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(product.id)}
+                        onChange={() => toggleSelected(product.id)}
+                        aria-label={`Selecionar ${product.description}`}
+                      />
+                    </td>
+                    {visibleColumns.map((column) => {
+                      if (column.key === 'code') {
+                        return (
+                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd', fontFamily: 'monospace' }}>
+                            {product.code || product.omieId}
+                          </td>
+                        );
+                      }
+
+                      if (column.key === 'description') {
+                        return (
+                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
+                            {product.description}
+                          </td>
+                        );
+                      }
+
+                      if (column.key === 'family') {
+                        return (
+                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
+                            {product.familyDescription ?? '-'}
+                          </td>
+                        );
+                      }
+
+                      if (column.key === 'sku') {
+                        return (
+                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
+                            {product.sku || '-'}
+                          </td>
+                        );
+                      }
+
+                      if (column.key === 'stock') {
+                        return (
+                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
+                            {product.stockQuantity ?? 'Não informado'}
+                          </td>
+                        );
+                      }
+
+                      if (column.key === 'minimumStock') {
+                        return (
+                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
+                            {product.minimumStock ?? 'Não informado'}
+                          </td>
+                        );
+                      }
+
+                      if (column.key === 'status') {
+                        return (
+                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd', textAlign: 'center' }}>
+                            <span
+                              title={product.active ? 'Ativo' : 'Inativo'}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '999px',
+                                backgroundColor: product.active ? '#e6ffe6' : '#ffe6e6',
+                                color: product.active ? '#006600' : '#cc0000',
+                                fontWeight: 800,
+                              }}
+                            >
+                              {product.active ? '✓' : '×'}
+                            </span>
+                          </td>
+                        );
+                      }
+
+                      return (
+                        <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd', textAlign: 'center' }}>
+                          <button
+                            onClick={() => selectMutation.mutate(product.id)}
+                            disabled={selectMutation.isPending}
+                            style={{
+                              padding: '0.4rem 0.8rem',
+                              backgroundColor: '#28a745',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: selectMutation.isPending ? 'not-allowed' : 'pointer',
+                              opacity: selectMutation.isPending ? 0.7 : 1
+                            }}
+                          >
+                            Adicionar
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+                {data.items.length === 0 && (
+                  <tr>
+                    <td colSpan={1 + visibleColumns.length} style={{ padding: '1rem', textAlign: 'center', border: '1px solid #ddd' }}>
+                      Nenhum produto encontrado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {/* Paginação */}
           {!isFamilyFiltered && totalPages > 1 && (
