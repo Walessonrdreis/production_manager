@@ -16,20 +16,24 @@ export async function appRoutes(app: FastifyInstance) {
     return ok({
       name: 'Production Manager API',
       status: 'ok',
-      version: packageJson.version,
       timestamp: new Date().toISOString(),
+      versions: {
+        v1: `${baseUrl}/v1`,
+      },
       endpoints: {
         health: `${baseUrl}/health`,
-        v1: `${baseUrl}/v1`,
+        indexV1: `${baseUrl}/v1`,
+        docs: `${baseUrl}/docs`,
+      },
+      resources: {
         omieProducts: `${baseUrl}/v1/omie/products`,
-        omieSyncProducts: `${baseUrl}/v1/omie/sync/products`,
-        products: `${baseUrl}/v1/products`,
+        managedProducts: `${baseUrl}/v1/products`,
         sectors: `${baseUrl}/v1/sectors`,
         plans: `${baseUrl}/v1/plans`,
       },
       tips: [
-        'Sync é POST (ex.: /v1/omie/sync/products).',
-        'Listas são GET em /v1/*.',
+        'sync é POST',
+        'listas são GET',
       ],
     });
   });
