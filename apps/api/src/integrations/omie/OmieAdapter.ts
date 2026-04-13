@@ -7,21 +7,70 @@ export type OmieProductDTO = {
 };
 
 export class OmieAdapter {
+  private static hasValue(value: unknown): boolean {
+    return value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === '');
+  }
+
+  private static stringifyScalar(value: unknown): string | null {
+    if (!this.hasValue(value)) {
+      return null;
+    }
+
+    return String(value).trim();
+  }
+
+  private static findNestedValue(raw: any, keys: string[]): string | null {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    for (const key of keys) {
+      const directValue = this.stringifyScalar(raw[key]);
+      if (directValue !== null) {
+        return directValue;
+      }
+    }
+
+    for (const value of Object.values(raw)) {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const nestedValue = this.findNestedValue(value, keys);
+        if (nestedValue !== null) {
+          return nestedValue;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  static extractProductCode(raw: any): string {
+    const value = raw?.codigo ?? raw?.codigo_produto ?? raw?.id ?? raw?.codigo_item;
+    return value !== undefined && value !== null ? String(value) : '';
+  }
+
+  static extractStockQuantity(raw: any): string | null {
+    return this.findNestedValue(raw, [
+      'quantidade_disponivel',
+      'estoque_disponivel',
+      'saldo_disponivel',
+      'quantidade_estoque',
+      'qtde_estoque',
+      'saldo_estoque',
+      'estoque_atual',
+      'saldo',
+      'estoque',
+      'nSaldo',
+      'nSaldoEstoque',
+      'quantidade',
+    ]);
+  }
+
   static toProductDTO(raw: any): OmieProductDTO {
     return {
-      // Usamos String() para garantir que ids numéricos vindo da Omie sejam strings no banco
-      omieId: String(raw.codigo ?? raw.id ?? raw.codigo_produto),
-      
-      // Fallback para nulo caso o sku não exista
+      omieId: this.extractProductCode(raw),
       sku: raw.sku ?? null,
-      
-      // Fallbacks de descrição
       description: raw.descricao ?? raw.descricao_produto ?? 'Sem descrição',
-      
-      // Define como ativo se existir, caso contrário default para true
       active: raw.ativo !== undefined ? Boolean(raw.ativo) : true,
-      
-      // Mantém o payload original completo
       rawPayload: raw,
     };
   }

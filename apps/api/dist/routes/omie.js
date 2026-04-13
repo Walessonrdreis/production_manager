@@ -4,6 +4,7 @@ exports.omieRoutes = omieRoutes;
 const zod_1 = require("zod");
 const db_1 = require("../db");
 const SyncOmieProductsService_1 = require("../core/SyncOmieProductsService");
+const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
 async function omieRoutes(app) {
     // Rota de Sincronização
     app.post('/v1/omie/sync/products', async (request, reply) => {
@@ -45,6 +46,13 @@ async function omieRoutes(app) {
             }),
             db_1.prisma.omieProduct.count({ where }),
         ]);
-        return reply.send({ items, total });
+        return reply.send({
+            items: items.map((item) => ({
+                ...item,
+                code: OmieAdapter_1.OmieAdapter.extractProductCode(item.rawPayload),
+                stockQuantity: OmieAdapter_1.OmieAdapter.extractStockQuantity(item.rawPayload),
+            })),
+            total,
+        });
     });
 }

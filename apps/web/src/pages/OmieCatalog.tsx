@@ -65,8 +65,10 @@ export function OmieCatalogPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem' }}>
             <thead>
               <tr style={{ backgroundColor: '#f5f5f5', textAlign: 'left' }}>
+                <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Código</th>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Descrição</th>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>SKU</th>
+                <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Quantidade</th>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Status Omie</th>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd', width: '120px' }}>Ação</th>
               </tr>
@@ -74,8 +76,12 @@ export function OmieCatalogPage() {
             <tbody>
               {data.items.map((product) => (
                 <tr key={product.id}>
+                  <td style={{ padding: '0.75rem', border: '1px solid #ddd', fontFamily: 'monospace' }}>
+                    {product.code || product.omieId}
+                  </td>
                   <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.description}</td>
                   <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.sku || '-'}</td>
+                  <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.stockQuantity ?? 'Não informado'}</td>
                   <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
                     <span style={{ 
                       padding: '0.25rem 0.5rem', 
@@ -107,7 +113,7 @@ export function OmieCatalogPage() {
               ))}
               {data.items.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ padding: '1rem', textAlign: 'center', border: '1px solid #ddd' }}>
+                  <td colSpan={6} style={{ padding: '1rem', textAlign: 'center', border: '1px solid #ddd' }}>
                     Nenhum produto encontrado.
                   </td>
                 </tr>

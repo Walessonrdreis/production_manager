@@ -43,4 +43,20 @@ describe('OmieAdapter.toProductDTO', () => {
     expect(OmieAdapter.toProductDTO({ codigo: 1 }).active).toBe(true);
     expect(OmieAdapter.toProductDTO({ codigo: 1, ativo: false }).active).toBe(false);
   });
+
+  it('deve extrair o codigo do produto com fallbacks', () => {
+    expect(OmieAdapter.extractProductCode({ codigo: 10 })).toBe('10');
+    expect(OmieAdapter.extractProductCode({ codigo_produto: 20 })).toBe('20');
+    expect(OmieAdapter.extractProductCode({ id: 30 })).toBe('30');
+  });
+
+  it('deve extrair quantidade de estoque de diferentes formatos', () => {
+    expect(OmieAdapter.extractStockQuantity({ saldo_estoque: 12 })).toBe('12');
+    expect(OmieAdapter.extractStockQuantity({ quantidade_estoque: 0 })).toBe('0');
+    expect(OmieAdapter.extractStockQuantity({ estoque_disponivel: -7 })).toBe('-7');
+    expect(OmieAdapter.extractStockQuantity({ dados_estoque: { quantidade: 8 } })).toBe('8');
+    expect(OmieAdapter.extractStockQuantity({ produto_estoque: { saldo: '19' } })).toBe('19');
+    expect(OmieAdapter.extractStockQuantity({ dados_estoque: { saldo_disponivel: '-12.5' } })).toBe('-12.5');
+    expect(OmieAdapter.extractStockQuantity({})).toBeNull();
+  });
 });

@@ -4,9 +4,11 @@ import { SectorSchema } from './sector.schema';
 export const OmieProductSchema = z.object({
   id: z.string().uuid(),
   omieId: z.string(),
+  code: z.string().nullable().optional(),
   sku: z.string().nullable(),
   description: z.string(),
   active: z.boolean(),
+  stockQuantity: z.string().nullable().optional(),
   rawPayload: z.any().optional(),
   lastSyncAt: z.string().datetime().or(z.date()),
 });

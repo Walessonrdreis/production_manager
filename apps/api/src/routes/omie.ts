@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db';
 import { SyncOmieProductsService } from '../core/SyncOmieProductsService';
+import { OmieAdapter } from '../integrations/omie/OmieAdapter';
 
 export async function omieRoutes(app: FastifyInstance) {
   // Rota de Sincronização
@@ -52,6 +53,13 @@ export async function omieRoutes(app: FastifyInstance) {
       prisma.omieProduct.count({ where }),
     ]);
 
-    return reply.send({ items, total });
+    return reply.send({
+      items: items.map((item) => ({
+        ...item,
+        code: OmieAdapter.extractProductCode(item.rawPayload),
+        stockQuantity: OmieAdapter.extractStockQuantity(item.rawPayload),
+      })),
+      total,
+    });
   });
 }
