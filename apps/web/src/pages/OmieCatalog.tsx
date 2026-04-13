@@ -57,6 +57,10 @@ export function OmieCatalogPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const { data, isLoading } = useOmieProducts(debouncedSearch, family, page, pageSize);
+  const products = data?.items ?? [];
+  const families = data?.families ?? [];
+  const stockCacheUpdatedAt = data?.stockCacheUpdatedAt ?? null;
+  const total = data?.meta?.total ?? 0;
 
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const overlayScrollRef = useRef<HTMLDivElement | null>(null);
@@ -93,7 +97,7 @@ export function OmieCatalogPage() {
     window.localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(Array.from(hiddenColumns)));
   }, [hiddenColumns]);
 
-  const visibleIds = useMemo(() => (data?.items ?? []).map((item) => item.id), [data?.items]);
+  const visibleIds = useMemo(() => products.map((item) => item.id), [products]);
 
   const isAllVisibleSelected = useMemo(() => {
     if (visibleIds.length === 0) return false;
@@ -155,7 +159,7 @@ export function OmieCatalogPage() {
       overlayEl.removeEventListener('scroll', onOverlayScroll);
       resizeObserver.disconnect();
     };
-  }, [visibleColumns, data?.items.length, hiddenColumnList.length]);
+  }, [visibleColumns, products.length, hiddenColumnList.length]);
 
   const hideColumn = (key: ColumnKey) => {
     if (key === 'description') return;
@@ -237,7 +241,7 @@ export function OmieCatalogPage() {
     },
   });
 
-  const totalPages = data && !isFamilyFiltered ? Math.ceil(data.total / pageSize) : 0;
+  const totalPages = !isFamilyFiltered ? Math.ceil(total / pageSize) : 0;
 
   const overlayScrollbar = isHorizontalScrollable ? (
     <div
@@ -316,7 +320,7 @@ export function OmieCatalogPage() {
               }}
             >
               <option value="">Todas as famílias</option>
-              {data?.families.map((familyOption) => (
+              {families.map((familyOption) => (
                 <option key={familyOption} value={familyOption}>
                   {familyOption}
                 </option>
@@ -329,8 +333,8 @@ export function OmieCatalogPage() {
           <div style={{ color: '#475569', fontSize: '0.9rem' }}>
             Última atualização do estoque:{' '}
             <strong>
-              {data?.stockCacheUpdatedAt
-                ? new Date(data.stockCacheUpdatedAt).toLocaleString('pt-BR')
+              {stockCacheUpdatedAt
+                ? new Date(stockCacheUpdatedAt).toLocaleString('pt-BR')
                 : 'Ainda não carregado'}
             </strong>
           </div>
@@ -524,7 +528,7 @@ export function OmieCatalogPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((product) => (
+                {products.map((product) => (
                   <tr key={product.id}>
                     <td style={{ padding: '0.75rem', border: '1px solid #ddd', textAlign: 'center' }}>
                       <input
@@ -724,7 +728,7 @@ export function OmieCatalogPage() {
                     })}
                   </tr>
                 ))}
-                {data.items.length === 0 && (
+                {products.length === 0 && (
                   <tr>
                     <td colSpan={1 + visibleColumns.length} style={{ padding: '1rem', textAlign: 'center', border: '1px solid #ddd' }}>
                       Nenhum produto encontrado.
@@ -758,7 +762,7 @@ export function OmieCatalogPage() {
 
           {isFamilyFiltered && (
             <div style={{ color: '#475569', fontSize: '0.95rem' }}>
-              Exibindo todos os produtos da família selecionada: <strong>{data.total}</strong> item(ns).
+              Exibindo todos os produtos da família selecionada: <strong>{total}</strong> item(ns).
             </div>
           )}
         </>
