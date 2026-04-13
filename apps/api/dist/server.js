@@ -10,6 +10,7 @@ const env_1 = require("./env");
 const routes_1 = require("./routes");
 const app = (0, fastify_1.default)({
     logger: true,
+    trustProxy: true,
 });
 const allowedOrigins = new Set(env_1.env.CORS_ORIGIN
     .split(',')

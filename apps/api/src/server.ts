@@ -14,6 +14,7 @@ declare module 'fastify' {
 
 const app = Fastify({
   logger: true,
+  trustProxy: true,
 });
 
 const allowedOrigins = new Set(
