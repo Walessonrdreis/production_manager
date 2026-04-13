@@ -31,10 +31,15 @@ O banco de dados é modelado utilizando Prisma (`schema.prisma`) e possui as seg
 
 ## 🚀 Rotas da API
 
-Abaixo estão listadas as rotas disponíveis na aplicação, organizadas por contexto. Todas as rotas (exceto `/health`) possuem o prefixo `/v1/`.
+Abaixo estão listadas as rotas disponíveis na aplicação, organizadas por contexto. As rotas versionadas usam o prefixo `/v1/*`.
+
+### Rotas Informativas (DX)
+- `GET /`: Retorna um JSON informativo (nome, versão, timestamp, links úteis e dicas).
+- `GET /health`: Healthcheck simples (`{ ok: true }`).
+- `GET /v1`: Índice manual de rotas v1 para facilitar uso via browser.
 
 ### Health Check
-- `GET /health`: Retorna o status da aplicação (`{ status: 'ok' }`).
+- `GET /health`: Retorna o status da aplicação (`{ ok: true }`).
 
 ### 🔄 Integração Omie
 Sincroniza e consulta produtos e estoques diretamente do ERP Omie.
@@ -82,3 +87,34 @@ No arquivo `package.json`, estão definidos os seguintes scripts principais:
 - `pnpm run db:migrate`: Gera e aplica migrações no ambiente de desenvolvimento.
 - `pnpm run prisma:generate`: Gera os artefatos do Prisma Client.
 - `pnpm run test`: Executa a suíte de testes automatizados com Vitest.
+
+---
+
+## 🔎 Testes rápidos (curl)
+
+Produção (base URL: https://production-manager-api.onrender.com):
+
+- `GET /`
+```bash
+curl -i https://production-manager-api.onrender.com/
+```
+
+- `GET /health`
+```bash
+curl -i https://production-manager-api.onrender.com/health
+```
+
+- `GET /v1`
+```bash
+curl -i https://production-manager-api.onrender.com/v1
+```
+
+- `POST /v1/omie/sync/products` (ação)
+```bash
+curl -i -X POST "https://production-manager-api.onrender.com/v1/omie/sync/products?force=true"
+```
+
+- `GET /v1/omie/products` (leitura)
+```bash
+curl -i "https://production-manager-api.onrender.com/v1/omie/products?page=1&pageSize=50"
+```
