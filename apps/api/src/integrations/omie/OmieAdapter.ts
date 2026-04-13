@@ -65,6 +65,26 @@ export class OmieAdapter {
     ]);
   }
 
+  static extractMinimumStock(raw: any): string | null {
+    return this.findNestedValue(raw, [
+      'estoque_minimo',
+      'saldo_minimo',
+      'quantidade_minima',
+      'qtde_minima',
+      'nEstoqueMinimo',
+    ]);
+  }
+
+  static extractAvailableStockFromConsultResponse(raw: any): string | null {
+    return this.findNestedValue(raw, [
+      'nSaldo',
+      'saldo_disponivel',
+      'estoque_disponivel',
+      'saldo',
+      'quantidade',
+    ]);
+  }
+
   static toProductDTO(raw: any): OmieProductDTO {
     return {
       omieId: this.extractProductCode(raw),

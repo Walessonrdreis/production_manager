@@ -9,6 +9,7 @@ export const OmieProductSchema = z.object({
   description: z.string(),
   active: z.boolean(),
   stockQuantity: z.string().nullable().optional(),
+  minimumStock: z.string().nullable().optional(),
   rawPayload: z.any().optional(),
   lastSyncAt: z.string().datetime().or(z.date()),
 });
