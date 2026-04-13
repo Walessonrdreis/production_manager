@@ -6,6 +6,7 @@ const db_1 = require("../db");
 const CreateSectorService_1 = require("../services/CreateSectorService");
 const domainErrors_1 = require("../utils/domainErrors");
 const contracts_1 = require("@shared/contracts");
+const http_1 = require("../lib/http");
 async function sectorRoutes(app) {
     // POST /v1/sectors
     app.post('/v1/sectors', async (request, reply) => {
@@ -31,7 +32,11 @@ async function sectorRoutes(app) {
                 { name: 'asc' },
             ],
         });
-        return reply.send({ items: sectors });
+        return reply.send((0, http_1.paginated)(sectors, {
+            page: 1,
+            pageSize: sectors.length,
+            total: sectors.length,
+        }));
     });
     // PATCH /v1/sectors/:id
     app.patch('/v1/sectors/:id', async (request, reply) => {

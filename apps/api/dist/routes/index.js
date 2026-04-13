@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.appRoutes = appRoutes;
 const package_json_1 = __importDefault(require("../../package.json"));
+const http_1 = require("../lib/http");
 const omie_1 = require("./omie");
 const sectors_1 = require("./sectors");
 const products_1 = require("./products");
@@ -15,7 +16,7 @@ async function appRoutes(app) {
         const protocol = request.protocol;
         const hostname = request.hostname;
         const baseUrl = `${protocol}://${hostname}`;
-        return {
+        return (0, http_1.ok)({
             name: 'Production Manager API',
             status: 'ok',
             version: package_json_1.default.version,
@@ -33,13 +34,13 @@ async function appRoutes(app) {
                 'Sync é POST (ex.: /v1/omie/sync/products).',
                 'Listas são GET em /v1/*.',
             ],
-        };
+        });
     });
     app.get('/health', async () => {
-        return { ok: true };
+        return (0, http_1.ok)({ ok: true });
     });
     app.get('/v1', async () => {
-        return {
+        return (0, http_1.ok)({
             routes: [
                 { method: 'GET', path: '/v1', description: 'Índice de rotas v1' },
                 { method: 'POST', path: '/v1/omie/sync/products', description: 'Sincroniza produtos do Omie (ação; usar curl/cliente)' },
@@ -62,7 +63,7 @@ async function appRoutes(app) {
                 { method: 'GET', path: '/v1/plans/:id/by-sector', description: 'Lista itens do plano agrupados por setor' },
                 { method: 'GET', path: '/v1/plans/:id/export.csv', description: 'Exporta o plano em CSV' },
             ],
-        };
+        });
     });
     // Registro das rotas da Omie
     app.register(omie_1.omieRoutes);

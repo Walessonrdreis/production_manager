@@ -7,6 +7,7 @@ const CreatePlanItemService_1 = require("../services/CreatePlanItemService");
 const CreatePlanService_1 = require("../services/CreatePlanService");
 const domainErrors_1 = require("../utils/domainErrors");
 const contracts_1 = require("@shared/contracts");
+const http_1 = require("../lib/http");
 async function plansRoutes(app) {
     // 1. POST /v1/plans
     app.post('/v1/plans', async (request, reply) => {
@@ -24,7 +25,11 @@ async function plansRoutes(app) {
         const plans = await db_1.prisma.productionPlan.findMany({
             orderBy: { createdAt: 'desc' },
         });
-        return reply.send({ items: plans });
+        return reply.send((0, http_1.paginated)(plans, {
+            page: 1,
+            pageSize: plans.length,
+            total: plans.length,
+        }));
     });
     // 3. GET /v1/plans/:id
     app.get('/v1/plans/:id', async (request, reply) => {

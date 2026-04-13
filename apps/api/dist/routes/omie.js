@@ -6,6 +6,7 @@ const db_1 = require("../db");
 const SyncOmieProductsService_1 = require("../core/SyncOmieProductsService");
 const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
 const OmieStockCache_1 = require("../integrations/omie/OmieStockCache");
+const http_1 = require("../lib/http");
 async function omieRoutes(app) {
     app.post('/v1/omie/sync/products', async (request, reply) => {
         const querySchema = zod_1.z.object({
@@ -74,11 +75,14 @@ async function omieRoutes(app) {
         const pagedItems = family
             ? filteredItems
             : filteredItems.slice((page - 1) * pageSize, page * pageSize);
-        return reply.send({
-            items: pagedItems,
+        const pageUsed = family ? 1 : page;
+        const pageSizeUsed = family ? pagedItems.length : pageSize;
+        return reply.send((0, http_1.paginated)(pagedItems, {
+            page: pageUsed,
+            pageSize: pageSizeUsed,
             total: filteredItems.length,
             families,
             stockCacheUpdatedAt: OmieStockCache_1.omieStockCache.getLastUpdatedAt(),
-        });
+        }));
     });
 }

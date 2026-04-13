@@ -5,6 +5,7 @@ const db_1 = require("../db");
 const domainErrors_1 = require("../utils/domainErrors");
 const contracts_1 = require("@shared/contracts");
 const zod_1 = require("zod");
+const http_1 = require("../lib/http");
 async function productsRoutes(app) {
     // POST /v1/products - Seleciona um produto do Omie para o Gerenciador
     app.post('/v1/products', async (request, reply) => {
@@ -84,7 +85,11 @@ async function productsRoutes(app) {
                 }
             }
         });
-        return reply.send({ items: products });
+        return reply.send((0, http_1.paginated)(products, {
+            page: 1,
+            pageSize: products.length,
+            total: products.length,
+        }));
     });
     // DELETE /v1/products/:id - Remove um produto do Gerenciador
     app.delete('/v1/products/:id', async (request, reply) => {

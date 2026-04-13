@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/domainErrors';
 import { CreateProductInputSchema } from '@shared/contracts';
 import { z } from 'zod';
+import { paginated } from '../lib/http';
 
 export async function productsRoutes(app: FastifyInstance) {
   // POST /v1/products - Seleciona um produto do Omie para o Gerenciador
@@ -102,7 +103,13 @@ export async function productsRoutes(app: FastifyInstance) {
       }
     });
 
-    return reply.send({ items: products });
+    return reply.send(
+      paginated(products, {
+        page: 1,
+        pageSize: products.length,
+        total: products.length,
+      })
+    );
   });
 
   // DELETE /v1/products/:id - Remove um produto do Gerenciador
