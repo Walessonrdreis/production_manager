@@ -4,6 +4,7 @@ exports.productsRoutes = productsRoutes;
 const db_1 = require("../db");
 const domainErrors_1 = require("../utils/domainErrors");
 const contracts_1 = require("@shared/contracts");
+const zod_1 = require("zod");
 async function productsRoutes(app) {
     // POST /v1/products - Seleciona um produto do Omie para o Gerenciador
     app.post('/v1/products', async (request, reply) => {
@@ -30,6 +31,41 @@ async function productsRoutes(app) {
             },
         });
         return reply.status(201).send(product);
+    });
+    // POST /v1/products/bulk - Seleciona vários produtos do Omie para o Gerenciador
+    app.post('/v1/products/bulk', async (request, reply) => {
+        const schema = zod_1.z.object({
+            omieProductIds: zod_1.z.array(zod_1.z.string().uuid()).min(1).max(5000),
+        });
+        const parseResult = schema.safeParse(request.body);
+        if (!parseResult.success) {
+            throw new domainErrors_1.ValidationError('Corpo da requisição inválido', parseResult.error.format());
+        }
+        const uniqueIds = Array.from(new Set(parseResult.data.omieProductIds));
+        const omieProducts = await db_1.prisma.omieProduct.findMany({
+            where: { id: { in: uniqueIds } },
+            select: { id: true },
+        });
+        const omieProductIdSet = new Set(omieProducts.map((item) => item.id));
+        const missingIds = uniqueIds.filter((id) => !omieProductIdSet.has(id));
+        if (missingIds.length > 0) {
+            throw new domainErrors_1.ValidationError('Alguns produtos Omie não existem.', { missingIds });
+        }
+        const existingProducts = await db_1.prisma.product.findMany({
+            where: { omieProductId: { in: uniqueIds } },
+            select: { omieProductId: true },
+        });
+        const existingIdSet = new Set(existingProducts.map((item) => item.omieProductId));
+        const toCreate = uniqueIds.filter((omieProductId) => !existingIdSet.has(omieProductId));
+        const createResult = await db_1.prisma.product.createMany({
+            data: toCreate.map((omieProductId) => ({ omieProductId })),
+            skipDuplicates: true,
+        });
+        return reply.status(201).send({
+            created: createResult.count,
+            skippedExisting: existingIdSet.size,
+            requested: uniqueIds.length,
+        });
     });
     // GET /v1/products - Lista os produtos selecionados
     app.get('/v1/products', async (request, reply) => {

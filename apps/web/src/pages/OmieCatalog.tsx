@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
@@ -14,12 +14,58 @@ export function OmieCatalogPage() {
   const [page, setPage] = useState(1);
   const isFamilyFiltered = Boolean(family);
   const pageSize = isFamilyFiltered ? 5000 : 20;
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const { data, isLoading } = useOmieProducts(debouncedSearch, family, page, pageSize);
 
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, family]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [debouncedSearch, family, page]);
+
+  const visibleIds = useMemo(() => (data?.items ?? []).map((item) => item.id), [data?.items]);
+
+  const isAllVisibleSelected = useMemo(() => {
+    if (visibleIds.length === 0) return false;
+    return visibleIds.every((id) => selectedIds.has(id));
+  }, [selectedIds, visibleIds]);
+
+  const selectedCount = selectedIds.size;
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      const shouldSelectAll = !visibleIds.every((id) => next.has(id));
+
+      if (shouldSelectAll) {
+        for (const id of visibleIds) next.add(id);
+      } else {
+        for (const id of visibleIds) next.delete(id);
+      }
+
+      return next;
+    });
+  };
+
+  const selectAllVisible = () => {
+    setSelectedIds(new Set(visibleIds));
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
 
   // Seleção de Produto
   const selectMutation = useMutation({
@@ -30,6 +76,19 @@ export function OmieCatalogPage() {
       // Invalida a lista de 'Meus Produtos' para quando navegarmos para lá
       queryClient.invalidateQueries({ queryKey: ['myProducts'] });
     }
+  });
+
+  const bulkSelectMutation = useMutation({
+    mutationFn: (omieProductIds: string[]) =>
+      apiClient.post<{ created: number; skippedExisting: number; requested: number }>('/v1/products/bulk', { omieProductIds }),
+    onSuccess: (result) => {
+      toast.success(`Adicionados: ${result.created} • Já existiam: ${result.skippedExisting}`);
+      queryClient.invalidateQueries({ queryKey: ['myProducts'] });
+      clearSelection();
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Falha ao adicionar produtos.');
+    },
   });
 
   const refreshStockMutation = useMutation({
@@ -145,9 +204,73 @@ export function OmieCatalogPage() {
 
       {!isLoading && data && (
         <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+            <div style={{ color: '#475569' }}>
+              Selecionados: <strong>{selectedCount}</strong>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={selectAllVisible}
+                disabled={visibleIds.length === 0}
+                style={{
+                  padding: '0.45rem 0.8rem',
+                  backgroundColor: '#0f766e',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: visibleIds.length === 0 ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Selecionar tudo
+              </button>
+              <button
+                type="button"
+                onClick={() => bulkSelectMutation.mutate(Array.from(selectedIds))}
+                disabled={selectedCount === 0 || bulkSelectMutation.isPending}
+                style={{
+                  padding: '0.45rem 0.8rem',
+                  backgroundColor: (selectedCount === 0 || bulkSelectMutation.isPending) ? '#94a3b8' : '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: (selectedCount === 0 || bulkSelectMutation.isPending) ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                {bulkSelectMutation.isPending ? 'Adicionando...' : 'Adicionar selecionados'}
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                disabled={selectedCount === 0}
+                style={{
+                  padding: '0.45rem 0.8rem',
+                  backgroundColor: 'white',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  cursor: selectedCount === 0 ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
+
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem' }}>
             <thead>
               <tr style={{ backgroundColor: '#f5f5f5', textAlign: 'left' }}>
+                <th style={{ padding: '0.75rem', border: '1px solid #ddd', width: '52px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={isAllVisibleSelected}
+                    onChange={toggleSelectAllVisible}
+                    aria-label="Selecionar todos visíveis"
+                  />
+                </th>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Código</th>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Descrição</th>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Família</th>
@@ -161,6 +284,14 @@ export function OmieCatalogPage() {
             <tbody>
               {data.items.map((product) => (
                 <tr key={product.id}>
+                  <td style={{ padding: '0.75rem', border: '1px solid #ddd', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(product.id)}
+                      onChange={() => toggleSelected(product.id)}
+                      aria-label={`Selecionar ${product.description}`}
+                    />
+                  </td>
                   <td style={{ padding: '0.75rem', border: '1px solid #ddd', fontFamily: 'monospace' }}>
                     {product.code || product.omieId}
                   </td>
@@ -193,14 +324,14 @@ export function OmieCatalogPage() {
                         opacity: selectMutation.isPending ? 0.7 : 1
                       }}
                     >
-                      Selecionar
+                      Adicionar
                     </button>
                   </td>
                 </tr>
               ))}
               {data.items.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ padding: '1rem', textAlign: 'center', border: '1px solid #ddd' }}>
+                  <td colSpan={9} style={{ padding: '1rem', textAlign: 'center', border: '1px solid #ddd' }}>
                     Nenhum produto encontrado.
                   </td>
                 </tr>
