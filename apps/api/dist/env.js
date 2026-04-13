@@ -1,10 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.env = void 0;
 const zod_1 = require("zod");
 const dotenv_1 = require("dotenv");
-// Carrega as variáveis do .env na raiz do apps/api
-(0, dotenv_1.config)();
+const path_1 = __importDefault(require("path"));
+(0, dotenv_1.config)({ path: path_1.default.resolve(__dirname, '../.env') });
 const envSchema = zod_1.z.object({
     PORT: zod_1.z.coerce.number().default(3333),
     DATABASE_URL: zod_1.z.string().url(),

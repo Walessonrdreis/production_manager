@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { config } from 'dotenv';
+import path from 'path';
 
-// Carrega as variáveis do .env na raiz do apps/api
-config();
+config({ path: path.resolve(__dirname, '../.env') });
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(3333),

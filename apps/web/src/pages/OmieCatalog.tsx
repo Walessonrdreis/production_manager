@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
@@ -16,15 +17,15 @@ type ColumnKey =
   | 'status'
   | 'action';
 
-const COLUMNS: Array<{ key: ColumnKey; label: string }> = [
-  { key: 'code', label: 'Código' },
-  { key: 'description', label: 'Descrição' },
-  { key: 'family', label: 'Categoria' },
-  { key: 'sku', label: 'SKU' },
-  { key: 'stock', label: 'Estoque' },
-  { key: 'minimumStock', label: 'Mínimo' },
-  { key: 'status', label: 'Status' },
-  { key: 'action', label: 'Ação' },
+const COLUMNS: Array<{ key: ColumnKey; label: string; width: number; align?: 'left' | 'center' | 'right' }> = [
+  { key: 'code', label: 'Código', width: 140 },
+  { key: 'description', label: 'Descrição', width: 360 },
+  { key: 'family', label: 'Categoria', width: 220 },
+  { key: 'sku', label: 'SKU', width: 140 },
+  { key: 'stock', label: 'Estoque', width: 130 },
+  { key: 'minimumStock', label: 'Mínimo', width: 130 },
+  { key: 'status', label: 'Status', width: 90, align: 'center' },
+  { key: 'action', label: 'Ação', width: 120, align: 'center' },
 ];
 
 const COLUMN_STORAGE_KEY = 'omieCatalog.hiddenColumns.v1';
@@ -57,13 +58,24 @@ export function OmieCatalogPage() {
 
   const { data, isLoading } = useOmieProducts(debouncedSearch, family, page, pageSize);
 
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+  const overlayScrollRef = useRef<HTMLDivElement | null>(null);
+  const overlayInnerRef = useRef<HTMLDivElement | null>(null);
+  const isSyncingFromTable = useRef(false);
+  const isSyncingFromOverlay = useRef(false);
+
+  const [isHorizontalScrollable, setIsHorizontalScrollable] = useState(false);
+  const [isOverlayHovered, setIsOverlayHovered] = useState(false);
+
   const [hiddenColumns, setHiddenColumns] = useState<Set<ColumnKey>>(() => {
     try {
       const raw = window.localStorage.getItem(COLUMN_STORAGE_KEY);
       if (!raw) return new Set();
       const parsed = JSON.parse(raw) as unknown;
       if (!Array.isArray(parsed)) return new Set();
-      return new Set(parsed.filter((value): value is ColumnKey => typeof value === 'string'));
+      const next = new Set(parsed.filter((value): value is ColumnKey => typeof value === 'string'));
+      next.delete('description');
+      return next;
     } catch {
       return new Set();
     }
@@ -93,7 +105,60 @@ export function OmieCatalogPage() {
   const visibleColumns = useMemo(() => COLUMNS.filter((column) => !hiddenColumns.has(column.key)), [hiddenColumns]);
   const hiddenColumnList = useMemo(() => COLUMNS.filter((column) => hiddenColumns.has(column.key)), [hiddenColumns]);
 
+  useEffect(() => {
+    const tableEl = tableScrollRef.current;
+    const overlayEl = overlayScrollRef.current;
+    const innerEl = overlayInnerRef.current;
+
+    if (!tableEl || !overlayEl || !innerEl) {
+      return;
+    }
+
+    const update = () => {
+      const scrollWidth = tableEl.scrollWidth;
+      const clientWidth = tableEl.clientWidth;
+      setIsHorizontalScrollable(scrollWidth > clientWidth + 1);
+      innerEl.style.width = `${scrollWidth}px`;
+      overlayEl.scrollLeft = tableEl.scrollLeft;
+    };
+
+    update();
+
+    const onTableScroll = () => {
+      if (isSyncingFromOverlay.current) {
+        isSyncingFromOverlay.current = false;
+        return;
+      }
+
+      isSyncingFromTable.current = true;
+      overlayEl.scrollLeft = tableEl.scrollLeft;
+    };
+
+    const onOverlayScroll = () => {
+      if (isSyncingFromTable.current) {
+        isSyncingFromTable.current = false;
+        return;
+      }
+
+      isSyncingFromOverlay.current = true;
+      tableEl.scrollLeft = overlayEl.scrollLeft;
+    };
+
+    tableEl.addEventListener('scroll', onTableScroll, { passive: true });
+    overlayEl.addEventListener('scroll', onOverlayScroll, { passive: true });
+
+    const resizeObserver = new ResizeObserver(() => update());
+    resizeObserver.observe(tableEl);
+
+    return () => {
+      tableEl.removeEventListener('scroll', onTableScroll);
+      overlayEl.removeEventListener('scroll', onOverlayScroll);
+      resizeObserver.disconnect();
+    };
+  }, [visibleColumns, data?.items.length, hiddenColumnList.length]);
+
   const hideColumn = (key: ColumnKey) => {
+    if (key === 'description') return;
     setHiddenColumns((current) => new Set([...current, key]));
   };
 
@@ -173,6 +238,41 @@ export function OmieCatalogPage() {
   });
 
   const totalPages = data && !isFamilyFiltered ? Math.ceil(data.total / pageSize) : 0;
+
+  const overlayScrollbar = isHorizontalScrollable ? (
+    <div
+      style={{
+        position: 'fixed',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        bottom: '10px',
+        width: 'min(1200px, calc(100% - 48px))',
+        padding: '8px 10px',
+        borderRadius: '12px',
+        backgroundColor: 'rgba(15, 23, 42, 0.15)',
+        backdropFilter: 'blur(6px)',
+        border: '1px solid rgba(148, 163, 184, 0.45)',
+        opacity: isOverlayHovered ? 1 : 0.35,
+        transition: 'opacity 140ms ease',
+        pointerEvents: 'auto',
+        zIndex: 1000,
+      }}
+      onMouseEnter={() => setIsOverlayHovered(true)}
+      onMouseLeave={() => setIsOverlayHovered(false)}
+    >
+      <div
+        ref={overlayScrollRef}
+        style={{
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          height: '14px',
+          scrollbarWidth: 'thin',
+        }}
+      >
+        <div ref={overlayInnerRef} style={{ height: '1px' }} />
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
@@ -274,6 +374,7 @@ export function OmieCatalogPage() {
 
       {!isLoading && data && (
         <>
+          {overlayScrollbar && typeof document !== 'undefined' ? createPortal(overlayScrollbar, document.body) : null}
           {hiddenColumnList.length > 0 ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem', color: '#475569' }}>
               <div style={{ fontWeight: 700 }}>Colunas ocultas:</div>
@@ -359,8 +460,15 @@ export function OmieCatalogPage() {
             </div>
           </div>
 
-          <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0, minWidth: '860px' }}>
+          <div
+            ref={tableScrollRef}
+            style={{
+              overflowX: 'auto',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+            }}
+          >
+              <table style={{ width: 'max-content', borderCollapse: 'collapse', marginBottom: 0, tableLayout: 'fixed' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f5f5f5', textAlign: 'left' }}>
                   <th style={{ padding: '0.75rem', border: '1px solid #ddd', width: '52px', textAlign: 'center' }}>
@@ -377,33 +485,39 @@ export function OmieCatalogPage() {
                       style={{
                         padding: '0.75rem',
                         border: '1px solid #ddd',
-                        width: column.key === 'status' ? '90px' : column.key === 'action' ? '120px' : undefined,
-                        textAlign: column.key === 'status' ? 'center' : 'left',
+                        width: `${column.width}px`,
+                        minWidth: `${column.width}px`,
+                        maxWidth: `${column.width}px`,
+                        textAlign: column.align ?? 'left',
                         whiteSpace: 'nowrap',
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
                         <span>{column.label}</span>
-                        <button
-                          type="button"
-                          onClick={() => hideColumn(column.key)}
-                          title="Ocultar coluna"
-                          style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            backgroundColor: 'white',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: 0,
-                            color: '#334155',
-                          }}
-                        >
-                          <ChevronLeftIcon />
-                        </button>
+                        {column.key !== 'description' ? (
+                          <button
+                            type="button"
+                            onClick={() => hideColumn(column.key)}
+                            title="Ocultar coluna"
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '6px',
+                              border: '1px solid #cbd5e1',
+                              backgroundColor: 'white',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: 0,
+                              color: '#334155',
+                            }}
+                          >
+                            <ChevronLeftIcon />
+                          </button>
+                        ) : (
+                          <div style={{ width: '28px', height: '28px' }} />
+                        )}
                       </div>
                     </th>
                   ))}
@@ -423,7 +537,20 @@ export function OmieCatalogPage() {
                     {visibleColumns.map((column) => {
                       if (column.key === 'code') {
                         return (
-                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd', fontFamily: 'monospace' }}>
+                          <td
+                            key={column.key}
+                            style={{
+                              padding: '0.75rem',
+                              border: '1px solid #ddd',
+                              fontFamily: 'monospace',
+                              width: `${column.width}px`,
+                              minWidth: `${column.width}px`,
+                              maxWidth: `${column.width}px`,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
                             {product.code || product.omieId}
                           </td>
                         );
@@ -431,7 +558,20 @@ export function OmieCatalogPage() {
 
                       if (column.key === 'description') {
                         return (
-                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
+                          <td
+                            key={column.key}
+                            style={{
+                              padding: '0.75rem',
+                              border: '1px solid #ddd',
+                              width: `${column.width}px`,
+                              minWidth: `${column.width}px`,
+                              maxWidth: `${column.width}px`,
+                              whiteSpace: 'normal',
+                              overflow: 'visible',
+                              textOverflow: 'clip',
+                              wordBreak: 'break-word',
+                            }}
+                          >
                             {product.description}
                           </td>
                         );
@@ -439,7 +579,19 @@ export function OmieCatalogPage() {
 
                       if (column.key === 'family') {
                         return (
-                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
+                          <td
+                            key={column.key}
+                            style={{
+                              padding: '0.75rem',
+                              border: '1px solid #ddd',
+                              width: `${column.width}px`,
+                              minWidth: `${column.width}px`,
+                              maxWidth: `${column.width}px`,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
                             {product.familyDescription ?? '-'}
                           </td>
                         );
@@ -447,7 +599,19 @@ export function OmieCatalogPage() {
 
                       if (column.key === 'sku') {
                         return (
-                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
+                          <td
+                            key={column.key}
+                            style={{
+                              padding: '0.75rem',
+                              border: '1px solid #ddd',
+                              width: `${column.width}px`,
+                              minWidth: `${column.width}px`,
+                              maxWidth: `${column.width}px`,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
                             {product.sku || '-'}
                           </td>
                         );
@@ -455,7 +619,19 @@ export function OmieCatalogPage() {
 
                       if (column.key === 'stock') {
                         return (
-                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
+                          <td
+                            key={column.key}
+                            style={{
+                              padding: '0.75rem',
+                              border: '1px solid #ddd',
+                              width: `${column.width}px`,
+                              minWidth: `${column.width}px`,
+                              maxWidth: `${column.width}px`,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
                             {product.stockQuantity ?? 'Não informado'}
                           </td>
                         );
@@ -463,7 +639,19 @@ export function OmieCatalogPage() {
 
                       if (column.key === 'minimumStock') {
                         return (
-                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
+                          <td
+                            key={column.key}
+                            style={{
+                              padding: '0.75rem',
+                              border: '1px solid #ddd',
+                              width: `${column.width}px`,
+                              minWidth: `${column.width}px`,
+                              maxWidth: `${column.width}px`,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
                             {product.minimumStock ?? 'Não informado'}
                           </td>
                         );
@@ -471,7 +659,18 @@ export function OmieCatalogPage() {
 
                       if (column.key === 'status') {
                         return (
-                          <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd', textAlign: 'center' }}>
+                          <td
+                            key={column.key}
+                            style={{
+                              padding: '0.75rem',
+                              border: '1px solid #ddd',
+                              textAlign: 'center',
+                              width: `${column.width}px`,
+                              minWidth: `${column.width}px`,
+                              maxWidth: `${column.width}px`,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
                             <span
                               title={product.active ? 'Ativo' : 'Inativo'}
                               style={{
@@ -493,7 +692,18 @@ export function OmieCatalogPage() {
                       }
 
                       return (
-                        <td key={column.key} style={{ padding: '0.75rem', border: '1px solid #ddd', textAlign: 'center' }}>
+                        <td
+                          key={column.key}
+                          style={{
+                            padding: '0.75rem',
+                            border: '1px solid #ddd',
+                            textAlign: 'center',
+                            width: `${column.width}px`,
+                            minWidth: `${column.width}px`,
+                            maxWidth: `${column.width}px`,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
                           <button
                             onClick={() => selectMutation.mutate(product.id)}
                             disabled={selectMutation.isPending}
