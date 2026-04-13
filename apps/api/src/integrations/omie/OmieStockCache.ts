@@ -27,6 +27,7 @@ function formatOmieDate(date: Date) {
 export class OmieStockCache {
   private cache = new Map<string, OmieStockEntry>();
   private lastCompletedAt = 0;
+  private lastUpdatedAt: string | null = null;
   private refreshPromise: Promise<void> | null = null;
 
   async getSnapshot(): Promise<Map<string, OmieStockEntry>> {
@@ -46,6 +47,21 @@ export class OmieStockCache {
       }
     }
 
+    return new Map(this.cache);
+  }
+
+  getLastUpdatedAt(): string | null {
+    return this.lastUpdatedAt;
+  }
+
+  async refreshNow(): Promise<Map<string, OmieStockEntry>> {
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.refresh().finally(() => {
+        this.refreshPromise = null;
+      });
+    }
+
+    await this.refreshPromise;
     return new Map(this.cache);
   }
 
@@ -92,6 +108,7 @@ export class OmieStockCache {
     if (nextCache.size > 0 || this.cache.size === 0) {
       this.cache = nextCache;
       this.lastCompletedAt = Date.now();
+      this.lastUpdatedAt = updatedAt;
     }
   }
 }

@@ -74,6 +74,16 @@ class OmieAdapter {
             'estoqueMinimo',
         ]);
     }
+    static extractFamilyDescription(raw) {
+        return this.findNestedValue(raw, [
+            'descricao_familia',
+            'descricaoFamilia',
+            'familia',
+            'nome_familia',
+            'desc_familia',
+            'cDescricaoFamilia',
+        ]);
+    }
     static toProductDTO(raw) {
         return {
             omieId: this.extractProductCode(raw),

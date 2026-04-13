@@ -15,6 +15,7 @@ function formatOmieDate(date) {
 class OmieStockCache {
     cache = new Map();
     lastCompletedAt = 0;
+    lastUpdatedAt = null;
     refreshPromise = null;
     async getSnapshot() {
         const isExpired = Date.now() - this.lastCompletedAt >= REFRESH_INTERVAL_MS;
@@ -31,6 +32,18 @@ class OmieStockCache {
                 console.error('Falha ao aquecer cache de estoque Omie', error);
             }
         }
+        return new Map(this.cache);
+    }
+    getLastUpdatedAt() {
+        return this.lastUpdatedAt;
+    }
+    async refreshNow() {
+        if (!this.refreshPromise) {
+            this.refreshPromise = this.refresh().finally(() => {
+                this.refreshPromise = null;
+            });
+        }
+        await this.refreshPromise;
         return new Map(this.cache);
     }
     async refresh() {
@@ -69,6 +82,7 @@ class OmieStockCache {
         if (nextCache.size > 0 || this.cache.size === 0) {
             this.cache = nextCache;
             this.lastCompletedAt = Date.now();
+            this.lastUpdatedAt = updatedAt;
         }
     }
 }

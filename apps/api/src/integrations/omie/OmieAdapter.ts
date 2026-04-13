@@ -90,6 +90,17 @@ export class OmieAdapter {
     ]);
   }
 
+  static extractFamilyDescription(raw: any): string | null {
+    return this.findNestedValue(raw, [
+      'descricao_familia',
+      'descricaoFamilia',
+      'familia',
+      'nome_familia',
+      'desc_familia',
+      'cDescricaoFamilia',
+    ]);
+  }
+
   static toProductDTO(raw: any): OmieProductDTO {
     return {
       omieId: this.extractProductCode(raw),

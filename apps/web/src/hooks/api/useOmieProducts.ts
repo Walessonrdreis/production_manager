@@ -5,11 +5,13 @@ import { OmieProduct } from '@shared/contracts';
 type OmieResponse = {
   items: OmieProduct[];
   total: number;
+  families: string[];
+  stockCacheUpdatedAt: string | null;
 };
 
-export function useOmieProducts(search: string, page: number, pageSize: number) {
+export function useOmieProducts(search: string, family: string, page: number, pageSize: number) {
   return useQuery<OmieResponse>({
-    queryKey: ['omieProducts', search, page, pageSize],
+    queryKey: ['omieProducts', search, family, page, pageSize],
     queryFn: () => {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -18,6 +20,10 @@ export function useOmieProducts(search: string, page: number, pageSize: number) 
       
       if (search) {
         params.append('search', search);
+      }
+
+      if (family) {
+        params.append('family', family);
       }
       
       return apiClient.get(`/v1/omie/products?${params.toString()}`);

@@ -9,16 +9,16 @@ import { toast } from 'react-hot-toast';
 export function OmieCatalogPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [family, setFamily] = useState('');
   const debouncedSearch = useDebounce(search, 500);
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // Busca do Catálogo usando o hook customizado
-  const { data, isLoading } = useOmieProducts(debouncedSearch, page, pageSize);
+  const { data, isLoading } = useOmieProducts(debouncedSearch, family, page, pageSize);
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, family]);
 
   // Seleção de Produto
   const selectMutation = useMutation({
@@ -29,6 +29,17 @@ export function OmieCatalogPage() {
       // Invalida a lista de 'Meus Produtos' para quando navegarmos para lá
       queryClient.invalidateQueries({ queryKey: ['myProducts'] });
     }
+  });
+
+  const refreshStockMutation = useMutation({
+    mutationFn: () => apiClient.post<{ stockCacheUpdatedAt: string | null }>('/v1/omie/products/stock/refresh'),
+    onSuccess: () => {
+      toast.success('Estoque Omie atualizado manualmente.');
+      queryClient.invalidateQueries({ queryKey: ['omieProducts'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Falha ao atualizar estoque da Omie.');
+    },
   });
 
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
@@ -42,18 +53,89 @@ export function OmieCatalogPage() {
         </Link>
       </div>
 
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem' }}>Buscar</label>
+            <input
+              type="text"
+              placeholder="Buscar por descrição, código, SKU ou família..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                padding: '0.5rem',
+                width: '320px',
+                fontSize: '1rem',
+                borderRadius: '4px',
+                border: '1px solid #ccc'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem' }}>Família</label>
+            <select
+              value={family}
+              onChange={(e) => setFamily(e.target.value)}
+              style={{
+                padding: '0.5rem',
+                minWidth: '220px',
+                fontSize: '1rem',
+                borderRadius: '4px',
+                border: '1px solid #ccc'
+              }}
+            >
+              <option value="">Todas as famílias</option>
+              {data?.families.map((familyOption) => (
+                <option key={familyOption} value={familyOption}>
+                  {familyOption}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+          <div style={{ color: '#475569', fontSize: '0.9rem' }}>
+            Última atualização do estoque:{' '}
+            <strong>
+              {data?.stockCacheUpdatedAt
+                ? new Date(data.stockCacheUpdatedAt).toLocaleString('pt-BR')
+                : 'Ainda não carregado'}
+            </strong>
+          </div>
+          <button
+            type="button"
+            onClick={() => refreshStockMutation.mutate()}
+            disabled={refreshStockMutation.isPending}
+            style={{
+              padding: '0.5rem 0.9rem',
+              backgroundColor: refreshStockMutation.isPending ? '#94a3b8' : '#2563eb',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: refreshStockMutation.isPending ? 'not-allowed' : 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            {refreshStockMutation.isPending ? 'Atualizando...' : 'Atualizar estoque agora'}
+          </button>
+        </div>
+      </div>
+
       <div style={{ marginBottom: '1.5rem' }}>
         <input
           type="text"
-          placeholder="Buscar produto por descrição..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          readOnly
+          value={`Atualização automática a cada 15 minutos${family ? ` • Família: ${family}` : ''}`}
           style={{
             padding: '0.5rem',
-            width: '300px',
-            fontSize: '1rem',
+            width: '420px',
+            fontSize: '0.95rem',
             borderRadius: '4px',
-            border: '1px solid #ccc'
+            border: '1px solid #e2e8f0',
+            backgroundColor: '#f8fafc',
+            color: '#475569'
           }}
         />
       </div>
@@ -67,6 +149,7 @@ export function OmieCatalogPage() {
               <tr style={{ backgroundColor: '#f5f5f5', textAlign: 'left' }}>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Código</th>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Descrição</th>
+                <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Família</th>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>SKU</th>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Estoque</th>
                 <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Estoque mínimo</th>
@@ -81,6 +164,7 @@ export function OmieCatalogPage() {
                     {product.code || product.omieId}
                   </td>
                   <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.description}</td>
+                  <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.familyDescription ?? '-'}</td>
                   <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.sku || '-'}</td>
                   <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.stockQuantity ?? 'Não informado'}</td>
                   <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>{product.minimumStock ?? 'Não informado'}</td>
@@ -115,7 +199,7 @@ export function OmieCatalogPage() {
               ))}
               {data.items.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ padding: '1rem', textAlign: 'center', border: '1px solid #ddd' }}>
+                  <td colSpan={8} style={{ padding: '1rem', textAlign: 'center', border: '1px solid #ddd' }}>
                     Nenhum produto encontrado.
                   </td>
                 </tr>

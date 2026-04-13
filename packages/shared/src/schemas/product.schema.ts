@@ -5,6 +5,7 @@ export const OmieProductSchema = z.object({
   id: z.string().uuid(),
   omieId: z.string(),
   code: z.string().nullable().optional(),
+  familyDescription: z.string().nullable().optional(),
   sku: z.string().nullable(),
   description: z.string(),
   active: z.boolean(),

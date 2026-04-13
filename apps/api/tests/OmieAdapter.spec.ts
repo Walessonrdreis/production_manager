@@ -72,4 +72,10 @@ describe('OmieAdapter.toProductDTO', () => {
     expect(OmieAdapter.extractMinimumStock({ dados_estoque: { estoque_minimo: '10' } })).toBe('10');
     expect(OmieAdapter.extractMinimumStock({})).toBeNull();
   });
+
+  it('deve extrair descricao da familia com fallbacks', () => {
+    expect(OmieAdapter.extractFamilyDescription({ descricao_familia: 'Bebidas' })).toBe('Bebidas');
+    expect(OmieAdapter.extractFamilyDescription({ produto: { nome_familia: 'Padaria' } })).toBe('Padaria');
+    expect(OmieAdapter.extractFamilyDescription({})).toBeNull();
+  });
 });

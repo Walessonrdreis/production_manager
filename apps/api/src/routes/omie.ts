@@ -6,7 +6,6 @@ import { OmieAdapter } from '../integrations/omie/OmieAdapter';
 import { omieStockCache } from '../integrations/omie/OmieStockCache';
 
 export async function omieRoutes(app: FastifyInstance) {
-  // Rota de Sincronização
   app.post('/v1/omie/sync/products', async (request, reply) => {
     const querySchema = z.object({
       force: z.coerce.boolean().optional().default(false),
@@ -21,52 +20,82 @@ export async function omieRoutes(app: FastifyInstance) {
     return reply.send(result);
   });
 
-  // Rota de Listagem do Espelho Local
+  app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
+    await omieStockCache.refreshNow();
+
+    return reply.send({
+      stockCacheUpdatedAt: omieStockCache.getLastUpdatedAt(),
+    });
+  });
+
   app.get('/v1/omie/products', async (request, reply) => {
     const querySchema = z.object({
       search: z.string().optional(),
+      family: z.string().optional(),
       page: z.coerce.number().min(1).default(1),
       pageSize: z.coerce.number().min(1).max(100).default(50),
     });
 
-    const { search, page, pageSize } = querySchema.parse(request.query);
+    const { search, family, page, pageSize } = querySchema.parse(request.query);
 
-    // Filtro condicional por descrição (case-insensitive)
-    const where = search
-      ? {
-          description: {
-            contains: search,
-            mode: 'insensitive' as const, // Específico para o provider PostgreSQL
-          },
-        }
-      : {};
-
-    // Executa contagem total e busca paginada em paralelo
-    const [items, total, stockSnapshot] = await Promise.all([
+    const [items, stockSnapshot] = await Promise.all([
       prisma.omieProduct.findMany({
-        where,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
         orderBy: {
           description: 'asc',
         },
       }),
-      prisma.omieProduct.count({ where }),
       omieStockCache.getSnapshot(),
     ]);
 
-    return reply.send({
-      items: items.map((item) => ({
+    const enrichedItems = items.map((item) => {
+      const code = OmieAdapter.extractProductCode(item.rawPayload) || item.omieId;
+      return {
         ...item,
-        code: OmieAdapter.extractProductCode(item.rawPayload),
-        stockQuantity:
-          stockSnapshot.get(OmieAdapter.extractProductCode(item.rawPayload) || item.omieId)?.stockQuantity
-          ?? OmieAdapter.extractStockQuantity(item.rawPayload),
-        minimumStock:
-          stockSnapshot.get(OmieAdapter.extractProductCode(item.rawPayload) || item.omieId)?.minimumStock
-          ?? OmieAdapter.extractMinimumStock(item.rawPayload),
-      })),
-      total,
+        code,
+        familyDescription: OmieAdapter.extractFamilyDescription(item.rawPayload),
+        stockQuantity: stockSnapshot.get(code)?.stockQuantity ?? OmieAdapter.extractStockQuantity(item.rawPayload),
+        minimumStock: stockSnapshot.get(code)?.minimumStock ?? OmieAdapter.extractMinimumStock(item.rawPayload),
+      };
+    });
+
+    const normalizedSearch = search?.trim().toLowerCase();
+    const normalizedFamily = family?.trim().toLowerCase();
+
+    const filteredItems = enrichedItems.filter((item) => {
+      const matchesSearch = normalizedSearch
+        ? [
+            item.description,
+            item.sku,
+            item.code,
+            item.omieId,
+            item.familyDescription,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedSearch))
+        : true;
+
+      const matchesFamily = normalizedFamily
+        ? (item.familyDescription ?? '').toLowerCase().includes(normalizedFamily)
+        : true;
+
+      return matchesSearch && matchesFamily;
+    });
+
+    const families = Array.from(
+      new Set(
+        enrichedItems
+          .map((item) => item.familyDescription?.trim())
+          .filter((value): value is string => Boolean(value))
+      )
+    ).sort((a, b) => a.localeCompare(b));
+
+    const pagedItems = filteredItems.slice((page - 1) * pageSize, page * pageSize);
+
+    return reply.send({
+      items: pagedItems,
+      total: filteredItems.length,
+      families,
+      stockCacheUpdatedAt: omieStockCache.getLastUpdatedAt(),
     });
   });
 }
