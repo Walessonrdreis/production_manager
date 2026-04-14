@@ -7,6 +7,8 @@ const SyncOmieProductsService_1 = require("../core/SyncOmieProductsService");
 const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
 const OmieStockCache_1 = require("../integrations/omie/OmieStockCache");
 const http_1 = require("../lib/http");
+const AppError_1 = require("../core/errors/AppError");
+const omieStock_service_1 = require("../services/omieStock.service");
 async function omieRoutes(app) {
     app.post('/v1/omie/sync/products', async (request, reply) => {
         const querySchema = zod_1.z.object({
@@ -23,6 +25,173 @@ async function omieRoutes(app) {
         return reply.send({
             stockCacheUpdatedAt: OmieStockCache_1.omieStockCache.getLastUpdatedAt(),
         });
+    });
+    app.get('/v1/omie/categories', async (request, reply) => {
+        const querySchema = zod_1.z.object({
+            q: zod_1.z.string().optional(),
+        });
+        const { q } = querySchema.parse(request.query);
+        const normalizedQ = q?.trim();
+        const items = (await db_1.prisma.omieProduct.findMany({
+            select: {
+                familyDescription: true,
+            },
+            distinct: ['familyDescription'],
+            orderBy: { familyDescription: 'asc' },
+            where: normalizedQ
+                ? {
+                    familyDescription: {
+                        contains: normalizedQ,
+                        mode: 'insensitive',
+                    },
+                }
+                : {
+                    familyDescription: {
+                        not: null,
+                    },
+                },
+        }));
+        const families = items
+            .map((item) => item.familyDescription?.trim())
+            .filter((value) => Boolean(value));
+        return reply.send((0, http_1.ok)(families, {
+            total: families.length,
+        }));
+    });
+    app.get('/v1/omie/products/search', async (request, reply) => {
+        const querySchema = zod_1.z.object({
+            q: zod_1.z.string().trim().min(1, 'q is required'),
+            page: zod_1.z.coerce.number().min(1).default(1),
+            pageSize: zod_1.z.coerce.number().min(1).default(20),
+        });
+        const { q, page, pageSize } = querySchema.parse(request.query);
+        const safePageSize = Math.min(pageSize, 100);
+        const where = {
+            OR: [
+                { description: { contains: q, mode: 'insensitive' } },
+                { sku: { contains: q, mode: 'insensitive' } },
+                { familyDescription: { contains: q, mode: 'insensitive' } },
+            ],
+        };
+        const [total, items] = (await Promise.all([
+            db_1.prisma.omieProduct.count({ where }),
+            db_1.prisma.omieProduct.findMany({
+                where,
+                orderBy: { description: 'asc' },
+                skip: (page - 1) * safePageSize,
+                take: safePageSize,
+                select: {
+                    id: true,
+                    description: true,
+                    sku: true,
+                    familyDescription: true,
+                    active: true,
+                    omieCode: true,
+                },
+            }),
+        ]));
+        const paged = items.map((item) => ({
+            id: item.id,
+            description: item.description,
+            sku: item.sku,
+            familyDescription: item.familyDescription,
+            active: item.active,
+            ...(item.omieCode ? { omieCode: item.omieCode } : {}),
+        }));
+        return reply.send((0, http_1.paginated)(paged, {
+            page,
+            pageSize: safePageSize,
+            total,
+        }));
+    });
+    app.get('/v1/omie/products/:id', async (request, reply) => {
+        const paramsSchema = zod_1.z.object({
+            id: zod_1.z.string().uuid(),
+        });
+        const querySchema = zod_1.z.object({
+            includeRaw: zod_1.z.coerce.boolean().optional().default(false),
+        });
+        const { id } = paramsSchema.parse(request.params);
+        const { includeRaw } = querySchema.parse(request.query);
+        const omieProduct = (await db_1.prisma.omieProduct.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                omieId: true,
+                omieCode: true,
+                description: true,
+                sku: true,
+                familyDescription: true,
+                active: true,
+                rawPayload: true,
+            },
+        }));
+        if (!omieProduct) {
+            throw new AppError_1.AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
+        }
+        const data = {
+            id: omieProduct.id,
+            description: omieProduct.description,
+            sku: omieProduct.sku,
+            familyDescription: omieProduct.familyDescription ?? OmieAdapter_1.OmieAdapter.extractFamilyDescription(omieProduct.rawPayload),
+            active: omieProduct.active,
+            omieCode: omieProduct.omieCode ?? omieProduct.omieId,
+        };
+        if (includeRaw) {
+            data.rawPayload = omieProduct.rawPayload;
+        }
+        return reply.send((0, http_1.ok)(data));
+    });
+    app.get('/v1/omie/products/by-code/:omieCode', async (request, reply) => {
+        const paramsSchema = zod_1.z.object({
+            omieCode: zod_1.z.string().min(1),
+        });
+        const querySchema = zod_1.z.object({
+            includeRaw: zod_1.z.coerce.boolean().optional().default(false),
+        });
+        const { omieCode } = paramsSchema.parse(request.params);
+        const { includeRaw } = querySchema.parse(request.query);
+        const omieProduct = ((await db_1.prisma.omieProduct.findFirst({
+            where: { omieCode },
+            select: {
+                id: true,
+                omieId: true,
+                omieCode: true,
+                description: true,
+                sku: true,
+                familyDescription: true,
+                active: true,
+                rawPayload: true,
+            },
+        })) ??
+            (await db_1.prisma.omieProduct.findUnique({
+                where: { omieId: omieCode },
+                select: {
+                    id: true,
+                    omieId: true,
+                    omieCode: true,
+                    description: true,
+                    sku: true,
+                    familyDescription: true,
+                    active: true,
+                    rawPayload: true,
+                },
+            })));
+        if (!omieProduct) {
+            throw new AppError_1.AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
+        }
+        const data = {
+            id: omieProduct.id,
+            description: omieProduct.description,
+            sku: omieProduct.sku,
+            familyDescription: omieProduct.familyDescription ?? OmieAdapter_1.OmieAdapter.extractFamilyDescription(omieProduct.rawPayload),
+            active: omieProduct.active,
+            omieCode: omieProduct.omieCode ?? omieProduct.omieId,
+        };
+        if (includeRaw) {
+            data.rawPayload = omieProduct.rawPayload;
+        }
+        return reply.send((0, http_1.ok)(data));
     });
     app.get('/v1/omie/products', async (request, reply) => {
         const querySchema = zod_1.z.object({
@@ -93,5 +262,31 @@ async function omieRoutes(app) {
             families,
             stockCacheUpdatedAt,
         }));
+    });
+    app.get('/v1/omie/products/:id/stock', async (request, reply) => {
+        const paramsSchema = zod_1.z.object({
+            id: zod_1.z.string().uuid(),
+        });
+        const { id } = paramsSchema.parse(request.params);
+        const omieProduct = await db_1.prisma.omieProduct.findUnique({
+            where: { id },
+            select: { id: true, rawPayload: true },
+        });
+        if (!omieProduct) {
+            throw new AppError_1.AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
+        }
+        const stock = await (0, omieStock_service_1.getStockByRawPayload)(omieProduct.rawPayload);
+        return reply.send((0, http_1.ok)({
+            omieProductId: omieProduct.id,
+            ...stock,
+        }));
+    });
+    app.get('/v1/omie/products/by-code/:omieCode/stock', async (request, reply) => {
+        const paramsSchema = zod_1.z.object({
+            omieCode: zod_1.z.string().min(1),
+        });
+        const { omieCode } = paramsSchema.parse(request.params);
+        const stock = await (0, omieStock_service_1.getStockByRawPayload)({ codigo: omieCode });
+        return reply.send((0, http_1.ok)(stock));
     });
 }

@@ -212,20 +212,24 @@ export class SyncOmieProductsService {
               where: { omieId: dto.omieId },
               create: {
                 omieId: dto.omieId,
+                omieCode: dto.omieId,
                 sku: dto.sku,
                 description: dto.description,
+                familyDescription: OmieAdapter.extractFamilyDescription(dto.rawPayload),
                 active: dto.active,
                 rawPayload: dto.rawPayload,
                 lastSyncAt: new Date(),
               },
               update: {
+                omieCode: dto.omieId,
                 sku: dto.sku,
                 description: dto.description,
+                familyDescription: OmieAdapter.extractFamilyDescription(dto.rawPayload),
                 active: dto.active,
                 rawPayload: dto.rawPayload,
                 lastSyncAt: new Date(),
               },
-            });
+            } as any);
             upsertedCount++;
           } catch (err: any) {
             failedCount++;

@@ -3,7 +3,10 @@ import { prisma } from '../db';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/domainErrors';
 import { CreateProductInputSchema } from '@shared/contracts';
 import { z } from 'zod';
-import { paginated, wantsLegacyResponse } from '../lib/http';
+import { ok, paginated, wantsLegacyResponse } from '../lib/http';
+import { AppError } from '../core/errors/AppError';
+import { getStockByRawPayload } from '../services/omieStock.service';
+import { OmieAdapter } from '../integrations/omie/OmieAdapter';
 
 export async function productsRoutes(app: FastifyInstance) {
   // POST /v1/products - Seleciona um produto do Omie para o Gerenciador
@@ -116,6 +119,107 @@ export async function productsRoutes(app: FastifyInstance) {
     );
   });
 
+  app.get('/v1/products/:id', async (request, reply) => {
+    const paramsSchema = z.object({
+      id: z.string(),
+    });
+
+    const { id } = paramsSchema.parse(request.params);
+    const looksLikeUuid = z.string().uuid().safeParse(id).success;
+
+    if (!looksLikeUuid) {
+      throw new AppError('PRODUCT_NOT_FOUND', 404, 'Product not found');
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        omieProduct: true,
+        productSector: {
+          include: {
+            sector: true,
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new AppError('PRODUCT_NOT_FOUND', 404, 'Product not found');
+    }
+
+    return reply.send(
+      ok({
+        id: product.id,
+        nickname: product.nickname,
+        active: product.active,
+        omieProductId: product.omieProductId,
+        omieProduct: {
+          id: product.omieProduct.id,
+          description: product.omieProduct.description,
+          sku: product.omieProduct.sku,
+          familyDescription: OmieAdapter.extractFamilyDescription(product.omieProduct.rawPayload),
+          active: product.omieProduct.active,
+        },
+        productSector: product.productSector
+          ? {
+              sectorId: product.productSector.sectorId,
+              notes: product.productSector.notes,
+              sector: {
+                id: product.productSector.sector.id,
+                name: product.productSector.sector.name,
+                order: product.productSector.sector.order,
+              },
+            }
+          : null,
+      })
+    );
+  });
+
+  app.patch('/v1/products/:id', async (request, reply) => {
+    const paramsSchema = z.object({
+      id: z.string().uuid(),
+    });
+
+    const bodySchema = z.object({
+      data: z
+        .object({
+          nickname: z.string().trim().min(1).optional(),
+          active: z.boolean().optional(),
+        })
+        .refine((value) => value.nickname !== undefined || value.active !== undefined, {
+          message: 'At least one field is required',
+        }),
+    });
+
+    const { id } = paramsSchema.parse(request.params);
+    const { data } = bodySchema.parse(request.body);
+
+    const existing = await prisma.product.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new AppError('PRODUCT_NOT_FOUND', 404, 'Product not found');
+    }
+
+    const updated = await prisma.product.update({
+      where: { id },
+      data: {
+        ...(data.nickname !== undefined ? { nickname: data.nickname } : {}),
+        ...(data.active !== undefined ? { active: data.active } : {}),
+      },
+      select: {
+        id: true,
+        nickname: true,
+        active: true,
+        omieProductId: true,
+      },
+    });
+
+    return reply.send(ok(updated));
+  });
+
   // DELETE /v1/products/:id - Remove um produto do Gerenciador
   app.delete('/v1/products/:id', async (request, reply) => {
     // Como é params não usamos contrato compartilhado aqui
@@ -134,5 +238,45 @@ export async function productsRoutes(app: FastifyInstance) {
     });
 
     return reply.send({ success: true });
+  });
+
+  app.get('/v1/products/:id/stock', async (request, reply) => {
+    const paramsSchema = z.object({
+      id: z.string().uuid(),
+    });
+
+    const { id } = paramsSchema.parse(request.params);
+
+    const product = await prisma.product.findUnique({
+      where: { id },
+      select: { id: true, omieProductId: true },
+    });
+
+    if (!product) {
+      throw new AppError('PRODUCT_NOT_FOUND', 404, 'Product not found');
+    }
+
+    if (!product.omieProductId) {
+      throw new AppError('OMIE_PRODUCT_LINK_MISSING', 409, 'Product is not linked to an OmieProduct');
+    }
+
+    const omieProduct = await prisma.omieProduct.findUnique({
+      where: { id: product.omieProductId },
+      select: { id: true, rawPayload: true },
+    });
+
+    if (!omieProduct) {
+      throw new AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
+    }
+
+    const stock = await getStockByRawPayload(omieProduct.rawPayload);
+
+    return reply.send(
+      ok({
+        productId: product.id,
+        omieProductId: omieProduct.id,
+        ...stock,
+      })
+    );
   });
 }

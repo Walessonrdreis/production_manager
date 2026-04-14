@@ -8,15 +8,13 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "pnpm run db:migrate:prod && node dist/server.js"
-,
-
+    "start": "pnpm run db:migrate:prod && node dist/server.js",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:prod": "prisma migrate deploy",
     "db:studio": "prisma studio",
-
-    "test": "vitest run"
+    "test": "vitest run",
+    "backfill:omie-code": "tsx scripts/backfill-omie-code.ts"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

@@ -15,14 +15,17 @@ model SyncLock {
 model OmieProduct {
   id          String   @id @default(uuid())
   omieId      String   @unique
+  omieCode    String?  @db.VarChar(32)
   sku         String?
   description String
+  familyDescription String?
   active      Boolean  @default(true)
   rawPayload  Json
   lastSyncAt  DateTime @default(now())
 
   product Product?
 
+  @@index([omieCode])
   @@index([description])
 }
 
