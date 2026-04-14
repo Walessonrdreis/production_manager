@@ -250,9 +250,8 @@ async function productsRoutes(app) {
             orderBy: { capturedAt: 'desc' },
             take: 1,
             select: {
-                reported: true,
-                rawStockQuantity: true,
-                rawMinimumStock: true,
+                stockQuantity: true,
+                minimumStock: true,
                 capturedAt: true,
             },
         });
@@ -260,15 +259,16 @@ async function productsRoutes(app) {
         if (!latest) {
             throw new AppError_1.AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
         }
-        const rawQty = toNumber(latest.rawStockQuantity);
-        const rawMin = toNumber(latest.rawMinimumStock);
+        const rawQty = toNumber(latest.stockQuantity);
+        const rawMin = toNumber(latest.minimumStock);
+        const reported = rawQty != null || rawMin != null;
         const quantity = (rawQty ?? 0).toFixed(4);
         const minimum = (rawMin ?? 0).toFixed(4);
         return reply.send((0, http_1.ok)({
             productId,
             omieCode,
             quantity,
-            reported: Boolean(latest.reported),
+            reported,
             rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
             minimum,
             rawMinimum: rawMin == null ? null : rawMin.toFixed(4),
@@ -297,23 +297,23 @@ async function productsRoutes(app) {
                 skip: (page - 1) * safePageSize,
                 take: safePageSize,
                 select: {
-                    reported: true,
-                    rawStockQuantity: true,
-                    rawMinimumStock: true,
+                    stockQuantity: true,
+                    minimumStock: true,
                     capturedAt: true,
                 },
             }),
         ]);
         return reply.send((0, http_1.paginated)(rows.map((row) => {
-            const rawQty = toNumber(row.rawStockQuantity);
-            const rawMin = toNumber(row.rawMinimumStock);
+            const rawQty = toNumber(row.stockQuantity);
+            const rawMin = toNumber(row.minimumStock);
+            const reported = rawQty != null || rawMin != null;
             const quantity = (rawQty ?? 0).toFixed(4);
             const minimum = (rawMin ?? 0).toFixed(4);
             return {
                 productId,
                 omieCode,
                 quantity,
-                reported: Boolean(row.reported),
+                reported,
                 rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
                 minimum,
                 rawMinimum: rawMin == null ? null : rawMin.toFixed(4),

@@ -50,9 +50,8 @@ describe('Stock endpoints', () => {
 
     (prisma.productStock.findMany as any).mockResolvedValue([
       {
-        reported: true,
-        rawStockQuantity: '10',
-        rawMinimumStock: '2',
+        stockQuantity: '10',
+        minimumStock: '2',
         capturedAt: new Date('2026-04-14T12:00:00.000Z'),
       },
     ]);
@@ -140,9 +139,8 @@ describe('Stock endpoints', () => {
   it('GET /v1/omie/products/by-code/:omieCode/stock - coalesce para 0.0000 quando ausente, mantendo reported=false e rawQuantity=null', async () => {
     (prisma.productStock.findMany as any).mockResolvedValue([
       {
-        reported: false,
-        rawStockQuantity: null,
-        rawMinimumStock: null,
+        stockQuantity: null,
+        minimumStock: null,
         capturedAt: new Date('2026-04-14T12:00:00.000Z'),
       },
     ]);
@@ -178,9 +176,8 @@ describe('Stock endpoints', () => {
   it('GET /v1/omie/products/by-code/:omieCode/stock - preserva valores negativos', async () => {
     (prisma.productStock.findMany as any).mockResolvedValue([
       {
-        reported: true,
-        rawStockQuantity: '-2.5',
-        rawMinimumStock: '-1',
+        stockQuantity: '-2.5',
+        minimumStock: '-1',
         capturedAt: new Date('2026-04-14T12:00:00.000Z'),
       },
     ]);
@@ -224,8 +221,8 @@ describe('Stock endpoints', () => {
 
     (prisma.productStock.count as any).mockResolvedValue(3);
     (prisma.productStock.findMany as any).mockResolvedValue([
-      { reported: true, rawStockQuantity: '10', rawMinimumStock: '2', capturedAt: new Date('2026-04-14T12:00:00.000Z') },
-      { reported: true, rawStockQuantity: '9', rawMinimumStock: '2', capturedAt: new Date('2026-04-13T12:00:00.000Z') },
+      { stockQuantity: '10', minimumStock: '2', capturedAt: new Date('2026-04-14T12:00:00.000Z') },
+      { stockQuantity: '9', minimumStock: '2', capturedAt: new Date('2026-04-13T12:00:00.000Z') },
     ]);
 
     const app = await buildApp();

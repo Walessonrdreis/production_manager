@@ -36,22 +36,22 @@ async function omieRoutes(app) {
         const result = await service.execute(request.requestId, force);
         return reply.send(result);
     });
-    app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
+    app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
         await OmieStockCache_1.omieStockCache.refreshNow();
         const capturedAt = new Date();
         const snapshot = await OmieStockCache_1.omieStockCache.getSnapshot();
-        const parseDecimalString = (value) => {
+        const normalizeNumberString = (value) => {
             if (typeof value === 'number') {
-                return Number.isFinite(value) ? String(value) : null;
+                return Number.isFinite(value) ? String(value) : '0';
             }
             if (typeof value === 'string') {
                 const trimmed = value.trim();
                 if (!trimmed)
-                    return null;
+                    return '0';
                 const parsed = Number(trimmed.replace(',', '.'));
-                return Number.isFinite(parsed) ? String(parsed) : null;
+                return Number.isFinite(parsed) ? String(parsed) : '0';
             }
-            return null;
+            return '0';
         };
         const snapshotMap = new Map();
         const maybeSnapshot = snapshot;
@@ -69,28 +69,39 @@ async function omieRoutes(app) {
             for (const [k, v] of Object.entries(items))
                 snapshotMap.set(String(k).trim(), v);
         }
-        const refresh = await db_1.prisma.stockRefresh.create({
-            data: {
-                source: 'omie',
-                startedAt: capturedAt,
-                status: 'SUCCESS',
-                totalItems: snapshotMap.size,
-                reportedItems: snapshotMap.size,
-                missingItems: 0,
-                finishedAt: new Date(),
-            },
-            select: { id: true },
-        });
+        const MAX_OMIE_CODE_LENGTH = 32;
+        const MAX_DECIMAL_INTEGER_DIGITS = 14;
+        let skippedTooLongOmieCode = 0;
+        let skippedOutOfRangeDecimal = 0;
         const rows = Array.from(snapshotMap.entries())
-            .map(([omieCode, entry]) => ({
-            refreshId: refresh.id,
-            omieCode,
-            reported: true,
-            rawStockQuantity: parseDecimalString(entry?.stockQuantity),
-            rawMinimumStock: parseDecimalString(entry?.minimumStock),
-            capturedAt,
-        }))
-            .filter((row) => Boolean(row.omieCode));
+            .map(([omieCode, entry]) => {
+            const normalizedOmieCode = String(omieCode ?? '').trim();
+            const stockQuantity = normalizeNumberString(entry?.stockQuantity);
+            const minimumStock = normalizeNumberString(entry?.minimumStock);
+            return {
+                omieCode: normalizedOmieCode,
+                stockQuantity,
+                minimumStock,
+                capturedAt,
+            };
+        })
+            .filter((row) => {
+            if (!row.omieCode)
+                return false;
+            if (row.omieCode.length > MAX_OMIE_CODE_LENGTH) {
+                skippedTooLongOmieCode += 1;
+                return false;
+            }
+            const qty = toNumber(row.stockQuantity);
+            const min = toNumber(row.minimumStock);
+            const qtyIntDigits = qty == null ? 0 : Math.trunc(Math.abs(qty)).toString().replace('-', '').length;
+            const minIntDigits = min == null ? 0 : Math.trunc(Math.abs(min)).toString().replace('-', '').length;
+            if (qtyIntDigits > MAX_DECIMAL_INTEGER_DIGITS || minIntDigits > MAX_DECIMAL_INTEGER_DIGITS) {
+                skippedOutOfRangeDecimal += 1;
+                return false;
+            }
+            return true;
+        });
         const BATCH_SIZE = 1000;
         let insertedCount = 0;
         if (rows.length > 0) {
@@ -99,15 +110,15 @@ async function omieRoutes(app) {
                 const result = await db_1.prisma.productStock.createMany({
                     data: batch,
                 });
-                insertedCount += result.count;
+                insertedCount += result?.count ?? 0;
             }
-        }
-        else {
-            request.log.info({ capturedAt }, 'Empty stock snapshot; nothing to persist');
         }
         return reply.send((0, http_1.ok)({
             insertedCount,
             capturedAt: capturedAt.toISOString(),
+        }, {
+            skippedTooLongOmieCode,
+            skippedOutOfRangeDecimal,
         }));
     });
     app.get('/v1/omie/stock', async (_request, reply) => {
@@ -381,9 +392,8 @@ async function omieRoutes(app) {
             orderBy: { capturedAt: 'desc' },
             take: 1,
             select: {
-                reported: true,
-                rawStockQuantity: true,
-                rawMinimumStock: true,
+                stockQuantity: true,
+                minimumStock: true,
                 capturedAt: true,
             },
         });
@@ -391,15 +401,16 @@ async function omieRoutes(app) {
         if (!latest) {
             throw new AppError_1.AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
         }
-        const rawQty = toNumber(latest.rawStockQuantity);
-        const rawMin = toNumber(latest.rawMinimumStock);
+        const rawQty = toNumber(latest.stockQuantity);
+        const rawMin = toNumber(latest.minimumStock);
+        const reported = rawQty != null || rawMin != null;
         const quantity = (rawQty ?? 0).toFixed(4);
         const minimum = (rawMin ?? 0).toFixed(4);
         return reply.send((0, http_1.ok)({
             omieProductId: omieProduct.id,
             omieCode,
             quantity,
-            reported: Boolean(latest.reported),
+            reported,
             rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
             minimum,
             rawMinimum: rawMin == null ? null : rawMin.toFixed(4),
@@ -415,28 +426,34 @@ async function omieRoutes(app) {
         });
         const { omieCode } = paramsSchema.parse(request.params);
         const latestRows = await db_1.prisma.productStock.findMany({
-            where: { omieCode, reported: true },
+            where: { omieCode },
             orderBy: { capturedAt: 'desc' },
             take: 1,
             select: {
-                rawStockQuantity: true,
-                rawMinimumStock: true,
+                stockQuantity: true,
+                minimumStock: true,
                 capturedAt: true,
             },
         });
-        const latest = latestRows[0];
+        const latest = latestRows?.[0];
         if (!latest) {
             throw new AppError_1.AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
         }
-        const rawQty = toNumber(latest.rawStockQuantity);
-        const rawMin = toNumber(latest.rawMinimumStock);
-        const stockQuantity = (rawQty ?? 0).toFixed(4);
-        const minimumStock = (rawMin ?? 0).toFixed(4);
+        const rawQty = toNumber(latest.stockQuantity);
+        const rawMin = toNumber(latest.minimumStock);
+        const reported = rawQty != null || rawMin != null;
+        const quantity = (rawQty ?? 0).toFixed(4);
+        const minimum = (rawMin ?? 0).toFixed(4);
         return reply.send((0, http_1.ok)({
             omieCode,
-            stockQuantity,
-            minimumStock,
-            capturedAt: latest.capturedAt.toISOString(),
+            quantity,
+            reported,
+            rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
+            minimum,
+            rawMinimum: rawMin == null ? null : rawMin.toFixed(4),
+            stockQuantity: quantity,
+            minimumStock: minimum,
+            capturedAt: latest.capturedAt,
         }));
     });
 }

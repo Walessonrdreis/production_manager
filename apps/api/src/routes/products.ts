@@ -305,9 +305,8 @@ export async function productsRoutes(app: FastifyInstance) {
       orderBy: { capturedAt: 'desc' },
       take: 1,
       select: {
-        reported: true,
-        rawStockQuantity: true,
-        rawMinimumStock: true,
+        stockQuantity: true,
+        minimumStock: true,
         capturedAt: true,
       },
     });
@@ -318,8 +317,9 @@ export async function productsRoutes(app: FastifyInstance) {
       throw new AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
     }
 
-    const rawQty = toNumber(latest.rawStockQuantity);
-    const rawMin = toNumber(latest.rawMinimumStock);
+    const rawQty = toNumber(latest.stockQuantity);
+    const rawMin = toNumber(latest.minimumStock);
+    const reported = rawQty != null || rawMin != null;
     const quantity = (rawQty ?? 0).toFixed(4);
     const minimum = (rawMin ?? 0).toFixed(4);
 
@@ -328,7 +328,7 @@ export async function productsRoutes(app: FastifyInstance) {
         productId,
         omieCode,
         quantity,
-        reported: Boolean(latest.reported),
+        reported,
         rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
         minimum,
         rawMinimum: rawMin == null ? null : rawMin.toFixed(4),
@@ -363,9 +363,8 @@ export async function productsRoutes(app: FastifyInstance) {
         skip: (page - 1) * safePageSize,
         take: safePageSize,
         select: {
-          reported: true,
-          rawStockQuantity: true,
-          rawMinimumStock: true,
+          stockQuantity: true,
+          minimumStock: true,
           capturedAt: true,
         },
       }),
@@ -374,8 +373,9 @@ export async function productsRoutes(app: FastifyInstance) {
     return reply.send(
       paginated(
         rows.map((row: any) => {
-          const rawQty = toNumber(row.rawStockQuantity);
-          const rawMin = toNumber(row.rawMinimumStock);
+          const rawQty = toNumber(row.stockQuantity);
+          const rawMin = toNumber(row.minimumStock);
+          const reported = rawQty != null || rawMin != null;
           const quantity = (rawQty ?? 0).toFixed(4);
           const minimum = (rawMin ?? 0).toFixed(4);
 
@@ -383,7 +383,7 @@ export async function productsRoutes(app: FastifyInstance) {
             productId,
             omieCode,
             quantity,
-            reported: Boolean(row.reported),
+            reported,
             rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
             minimum,
             rawMinimum: rawMin == null ? null : rawMin.toFixed(4),

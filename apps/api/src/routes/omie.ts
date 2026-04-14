@@ -39,25 +39,25 @@ export async function omieRoutes(app: FastifyInstance) {
     return reply.send(result);
   });
 
-  app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
+  app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
     await omieStockCache.refreshNow();
 
     const capturedAt = new Date();
     const snapshot = await omieStockCache.getSnapshot();
 
-    const parseDecimalString = (value: unknown): string | null => {
+    const normalizeNumberString = (value: unknown): string => {
       if (typeof value === 'number') {
-        return Number.isFinite(value) ? String(value) : null;
+        return Number.isFinite(value) ? String(value) : '0';
       }
 
       if (typeof value === 'string') {
         const trimmed = value.trim();
-        if (!trimmed) return null;
+        if (!trimmed) return '0';
         const parsed = Number(trimmed.replace(',', '.'));
-        return Number.isFinite(parsed) ? String(parsed) : null;
+        return Number.isFinite(parsed) ? String(parsed) : '0';
       }
 
-      return null;
+      return '0';
     };
 
     const snapshotMap = new Map<string, any>();
@@ -73,116 +73,69 @@ export async function omieRoutes(app: FastifyInstance) {
       for (const [k, v] of Object.entries(items)) snapshotMap.set(String(k).trim(), v);
     }
 
-    const catalog = await prisma.omieProduct.findMany({
-      select: {
-        omieCode: true,
-        omieId: true,
-        rawPayload: true,
-      },
-    });
+    const MAX_OMIE_CODE_LENGTH = 32;
+    const MAX_DECIMAL_INTEGER_DIGITS = 14;
 
-    const catalogCodes: string[] = [];
-    const seenCodes = new Set<string>();
-    let missingPersistedOmieCodeCount = 0;
+    let skippedTooLongOmieCode = 0;
+    let skippedOutOfRangeDecimal = 0;
 
-    for (const item of catalog) {
-      const persisted = item.omieCode?.trim();
-      const extracted = OmieAdapter.extractProductCode(item.rawPayload)?.trim();
-      const fallback = item.omieId?.trim();
+    const rows = Array.from(snapshotMap.entries())
+      .map(([omieCode, entry]) => {
+        const normalizedOmieCode = String(omieCode ?? '').trim();
+        const stockQuantity = normalizeNumberString(entry?.stockQuantity);
+        const minimumStock = normalizeNumberString(entry?.minimumStock);
 
-      const code = persisted || extracted || fallback;
-      if (!code) continue;
-      if (seenCodes.has(code)) continue;
-      seenCodes.add(code);
-      catalogCodes.push(code);
+        return {
+          omieCode: normalizedOmieCode,
+          stockQuantity,
+          minimumStock,
+          capturedAt,
+        };
+      })
+      .filter((row) => {
+        if (!row.omieCode) return false;
 
-      if (!persisted && extracted) {
-        missingPersistedOmieCodeCount += 1;
-      }
-    }
+        if (row.omieCode.length > MAX_OMIE_CODE_LENGTH) {
+          skippedTooLongOmieCode += 1;
+          return false;
+        }
 
-    if (missingPersistedOmieCodeCount > 0) {
-      request.log.warn(
-        { missingPersistedOmieCodeCount },
-        'Some catalog items are missing persisted omieCode; falling back to rawPayload extraction'
-      );
-    }
+        const qty = toNumber(row.stockQuantity);
+        const min = toNumber(row.minimumStock);
 
-    const refreshId = crypto.randomUUID();
-    await (prisma as any).stockRefresh.create({
-      data: {
-        id: refreshId,
-        source: 'omie',
-        startedAt: capturedAt,
-        status: 'RUNNING',
-      },
-    });
+        const qtyIntDigits =
+          qty == null ? 0 : Math.trunc(Math.abs(qty)).toString().replace('-', '').length;
+        const minIntDigits =
+          min == null ? 0 : Math.trunc(Math.abs(min)).toString().replace('-', '').length;
 
-    let reportedItems = 0;
+        if (qtyIntDigits > MAX_DECIMAL_INTEGER_DIGITS || minIntDigits > MAX_DECIMAL_INTEGER_DIGITS) {
+          skippedOutOfRangeDecimal += 1;
+          return false;
+        }
 
-    const rows: Array<{
-      id: string;
-      refreshId: string;
-      omieCode: string;
-      rawStockQuantity: string | null;
-      rawMinimumStock: string | null;
-      reported: boolean;
-      capturedAt: Date;
-    }> = [];
-
-    for (const omieCode of catalogCodes) {
-      const entry = snapshotMap.get(omieCode);
-      const reported = entry !== undefined;
-
-      if (reported) {
-        reportedItems += 1;
-      }
-
-      rows.push({
-        id: crypto.randomUUID(),
-        refreshId,
-        omieCode,
-        reported,
-        rawStockQuantity: reported ? parseDecimalString(entry?.stockQuantity) : null,
-        rawMinimumStock: reported ? parseDecimalString(entry?.minimumStock) : null,
-        capturedAt,
+        return true;
       });
-    }
 
-    const BATCH_SIZE = 500;
+    const BATCH_SIZE = 1000;
     let insertedCount = 0;
 
-    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-      const batch = rows.slice(i, i + BATCH_SIZE);
-      const result = await (prisma as any).productStock.createMany({
-        data: batch,
-        skipDuplicates: false,
-      });
-      insertedCount += result?.count ?? 0;
+    if (rows.length > 0) {
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = rows.slice(i, i + BATCH_SIZE);
+        const result = await (prisma as any).productStock.createMany({
+          data: batch,
+        });
+        insertedCount += result?.count ?? 0;
+      }
     }
-
-    const totalItems = catalogCodes.length;
-    const missingItems = totalItems - reportedItems;
-
-    await (prisma as any).stockRefresh.update({
-      where: { id: refreshId },
-      data: {
-        finishedAt: new Date(),
-        status: 'SUCCESS',
-        totalItems,
-        reportedItems,
-        missingItems,
-      },
-    });
 
     return reply.send(
       ok({
-        refreshId,
-        totalItems,
-        reportedItems,
-        missingItems,
         insertedCount,
         capturedAt: capturedAt.toISOString(),
+      }, {
+        skippedTooLongOmieCode,
+        skippedOutOfRangeDecimal,
       })
     );
   });
@@ -558,9 +511,8 @@ export async function omieRoutes(app: FastifyInstance) {
       orderBy: { capturedAt: 'desc' },
       take: 1,
       select: {
-        reported: true,
-        rawStockQuantity: true,
-        rawMinimumStock: true,
+        stockQuantity: true,
+        minimumStock: true,
         capturedAt: true,
       },
     });
@@ -571,8 +523,9 @@ export async function omieRoutes(app: FastifyInstance) {
       throw new AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
     }
 
-    const rawQty = toNumber(latest.rawStockQuantity);
-    const rawMin = toNumber(latest.rawMinimumStock);
+    const rawQty = toNumber(latest.stockQuantity);
+    const rawMin = toNumber(latest.minimumStock);
+    const reported = rawQty != null || rawMin != null;
     const quantity = (rawQty ?? 0).toFixed(4);
     const minimum = (rawMin ?? 0).toFixed(4);
 
@@ -581,7 +534,7 @@ export async function omieRoutes(app: FastifyInstance) {
         omieProductId: omieProduct.id,
         omieCode,
         quantity,
-        reported: Boolean(latest.reported),
+        reported,
         rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
         minimum,
         rawMinimum: rawMin == null ? null : rawMin.toFixed(4),
@@ -605,9 +558,8 @@ export async function omieRoutes(app: FastifyInstance) {
       orderBy: { capturedAt: 'desc' },
       take: 1,
       select: {
-        reported: true,
-        rawStockQuantity: true,
-        rawMinimumStock: true,
+        stockQuantity: true,
+        minimumStock: true,
         capturedAt: true,
       },
     });
@@ -618,8 +570,9 @@ export async function omieRoutes(app: FastifyInstance) {
       throw new AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
     }
 
-    const rawQty = toNumber(latest.rawStockQuantity);
-    const rawMin = toNumber(latest.rawMinimumStock);
+    const rawQty = toNumber(latest.stockQuantity);
+    const rawMin = toNumber(latest.minimumStock);
+    const reported = rawQty != null || rawMin != null;
     const quantity = (rawQty ?? 0).toFixed(4);
     const minimum = (rawMin ?? 0).toFixed(4);
 
@@ -627,7 +580,7 @@ export async function omieRoutes(app: FastifyInstance) {
       ok({
         omieCode,
         quantity,
-        reported: Boolean(latest.reported),
+        reported,
         rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
         minimum,
         rawMinimum: rawMin == null ? null : rawMin.toFixed(4),

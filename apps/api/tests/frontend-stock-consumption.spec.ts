@@ -101,9 +101,8 @@ describe('Frontend consumption (stock endpoints)', () => {
 
     (prisma.productStock.findMany as any).mockResolvedValue([
       {
-        reported: true,
-        rawStockQuantity: '10',
-        rawMinimumStock: '2',
+        stockQuantity: '10',
+        minimumStock: '2',
         capturedAt: new Date('2026-04-14T12:00:00.000Z'),
       },
     ]);
@@ -132,9 +131,8 @@ describe('Frontend consumption (stock endpoints)', () => {
 
     (prisma.productStock.findMany as any).mockResolvedValue([
       {
-        reported: true,
-        rawStockQuantity: '1',
-        rawMinimumStock: '0',
+        stockQuantity: '1',
+        minimumStock: '0',
         capturedAt: new Date('2026-04-14T12:00:00.000Z'),
       },
     ]);
@@ -155,9 +153,8 @@ describe('Frontend consumption (stock endpoints)', () => {
   it('consome GET /v1/omie/products/by-code/:omieCode/stock retornando zeros sem quebrar o frontend', async () => {
     (prisma.productStock.findMany as any).mockResolvedValue([
       {
-        reported: false,
-        rawStockQuantity: null,
-        rawMinimumStock: null,
+        stockQuantity: null,
+        minimumStock: null,
         capturedAt: new Date('2026-04-14T12:00:00.000Z'),
       },
     ]);
