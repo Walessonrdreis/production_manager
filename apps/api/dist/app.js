@@ -76,7 +76,7 @@ async function buildApp() {
         }
         if (isAppError(error)) {
             if (process.env.NODE_ENV !== 'test') {
-                app.log.warn(`[${error.code}] ${error.message} (requestId: ${request.requestId})`);
+                request.log.warn({ requestId }, `[${error.code}] ${error.message}`);
             }
             const details = isDev
                 ? { ...(error.details || {}), stack: error.stack }
@@ -92,7 +92,7 @@ async function buildApp() {
         }
         // Loga apenas os erros inesperados com detalhes completos
         if (process.env.NODE_ENV !== 'test') {
-            app.log.error({ err: error, requestId: request.requestId }, 'Erro Inesperado');
+            request.log.error({ err: error, requestId }, 'Erro Inesperado');
         }
         // Fallback 500 para erros não mapeados
         reply.status(500).send({

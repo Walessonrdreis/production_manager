@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../db';
 import { SyncOmieProductsService } from '../core/SyncOmieProductsService';
@@ -6,9 +7,24 @@ import { OmieAdapter } from '../integrations/omie/OmieAdapter';
 import { omieStockCache } from '../integrations/omie/OmieStockCache';
 import { ok, paginated, wantsLegacyResponse } from '../lib/http';
 import { AppError } from '../core/errors/AppError';
-import { getStockByRawPayload } from '../services/omieStock.service';
 
 export async function omieRoutes(app: FastifyInstance) {
+  const toNumber = (value: any): number | null => {
+    if (value == null) return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value === 'string') {
+      const parsed = Number(value.trim().replace(',', '.'));
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    if (typeof value?.toNumber === 'function') {
+      const num = value.toNumber();
+      return Number.isFinite(num) ? num : null;
+    }
+    const asString = typeof value?.toString === 'function' ? value.toString() : String(value);
+    const parsed = Number(String(asString).trim().replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
   app.post('/v1/omie/sync/products', async (request, reply) => {
     const querySchema = z.object({
       force: z.coerce.boolean().optional().default(false),
@@ -23,45 +39,152 @@ export async function omieRoutes(app: FastifyInstance) {
     return reply.send(result);
   });
 
-  app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
+  app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
     await omieStockCache.refreshNow();
 
     const capturedAt = new Date();
-    const stockCacheUpdatedAt = omieStockCache.getLastUpdatedAt();
     const snapshot = await omieStockCache.getSnapshot();
 
+    const parseDecimalString = (value: unknown): string | null => {
+      if (typeof value === 'number') {
+        return Number.isFinite(value) ? String(value) : null;
+      }
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        const parsed = Number(trimmed.replace(',', '.'));
+        return Number.isFinite(parsed) ? String(parsed) : null;
+      }
+
+      return null;
+    };
+
+    const snapshotMap = new Map<string, any>();
+    const maybeSnapshot: any = snapshot as any;
+    const items = maybeSnapshot?.items ?? maybeSnapshot;
+
+    if (items instanceof Map) {
+      for (const [k, v] of items.entries()) snapshotMap.set(String(k).trim(), v);
+    } else if (items && typeof items.entries === 'function') {
+      const entries = Array.from((items as any).entries()) as Array<[unknown, unknown]>;
+      for (const [k, v] of entries) snapshotMap.set(String(k).trim(), v);
+    } else if (items && typeof items === 'object') {
+      for (const [k, v] of Object.entries(items)) snapshotMap.set(String(k).trim(), v);
+    }
+
+    const catalog = await prisma.omieProduct.findMany({
+      select: {
+        omieCode: true,
+        omieId: true,
+        rawPayload: true,
+      },
+    });
+
+    const catalogCodes: string[] = [];
+    const seenCodes = new Set<string>();
+    let missingPersistedOmieCodeCount = 0;
+
+    for (const item of catalog) {
+      const persisted = item.omieCode?.trim();
+      const extracted = OmieAdapter.extractProductCode(item.rawPayload)?.trim();
+      const fallback = item.omieId?.trim();
+
+      const code = persisted || extracted || fallback;
+      if (!code) continue;
+      if (seenCodes.has(code)) continue;
+      seenCodes.add(code);
+      catalogCodes.push(code);
+
+      if (!persisted && extracted) {
+        missingPersistedOmieCodeCount += 1;
+      }
+    }
+
+    if (missingPersistedOmieCodeCount > 0) {
+      request.log.warn(
+        { missingPersistedOmieCodeCount },
+        'Some catalog items are missing persisted omieCode; falling back to rawPayload extraction'
+      );
+    }
+
+    const refreshId = crypto.randomUUID();
+    await (prisma as any).stockRefresh.create({
+      data: {
+        id: refreshId,
+        source: 'omie',
+        startedAt: capturedAt,
+        status: 'RUNNING',
+      },
+    });
+
+    let reportedItems = 0;
+
     const rows: Array<{
+      id: string;
+      refreshId: string;
       omieCode: string;
-      stockQuantity: string;
-      minimumStock: string;
+      rawStockQuantity: string | null;
+      rawMinimumStock: string | null;
+      reported: boolean;
       capturedAt: Date;
     }> = [];
 
-    for (const [omieCode, entry] of snapshot.entries()) {
+    for (const omieCode of catalogCodes) {
+      const entry = snapshotMap.get(omieCode);
+      const reported = entry !== undefined;
+
+      if (reported) {
+        reportedItems += 1;
+      }
+
       rows.push({
+        id: crypto.randomUUID(),
+        refreshId,
         omieCode,
-        stockQuantity: entry?.stockQuantity != null ? String(entry.stockQuantity) : '0',
-        minimumStock: entry?.minimumStock != null ? String(entry.minimumStock) : '0',
+        reported,
+        rawStockQuantity: reported ? parseDecimalString(entry?.stockQuantity) : null,
+        rawMinimumStock: reported ? parseDecimalString(entry?.minimumStock) : null,
         capturedAt,
       });
     }
 
-    const BATCH_SIZE = 1000;
+    const BATCH_SIZE = 500;
     let insertedCount = 0;
 
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {
       const batch = rows.slice(i, i + BATCH_SIZE);
       const result = await (prisma as any).productStock.createMany({
         data: batch,
+        skipDuplicates: false,
       });
       insertedCount += result?.count ?? 0;
     }
 
-    return reply.send({
-      stockCacheUpdatedAt,
-      insertedCount,
-      capturedAt: capturedAt.toISOString(),
+    const totalItems = catalogCodes.length;
+    const missingItems = totalItems - reportedItems;
+
+    await (prisma as any).stockRefresh.update({
+      where: { id: refreshId },
+      data: {
+        finishedAt: new Date(),
+        status: 'SUCCESS',
+        totalItems,
+        reportedItems,
+        missingItems,
+      },
     });
+
+    return reply.send(
+      ok({
+        refreshId,
+        totalItems,
+        reportedItems,
+        missingItems,
+        insertedCount,
+        capturedAt: capturedAt.toISOString(),
+      })
+    );
   });
 
   app.get('/v1/omie/stock', async (_request, reply) => {
@@ -416,19 +539,56 @@ export async function omieRoutes(app: FastifyInstance) {
 
     const omieProduct = await prisma.omieProduct.findUnique({
       where: { id },
-      select: { id: true, rawPayload: true },
+      select: { id: true, omieCode: true, omieId: true, rawPayload: true },
     });
 
     if (!omieProduct) {
       throw new AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
     }
 
-    const stock = await getStockByRawPayload(omieProduct.rawPayload);
+    const extractedOmieCode = OmieAdapter.extractProductCode(omieProduct.rawPayload)?.trim();
+    const omieCode = extractedOmieCode || omieProduct.omieCode?.trim() || omieProduct.omieId?.trim();
+
+    if (!omieCode) {
+      throw new AppError('OMIE_CODE_NOT_FOUND', 422, 'Omie code not found');
+    }
+
+    const latestRows = await (prisma as any).productStock.findMany({
+      where: { omieCode },
+      orderBy: { capturedAt: 'desc' },
+      take: 1,
+      select: {
+        reported: true,
+        rawStockQuantity: true,
+        rawMinimumStock: true,
+        capturedAt: true,
+      },
+    });
+
+    const latest = latestRows?.[0];
+
+    if (!latest) {
+      throw new AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
+    }
+
+    const rawQty = toNumber(latest.rawStockQuantity);
+    const rawMin = toNumber(latest.rawMinimumStock);
+    const quantity = (rawQty ?? 0).toFixed(4);
+    const minimum = (rawMin ?? 0).toFixed(4);
 
     return reply.send(
       ok({
         omieProductId: omieProduct.id,
-        ...stock,
+        omieCode,
+        quantity,
+        reported: Boolean(latest.reported),
+        rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
+        minimum,
+        rawMinimum: rawMin == null ? null : rawMin.toFixed(4),
+        stockQuantity: quantity,
+        minimumStock: minimum,
+        stockCacheUpdatedAt: latest.capturedAt.toISOString(),
+        capturedAt: latest.capturedAt,
       })
     );
   });
@@ -445,8 +605,9 @@ export async function omieRoutes(app: FastifyInstance) {
       orderBy: { capturedAt: 'desc' },
       take: 1,
       select: {
-        stockQuantity: true,
-        minimumStock: true,
+        reported: true,
+        rawStockQuantity: true,
+        rawMinimumStock: true,
         capturedAt: true,
       },
     });
@@ -457,11 +618,21 @@ export async function omieRoutes(app: FastifyInstance) {
       throw new AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
     }
 
+    const rawQty = toNumber(latest.rawStockQuantity);
+    const rawMin = toNumber(latest.rawMinimumStock);
+    const quantity = (rawQty ?? 0).toFixed(4);
+    const minimum = (rawMin ?? 0).toFixed(4);
+
     return reply.send(
       ok({
         omieCode,
-        stockQuantity: String(latest.stockQuantity),
-        minimumStock: String(latest.minimumStock),
+        quantity,
+        reported: Boolean(latest.reported),
+        rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
+        minimum,
+        rawMinimum: rawMin == null ? null : rawMin.toFixed(4),
+        stockQuantity: quantity,
+        minimumStock: minimum,
         capturedAt: latest.capturedAt,
       })
     );

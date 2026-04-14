@@ -50,8 +50,9 @@ describe('Stock endpoints', () => {
 
     (prisma.productStock.findMany as any).mockResolvedValue([
       {
-        stockQuantity: '10',
-        minimumStock: '2',
+        reported: true,
+        rawStockQuantity: '10',
+        rawMinimumStock: '2',
         capturedAt: new Date('2026-04-14T12:00:00.000Z'),
       },
     ]);
@@ -72,8 +73,13 @@ describe('Stock endpoints', () => {
     expect(body.data).toMatchObject({
       productId: '8eaa43ac-6e71-4fe8-9ea3-2b5e4e3f2d11',
       omieCode: '12345',
-      stockQuantity: '10',
-      minimumStock: '2',
+      quantity: '10.0000',
+      stockQuantity: '10.0000',
+      minimum: '2.0000',
+      minimumStock: '2.0000',
+      reported: true,
+      rawQuantity: '10.0000',
+      rawMinimum: '2.0000',
       capturedAt: '2026-04-14T12:00:00.000Z',
     });
 
@@ -131,11 +137,12 @@ describe('Stock endpoints', () => {
     await app.close();
   });
 
-  it('GET /v1/omie/products/by-code/:omieCode/stock - retorna 200 com "0" quando ausente, mas com stockCacheUpdatedAt se snapshot existir', async () => {
+  it('GET /v1/omie/products/by-code/:omieCode/stock - coalesce para 0.0000 quando ausente, mantendo reported=false e rawQuantity=null', async () => {
     (prisma.productStock.findMany as any).mockResolvedValue([
       {
-        stockQuantity: '0',
-        minimumStock: '0',
+        reported: false,
+        rawStockQuantity: null,
+        rawMinimumStock: null,
         capturedAt: new Date('2026-04-14T12:00:00.000Z'),
       },
     ]);
@@ -145,7 +152,7 @@ describe('Stock endpoints', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/v1/omie/products/by-code/99999/stock',
+      url: '/v1/omie/products/by-code/222/stock',
     });
 
     expect(response.statusCode).toBe(200);
@@ -154,9 +161,49 @@ describe('Stock endpoints', () => {
     const body = JSON.parse(response.payload);
     expect(body).toHaveProperty('data');
     expect(body.data).toMatchObject({
-      omieCode: '99999',
-      stockQuantity: '0',
-      minimumStock: '0',
+      omieCode: '222',
+      quantity: '0.0000',
+      stockQuantity: '0.0000',
+      minimum: '0.0000',
+      minimumStock: '0.0000',
+      reported: false,
+      rawQuantity: null,
+      rawMinimum: null,
+      capturedAt: '2026-04-14T12:00:00.000Z',
+    });
+
+    await app.close();
+  });
+
+  it('GET /v1/omie/products/by-code/:omieCode/stock - preserva valores negativos', async () => {
+    (prisma.productStock.findMany as any).mockResolvedValue([
+      {
+        reported: true,
+        rawStockQuantity: '-2.5',
+        rawMinimumStock: '-1',
+        capturedAt: new Date('2026-04-14T12:00:00.000Z'),
+      },
+    ]);
+
+    const app = await buildApp();
+    await app.ready();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/omie/products/by-code/111/stock',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.payload);
+    expect(body.data).toMatchObject({
+      omieCode: '111',
+      quantity: '-2.5000',
+      minimum: '-1.0000',
+      reported: true,
+      rawQuantity: '-2.5000',
+      rawMinimum: '-1.0000',
+      stockQuantity: '-2.5000',
+      minimumStock: '-1.0000',
       capturedAt: '2026-04-14T12:00:00.000Z',
     });
 
@@ -177,8 +224,8 @@ describe('Stock endpoints', () => {
 
     (prisma.productStock.count as any).mockResolvedValue(3);
     (prisma.productStock.findMany as any).mockResolvedValue([
-      { stockQuantity: '10', minimumStock: '2', capturedAt: new Date('2026-04-14T12:00:00.000Z') },
-      { stockQuantity: '9', minimumStock: '2', capturedAt: new Date('2026-04-13T12:00:00.000Z') },
+      { reported: true, rawStockQuantity: '10', rawMinimumStock: '2', capturedAt: new Date('2026-04-14T12:00:00.000Z') },
+      { reported: true, rawStockQuantity: '9', rawMinimumStock: '2', capturedAt: new Date('2026-04-13T12:00:00.000Z') },
     ]);
 
     const app = await buildApp();
@@ -196,8 +243,13 @@ describe('Stock endpoints', () => {
     expect(body.data[0]).toMatchObject({
       productId: '8eaa43ac-6e71-4fe8-9ea3-2b5e4e3f2d11',
       omieCode: '12345',
-      stockQuantity: '10',
-      minimumStock: '2',
+      quantity: '10.0000',
+      stockQuantity: '10.0000',
+      minimum: '2.0000',
+      minimumStock: '2.0000',
+      reported: true,
+      rawQuantity: '10.0000',
+      rawMinimum: '2.0000',
       capturedAt: '2026-04-14T12:00:00.000Z',
     });
 

@@ -8,6 +8,22 @@ import { AppError } from '../core/errors/AppError';
 import { OmieAdapter } from '../integrations/omie/OmieAdapter';
 
 export async function productsRoutes(app: FastifyInstance) {
+  const toNumber = (value: any): number | null => {
+    if (value == null) return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value === 'string') {
+      const parsed = Number(value.trim().replace(',', '.'));
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    if (typeof value?.toNumber === 'function') {
+      const num = value.toNumber();
+      return Number.isFinite(num) ? num : null;
+    }
+    const asString = typeof value?.toString === 'function' ? value.toString() : String(value);
+    const parsed = Number(String(asString).trim().replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
   async function resolveOmieCodeFromProduct(productId: string): Promise<{
     productId: string;
     omieCode: string;
@@ -284,13 +300,14 @@ export async function productsRoutes(app: FastifyInstance) {
 
     const { productId, omieCode } = await resolveOmieCodeFromProduct(id);
 
-    const latestRows = await prisma.productStock.findMany({
+    const latestRows = await (prisma as any).productStock.findMany({
       where: { omieCode },
       orderBy: { capturedAt: 'desc' },
       take: 1,
       select: {
-        stockQuantity: true,
-        minimumStock: true,
+        reported: true,
+        rawStockQuantity: true,
+        rawMinimumStock: true,
         capturedAt: true,
       },
     });
@@ -301,12 +318,22 @@ export async function productsRoutes(app: FastifyInstance) {
       throw new AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
     }
 
+    const rawQty = toNumber(latest.rawStockQuantity);
+    const rawMin = toNumber(latest.rawMinimumStock);
+    const quantity = (rawQty ?? 0).toFixed(4);
+    const minimum = (rawMin ?? 0).toFixed(4);
+
     return reply.send(
       ok({
         productId,
         omieCode,
-        stockQuantity: String(latest.stockQuantity),
-        minimumStock: String(latest.minimumStock),
+        quantity,
+        reported: Boolean(latest.reported),
+        rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
+        minimum,
+        rawMinimum: rawMin == null ? null : rawMin.toFixed(4),
+        stockQuantity: quantity,
+        minimumStock: minimum,
         capturedAt: latest.capturedAt,
       })
     );
@@ -329,15 +356,16 @@ export async function productsRoutes(app: FastifyInstance) {
     const { productId, omieCode } = await resolveOmieCodeFromProduct(id);
 
     const [total, rows] = await Promise.all([
-      prisma.productStock.count({ where: { omieCode } }),
-      prisma.productStock.findMany({
+      (prisma as any).productStock.count({ where: { omieCode } }),
+      (prisma as any).productStock.findMany({
         where: { omieCode },
         orderBy: { capturedAt: 'desc' },
         skip: (page - 1) * safePageSize,
         take: safePageSize,
         select: {
-          stockQuantity: true,
-          minimumStock: true,
+          reported: true,
+          rawStockQuantity: true,
+          rawMinimumStock: true,
           capturedAt: true,
         },
       }),
@@ -345,13 +373,25 @@ export async function productsRoutes(app: FastifyInstance) {
 
     return reply.send(
       paginated(
-        rows.map((row) => ({
-          productId,
-          omieCode,
-          stockQuantity: String(row.stockQuantity),
-          minimumStock: String(row.minimumStock),
-          capturedAt: row.capturedAt,
-        })),
+        rows.map((row: any) => {
+          const rawQty = toNumber(row.rawStockQuantity);
+          const rawMin = toNumber(row.rawMinimumStock);
+          const quantity = (rawQty ?? 0).toFixed(4);
+          const minimum = (rawMin ?? 0).toFixed(4);
+
+          return {
+            productId,
+            omieCode,
+            quantity,
+            reported: Boolean(row.reported),
+            rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
+            minimum,
+            rawMinimum: rawMin == null ? null : rawMin.toFixed(4),
+            stockQuantity: quantity,
+            minimumStock: minimum,
+            capturedAt: row.capturedAt,
+          };
+        }),
         {
           page,
           pageSize: safePageSize,

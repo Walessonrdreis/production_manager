@@ -9,6 +9,23 @@ const http_1 = require("../lib/http");
 const AppError_1 = require("../core/errors/AppError");
 const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
 async function productsRoutes(app) {
+    const toNumber = (value) => {
+        if (value == null)
+            return null;
+        if (typeof value === 'number')
+            return Number.isFinite(value) ? value : null;
+        if (typeof value === 'string') {
+            const parsed = Number(value.trim().replace(',', '.'));
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+        if (typeof value?.toNumber === 'function') {
+            const num = value.toNumber();
+            return Number.isFinite(num) ? num : null;
+        }
+        const asString = typeof value?.toString === 'function' ? value.toString() : String(value);
+        const parsed = Number(String(asString).trim().replace(',', '.'));
+        return Number.isFinite(parsed) ? parsed : null;
+    };
     async function resolveOmieCodeFromProduct(productId) {
         const product = await db_1.prisma.product.findUnique({
             where: { id: productId },
@@ -233,8 +250,9 @@ async function productsRoutes(app) {
             orderBy: { capturedAt: 'desc' },
             take: 1,
             select: {
-                stockQuantity: true,
-                minimumStock: true,
+                reported: true,
+                rawStockQuantity: true,
+                rawMinimumStock: true,
                 capturedAt: true,
             },
         });
@@ -242,11 +260,20 @@ async function productsRoutes(app) {
         if (!latest) {
             throw new AppError_1.AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
         }
+        const rawQty = toNumber(latest.rawStockQuantity);
+        const rawMin = toNumber(latest.rawMinimumStock);
+        const quantity = (rawQty ?? 0).toFixed(4);
+        const minimum = (rawMin ?? 0).toFixed(4);
         return reply.send((0, http_1.ok)({
             productId,
             omieCode,
-            stockQuantity: String(latest.stockQuantity),
-            minimumStock: String(latest.minimumStock),
+            quantity,
+            reported: Boolean(latest.reported),
+            rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
+            minimum,
+            rawMinimum: rawMin == null ? null : rawMin.toFixed(4),
+            stockQuantity: quantity,
+            minimumStock: minimum,
             capturedAt: latest.capturedAt,
         }));
     });
@@ -270,19 +297,31 @@ async function productsRoutes(app) {
                 skip: (page - 1) * safePageSize,
                 take: safePageSize,
                 select: {
-                    stockQuantity: true,
-                    minimumStock: true,
+                    reported: true,
+                    rawStockQuantity: true,
+                    rawMinimumStock: true,
                     capturedAt: true,
                 },
             }),
         ]);
-        return reply.send((0, http_1.paginated)(rows.map((row) => ({
-            productId,
-            omieCode,
-            stockQuantity: String(row.stockQuantity),
-            minimumStock: String(row.minimumStock),
-            capturedAt: row.capturedAt,
-        })), {
+        return reply.send((0, http_1.paginated)(rows.map((row) => {
+            const rawQty = toNumber(row.rawStockQuantity);
+            const rawMin = toNumber(row.rawMinimumStock);
+            const quantity = (rawQty ?? 0).toFixed(4);
+            const minimum = (rawMin ?? 0).toFixed(4);
+            return {
+                productId,
+                omieCode,
+                quantity,
+                reported: Boolean(row.reported),
+                rawQuantity: rawQty == null ? null : rawQty.toFixed(4),
+                minimum,
+                rawMinimum: rawMin == null ? null : rawMin.toFixed(4),
+                stockQuantity: quantity,
+                minimumStock: minimum,
+                capturedAt: row.capturedAt,
+            };
+        }), {
             page,
             pageSize: safePageSize,
             total,

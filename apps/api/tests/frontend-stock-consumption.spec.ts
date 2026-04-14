@@ -101,8 +101,9 @@ describe('Frontend consumption (stock endpoints)', () => {
 
     (prisma.productStock.findMany as any).mockResolvedValue([
       {
-        stockQuantity: '10',
-        minimumStock: '2',
+        reported: true,
+        rawStockQuantity: '10',
+        rawMinimumStock: '2',
         capturedAt: new Date('2026-04-14T12:00:00.000Z'),
       },
     ]);
@@ -114,8 +115,8 @@ describe('Frontend consumption (stock endpoints)', () => {
 
     expect(result.status).toBe(200);
     expect(result.data.omieCode).toBe('12345');
-    expect(result.data.stockQuantity).toBe('10');
-    expect(result.data.minimumStock).toBe('2');
+    expect(result.data.stockQuantity).toBe('10.0000');
+    expect(result.data.minimumStock).toBe('2.0000');
     expect(result.data.stockCacheUpdatedAt).toBe('2026-04-14T12:00:00.000Z');
 
     await app.close();
@@ -124,15 +125,19 @@ describe('Frontend consumption (stock endpoints)', () => {
   it('consome GET /v1/omie/products/:id/stock sem falhar em parsing', async () => {
     (prisma.omieProduct.findUnique as any).mockResolvedValue({
       id: '0a74a47a-3b19-4f22-9b0f-8b8d41d8c6c6',
+      omieCode: '777',
+      omieId: '777',
       rawPayload: { codigo: '777' },
     });
 
-    (omieStockCache.getSnapshot as any).mockResolvedValue(
-      new Map([
-        ['777', { stockQuantity: '1', minimumStock: '0', updatedAt: '2026-04-14T12:00:00.000Z' }],
-      ])
-    );
-    (omieStockCache.getLastUpdatedAt as any).mockReturnValue('2026-04-14T12:00:00.000Z');
+    (prisma.productStock.findMany as any).mockResolvedValue([
+      {
+        reported: true,
+        rawStockQuantity: '1',
+        rawMinimumStock: '0',
+        capturedAt: new Date('2026-04-14T12:00:00.000Z'),
+      },
+    ]);
 
     const app = await buildApp();
     await app.ready();
@@ -141,8 +146,8 @@ describe('Frontend consumption (stock endpoints)', () => {
 
     expect(result.status).toBe(200);
     expect(result.data.omieCode).toBe('777');
-    expect(result.data.stockQuantity).toBe('1');
-    expect(result.data.minimumStock).toBe('0');
+    expect(result.data.stockQuantity).toBe('1.0000');
+    expect(result.data.minimumStock).toBe('0.0000');
 
     await app.close();
   });
@@ -150,8 +155,9 @@ describe('Frontend consumption (stock endpoints)', () => {
   it('consome GET /v1/omie/products/by-code/:omieCode/stock retornando zeros sem quebrar o frontend', async () => {
     (prisma.productStock.findMany as any).mockResolvedValue([
       {
-        stockQuantity: '0',
-        minimumStock: '0',
+        reported: false,
+        rawStockQuantity: null,
+        rawMinimumStock: null,
         capturedAt: new Date('2026-04-14T12:00:00.000Z'),
       },
     ]);
@@ -163,8 +169,8 @@ describe('Frontend consumption (stock endpoints)', () => {
 
     expect(result.status).toBe(200);
     expect(result.data.omieCode).toBe('99999');
-    expect(result.data.stockQuantity).toBe('0');
-    expect(result.data.minimumStock).toBe('0');
+    expect(result.data.stockQuantity).toBe('0.0000');
+    expect(result.data.minimumStock).toBe('0.0000');
     expect(result.data.stockCacheUpdatedAt).toBe('2026-04-14T12:00:00.000Z');
 
     await app.close();
