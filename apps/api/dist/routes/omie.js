@@ -22,8 +22,31 @@ async function omieRoutes(app) {
     });
     app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
         await OmieStockCache_1.omieStockCache.refreshNow();
+        const capturedAt = new Date();
+        const stockCacheUpdatedAt = OmieStockCache_1.omieStockCache.getLastUpdatedAt();
+        const snapshot = await OmieStockCache_1.omieStockCache.getSnapshot();
+        const rows = [];
+        for (const [omieCode, entry] of snapshot.entries()) {
+            rows.push({
+                omieCode,
+                stockQuantity: entry?.stockQuantity != null ? String(entry.stockQuantity) : '0',
+                minimumStock: entry?.minimumStock != null ? String(entry.minimumStock) : '0',
+                capturedAt,
+            });
+        }
+        const BATCH_SIZE = 1000;
+        let insertedCount = 0;
+        for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+            const batch = rows.slice(i, i + BATCH_SIZE);
+            const result = await db_1.prisma.productStock.createMany({
+                data: batch,
+            });
+            insertedCount += result?.count ?? 0;
+        }
         return reply.send({
-            stockCacheUpdatedAt: OmieStockCache_1.omieStockCache.getLastUpdatedAt(),
+            stockCacheUpdatedAt,
+            insertedCount,
+            capturedAt: capturedAt.toISOString(),
         });
     });
     app.get('/v1/omie/categories', async (request, reply) => {

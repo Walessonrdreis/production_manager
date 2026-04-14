@@ -26,8 +26,41 @@ export async function omieRoutes(app: FastifyInstance) {
   app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
     await omieStockCache.refreshNow();
 
+    const capturedAt = new Date();
+    const stockCacheUpdatedAt = omieStockCache.getLastUpdatedAt();
+    const snapshot = await omieStockCache.getSnapshot();
+
+    const rows: Array<{
+      omieCode: string;
+      stockQuantity: string;
+      minimumStock: string;
+      capturedAt: Date;
+    }> = [];
+
+    for (const [omieCode, entry] of snapshot.entries()) {
+      rows.push({
+        omieCode,
+        stockQuantity: entry?.stockQuantity != null ? String(entry.stockQuantity) : '0',
+        minimumStock: entry?.minimumStock != null ? String(entry.minimumStock) : '0',
+        capturedAt,
+      });
+    }
+
+    const BATCH_SIZE = 1000;
+    let insertedCount = 0;
+
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE);
+      const result = await (prisma as any).productStock.createMany({
+        data: batch,
+      });
+      insertedCount += result?.count ?? 0;
+    }
+
     return reply.send({
-      stockCacheUpdatedAt: omieStockCache.getLastUpdatedAt(),
+      stockCacheUpdatedAt,
+      insertedCount,
+      capturedAt: capturedAt.toISOString(),
     });
   });
 

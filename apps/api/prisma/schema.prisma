@@ -91,3 +91,15 @@ model ProductionPlanItem {
   @@index([planId, sectorId])
   @@index([productId])
 }
+
+model ProductStock {
+  id           String   @id @default(uuid()) @db.Uuid
+  omieCode      String   @db.VarChar(32)
+  stockQuantity Decimal  @db.Decimal(18, 4)
+  minimumStock  Decimal  @db.Decimal(18, 4)
+  capturedAt    DateTime @default(now())
+
+  @@index([omieCode])
+  @@index([omieCode, capturedAt])
+  @@map("product_stock")
+}
