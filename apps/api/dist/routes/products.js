@@ -7,7 +7,6 @@ const contracts_1 = require("@shared/contracts");
 const zod_1 = require("zod");
 const http_1 = require("../lib/http");
 const AppError_1 = require("../core/errors/AppError");
-const omieStock_service_1 = require("../services/omieStock.service");
 const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
 async function productsRoutes(app) {
     // POST /v1/products - Seleciona um produto do Omie para o Gerenciador
@@ -215,16 +214,36 @@ async function productsRoutes(app) {
         }
         const omieProduct = await db_1.prisma.omieProduct.findUnique({
             where: { id: product.omieProductId },
-            select: { id: true, rawPayload: true },
+            select: { id: true, omieCode: true, omieId: true, rawPayload: true },
         });
         if (!omieProduct) {
             throw new AppError_1.AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
         }
-        const stock = await (0, omieStock_service_1.getStockByRawPayload)(omieProduct.rawPayload);
+        const extractedOmieCode = OmieAdapter_1.OmieAdapter.extractProductCode(omieProduct.rawPayload)?.trim();
+        const omieCode = extractedOmieCode || omieProduct.omieCode || omieProduct.omieId;
+        if (!omieCode) {
+            throw new AppError_1.AppError('OMIE_CODE_NOT_FOUND', 422, 'Omie code not found');
+        }
+        const latestRows = await db_1.prisma.productStock.findMany({
+            where: { omieCode },
+            orderBy: { capturedAt: 'desc' },
+            take: 1,
+            select: {
+                stockQuantity: true,
+                minimumStock: true,
+                capturedAt: true,
+            },
+        });
+        const latest = latestRows[0];
+        if (!latest) {
+            throw new AppError_1.AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
+        }
         return reply.send((0, http_1.ok)({
             productId: product.id,
-            omieProductId: omieProduct.id,
-            ...stock,
+            omieCode,
+            stockQuantity: String(latest.stockQuantity),
+            minimumStock: String(latest.minimumStock),
+            capturedAt: latest.capturedAt,
         }));
     });
 }

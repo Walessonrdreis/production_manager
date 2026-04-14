@@ -18,6 +18,9 @@ vi.mock('../src/db', () => {
       omieProduct: {
         findUnique: vi.fn(),
       },
+      productStock: {
+        findMany: vi.fn(),
+      },
     },
   };
 });
@@ -36,7 +39,8 @@ type StockData = {
   omieCode: string;
   stockQuantity: string;
   minimumStock: string;
-  stockCacheUpdatedAt: string;
+  stockCacheUpdatedAt?: string;
+  capturedAt?: string;
 };
 
 type StockResponse = { data: StockData };
@@ -72,7 +76,7 @@ async function frontendGetStock(app: Awaited<ReturnType<typeof buildApp>>, url: 
       omieCode: data?.omieCode ?? '',
       stockQuantity: data?.stockQuantity ?? '0',
       minimumStock: data?.minimumStock ?? '0',
-      stockCacheUpdatedAt: data?.stockCacheUpdatedAt ?? '',
+      stockCacheUpdatedAt: data?.stockCacheUpdatedAt ?? data?.capturedAt ?? '',
     },
   };
 }
@@ -90,15 +94,18 @@ describe('Frontend consumption (stock endpoints)', () => {
 
     (prisma.omieProduct.findUnique as any).mockResolvedValue({
       id: '0a74a47a-3b19-4f22-9b0f-8b8d41d8c6c6',
+      omieCode: '12345',
+      omieId: '12345',
       rawPayload: { codigo: '12345' },
     });
 
-    (omieStockCache.getSnapshot as any).mockResolvedValue(
-      new Map([
-        ['12345', { stockQuantity: '10', minimumStock: '2', updatedAt: '2026-04-14T12:00:00.000Z' }],
-      ])
-    );
-    (omieStockCache.getLastUpdatedAt as any).mockReturnValue('2026-04-14T12:00:00.000Z');
+    (prisma.productStock.findMany as any).mockResolvedValue([
+      {
+        stockQuantity: '10',
+        minimumStock: '2',
+        capturedAt: new Date('2026-04-14T12:00:00.000Z'),
+      },
+    ]);
 
     const app = await buildApp();
     await app.ready();
@@ -171,4 +178,3 @@ describe('Frontend consumption (stock endpoints)', () => {
     await app.close();
   });
 });
-

@@ -18,6 +18,9 @@ vi.mock('../src/db', () => {
       omieProduct: {
         findUnique: vi.fn(),
       },
+      productStock: {
+        findMany: vi.fn(),
+      },
     },
   };
 });
@@ -39,18 +42,18 @@ describe('Stock endpoints', () => {
 
     (prisma.omieProduct.findUnique as any).mockResolvedValue({
       id: '0a74a47a-3b19-4f22-9b0f-8b8d41d8c6c6',
+      omieCode: '12345',
+      omieId: '12345',
       rawPayload: { codigo: '12345' },
     });
 
-    (omieStockCache.getSnapshot as any).mockResolvedValue(
-      new Map([
-        [
-          '12345',
-          { stockQuantity: '10', minimumStock: '2', updatedAt: '2026-04-14T12:00:00.000Z' },
-        ],
-      ])
-    );
-    (omieStockCache.getLastUpdatedAt as any).mockReturnValue('2026-04-14T12:00:00.000Z');
+    (prisma.productStock.findMany as any).mockResolvedValue([
+      {
+        stockQuantity: '10',
+        minimumStock: '2',
+        capturedAt: new Date('2026-04-14T12:00:00.000Z'),
+      },
+    ]);
 
     const app = await buildApp();
     await app.ready();
@@ -67,11 +70,10 @@ describe('Stock endpoints', () => {
     expect(body).toHaveProperty('data');
     expect(body.data).toMatchObject({
       productId: '8eaa43ac-6e71-4fe8-9ea3-2b5e4e3f2d11',
-      omieProductId: '0a74a47a-3b19-4f22-9b0f-8b8d41d8c6c6',
       omieCode: '12345',
       stockQuantity: '10',
       minimumStock: '2',
-      stockCacheUpdatedAt: '2026-04-14T12:00:00.000Z',
+      capturedAt: '2026-04-14T12:00:00.000Z',
     });
 
     await app.close();
@@ -94,6 +96,36 @@ describe('Stock endpoints', () => {
     const body = JSON.parse(response.payload);
     expect(body).toHaveProperty('error');
     expect(body.error.code).toBe('PRODUCT_NOT_FOUND');
+
+    await app.close();
+  });
+
+  it('GET /v1/products/:id/stock - sem histórico retorna 404 STOCK_NOT_FOUND', async () => {
+    (prisma.product.findUnique as any).mockResolvedValue({
+      id: '8eaa43ac-6e71-4fe8-9ea3-2b5e4e3f2d11',
+      omieProductId: '0a74a47a-3b19-4f22-9b0f-8b8d41d8c6c6',
+    });
+
+    (prisma.omieProduct.findUnique as any).mockResolvedValue({
+      id: '0a74a47a-3b19-4f22-9b0f-8b8d41d8c6c6',
+      omieCode: '12345',
+      omieId: '12345',
+      rawPayload: { codigo: '12345' },
+    });
+
+    (prisma.productStock.findMany as any).mockResolvedValue([]);
+
+    const app = await buildApp();
+    await app.ready();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/products/8eaa43ac-6e71-4fe8-9ea3-2b5e4e3f2d11/stock',
+    });
+
+    expect(response.statusCode).toBe(404);
+    const body = JSON.parse(response.payload);
+    expect(body.error.code).toBe('STOCK_NOT_FOUND');
 
     await app.close();
   });
@@ -125,4 +157,3 @@ describe('Stock endpoints', () => {
     await app.close();
   });
 });
-

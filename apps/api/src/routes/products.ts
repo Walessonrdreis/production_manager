@@ -5,7 +5,6 @@ import { CreateProductInputSchema } from '@shared/contracts';
 import { z } from 'zod';
 import { ok, paginated, wantsLegacyResponse } from '../lib/http';
 import { AppError } from '../core/errors/AppError';
-import { getStockByRawPayload } from '../services/omieStock.service';
 import { OmieAdapter } from '../integrations/omie/OmieAdapter';
 
 export async function productsRoutes(app: FastifyInstance) {
@@ -262,20 +261,44 @@ export async function productsRoutes(app: FastifyInstance) {
 
     const omieProduct = await prisma.omieProduct.findUnique({
       where: { id: product.omieProductId },
-      select: { id: true, rawPayload: true },
+      select: { id: true, omieCode: true, omieId: true, rawPayload: true },
     });
 
     if (!omieProduct) {
       throw new AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
     }
 
-    const stock = await getStockByRawPayload(omieProduct.rawPayload);
+    const extractedOmieCode = OmieAdapter.extractProductCode(omieProduct.rawPayload)?.trim();
+    const omieCode = extractedOmieCode || omieProduct.omieCode || omieProduct.omieId;
+
+    if (!omieCode) {
+      throw new AppError('OMIE_CODE_NOT_FOUND', 422, 'Omie code not found');
+    }
+
+    const latestRows = await prisma.productStock.findMany({
+      where: { omieCode },
+      orderBy: { capturedAt: 'desc' },
+      take: 1,
+      select: {
+        stockQuantity: true,
+        minimumStock: true,
+        capturedAt: true,
+      },
+    });
+
+    const latest = latestRows[0];
+
+    if (!latest) {
+      throw new AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
+    }
 
     return reply.send(
       ok({
         productId: product.id,
-        omieProductId: omieProduct.id,
-        ...stock,
+        omieCode,
+        stockQuantity: String(latest.stockQuantity),
+        minimumStock: String(latest.minimumStock),
+        capturedAt: latest.capturedAt,
       })
     );
   });
