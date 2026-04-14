@@ -64,6 +64,29 @@ export async function omieRoutes(app: FastifyInstance) {
     });
   });
 
+  app.get('/v1/omie/stock', async (_request, reply) => {
+    const rows = await prisma.$queryRaw<
+      Array<{
+        lastRefreshAt: Date | null;
+        totalItems: bigint | number | null;
+      }>
+    >`SELECT MAX("capturedAt") AS "lastRefreshAt", COUNT(DISTINCT "omieCode") AS "totalItems" FROM "product_stock"`;
+
+    const row = rows[0] ?? { lastRefreshAt: null, totalItems: 0 };
+    const totalItems =
+      typeof row.totalItems === 'bigint'
+        ? Number(row.totalItems)
+        : row.totalItems ?? 0;
+
+    return reply.send(
+      ok({
+        lastRefreshAt: row.lastRefreshAt ? row.lastRefreshAt.toISOString() : null,
+        totalItems,
+        source: 'database',
+      })
+    );
+  });
+
   app.get('/v1/omie/categories', async (request, reply) => {
     const querySchema = z.object({
       q: z.string().optional(),
