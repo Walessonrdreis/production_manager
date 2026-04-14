@@ -20,6 +20,7 @@ vi.mock('../src/db', () => {
       },
       productStock: {
         findMany: vi.fn(),
+        count: vi.fn(),
       },
     },
   };
@@ -152,6 +153,47 @@ describe('Stock endpoints', () => {
       stockQuantity: '0',
       minimumStock: '0',
       stockCacheUpdatedAt: '2026-04-14T12:00:00.000Z',
+    });
+
+    await app.close();
+  });
+
+  it('GET /v1/products/:id/stock/history - pagina e retorna { data, meta }', async () => {
+    (prisma.product.findUnique as any).mockResolvedValue({
+      id: '8eaa43ac-6e71-4fe8-9ea3-2b5e4e3f2d11',
+      omieProductId: '0a74a47a-3b19-4f22-9b0f-8b8d41d8c6c6',
+    });
+
+    (prisma.omieProduct.findUnique as any).mockResolvedValue({
+      omieCode: '12345',
+      omieId: '12345',
+      rawPayload: { codigo: '12345' },
+    });
+
+    (prisma.productStock.count as any).mockResolvedValue(3);
+    (prisma.productStock.findMany as any).mockResolvedValue([
+      { stockQuantity: '10', minimumStock: '2', capturedAt: new Date('2026-04-14T12:00:00.000Z') },
+      { stockQuantity: '9', minimumStock: '2', capturedAt: new Date('2026-04-13T12:00:00.000Z') },
+    ]);
+
+    const app = await buildApp();
+    await app.ready();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/products/8eaa43ac-6e71-4fe8-9ea3-2b5e4e3f2d11/stock/history?page=1&pageSize=2',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.payload);
+    expect(body.meta).toEqual({ page: 1, pageSize: 2, total: 3 });
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0]).toMatchObject({
+      productId: '8eaa43ac-6e71-4fe8-9ea3-2b5e4e3f2d11',
+      omieCode: '12345',
+      stockQuantity: '10',
+      minimumStock: '2',
+      capturedAt: '2026-04-14T12:00:00.000Z',
     });
 
     await app.close();

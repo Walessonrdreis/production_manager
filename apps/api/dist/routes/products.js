@@ -9,6 +9,31 @@ const http_1 = require("../lib/http");
 const AppError_1 = require("../core/errors/AppError");
 const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
 async function productsRoutes(app) {
+    async function resolveOmieCodeFromProduct(productId) {
+        const product = await db_1.prisma.product.findUnique({
+            where: { id: productId },
+            select: { id: true, omieProductId: true },
+        });
+        if (!product) {
+            throw new AppError_1.AppError('PRODUCT_NOT_FOUND', 404, 'Product not found');
+        }
+        if (!product.omieProductId) {
+            throw new AppError_1.AppError('OMIE_PRODUCT_LINK_MISSING', 409, 'Product is not linked to an OmieProduct');
+        }
+        const omieProduct = await db_1.prisma.omieProduct.findUnique({
+            where: { id: product.omieProductId },
+            select: { omieCode: true, omieId: true, rawPayload: true },
+        });
+        if (!omieProduct) {
+            throw new AppError_1.AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
+        }
+        const extractedOmieCode = OmieAdapter_1.OmieAdapter.extractProductCode(omieProduct.rawPayload)?.trim();
+        const omieCode = extractedOmieCode || omieProduct.omieCode || omieProduct.omieId;
+        if (!omieCode) {
+            throw new AppError_1.AppError('OMIE_CODE_NOT_FOUND', 422, 'Omie code not found');
+        }
+        return { productId: product.id, omieCode };
+    }
     // POST /v1/products - Seleciona um produto do Omie para o Gerenciador
     app.post('/v1/products', async (request, reply) => {
         const parseResult = contracts_1.CreateProductInputSchema.safeParse(request.body);
@@ -202,28 +227,7 @@ async function productsRoutes(app) {
             id: zod_1.z.string().uuid(),
         });
         const { id } = paramsSchema.parse(request.params);
-        const product = await db_1.prisma.product.findUnique({
-            where: { id },
-            select: { id: true, omieProductId: true },
-        });
-        if (!product) {
-            throw new AppError_1.AppError('PRODUCT_NOT_FOUND', 404, 'Product not found');
-        }
-        if (!product.omieProductId) {
-            throw new AppError_1.AppError('OMIE_PRODUCT_LINK_MISSING', 409, 'Product is not linked to an OmieProduct');
-        }
-        const omieProduct = await db_1.prisma.omieProduct.findUnique({
-            where: { id: product.omieProductId },
-            select: { id: true, omieCode: true, omieId: true, rawPayload: true },
-        });
-        if (!omieProduct) {
-            throw new AppError_1.AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
-        }
-        const extractedOmieCode = OmieAdapter_1.OmieAdapter.extractProductCode(omieProduct.rawPayload)?.trim();
-        const omieCode = extractedOmieCode || omieProduct.omieCode || omieProduct.omieId;
-        if (!omieCode) {
-            throw new AppError_1.AppError('OMIE_CODE_NOT_FOUND', 422, 'Omie code not found');
-        }
+        const { productId, omieCode } = await resolveOmieCodeFromProduct(id);
         const latestRows = await db_1.prisma.productStock.findMany({
             where: { omieCode },
             orderBy: { capturedAt: 'desc' },
@@ -239,11 +243,49 @@ async function productsRoutes(app) {
             throw new AppError_1.AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
         }
         return reply.send((0, http_1.ok)({
-            productId: product.id,
+            productId,
             omieCode,
             stockQuantity: String(latest.stockQuantity),
             minimumStock: String(latest.minimumStock),
             capturedAt: latest.capturedAt,
+        }));
+    });
+    app.get('/v1/products/:id/stock/history', async (request, reply) => {
+        const paramsSchema = zod_1.z.object({
+            id: zod_1.z.string().uuid(),
+        });
+        const querySchema = zod_1.z.object({
+            page: zod_1.z.coerce.number().min(1).default(1),
+            pageSize: zod_1.z.coerce.number().min(1).default(50),
+        });
+        const { id } = paramsSchema.parse(request.params);
+        const { page, pageSize } = querySchema.parse(request.query);
+        const safePageSize = Math.min(pageSize, 100);
+        const { productId, omieCode } = await resolveOmieCodeFromProduct(id);
+        const [total, rows] = await Promise.all([
+            db_1.prisma.productStock.count({ where: { omieCode } }),
+            db_1.prisma.productStock.findMany({
+                where: { omieCode },
+                orderBy: { capturedAt: 'desc' },
+                skip: (page - 1) * safePageSize,
+                take: safePageSize,
+                select: {
+                    stockQuantity: true,
+                    minimumStock: true,
+                    capturedAt: true,
+                },
+            }),
+        ]);
+        return reply.send((0, http_1.paginated)(rows.map((row) => ({
+            productId,
+            omieCode,
+            stockQuantity: String(row.stockQuantity),
+            minimumStock: String(row.minimumStock),
+            capturedAt: row.capturedAt,
+        })), {
+            page,
+            pageSize: safePageSize,
+            total,
         }));
     });
 }
