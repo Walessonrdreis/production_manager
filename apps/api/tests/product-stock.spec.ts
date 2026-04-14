@@ -132,8 +132,13 @@ describe('Stock endpoints', () => {
   });
 
   it('GET /v1/omie/products/by-code/:omieCode/stock - retorna 200 com "0" quando ausente, mas com stockCacheUpdatedAt se snapshot existir', async () => {
-    (omieStockCache.getSnapshot as any).mockResolvedValue(new Map());
-    (omieStockCache.getLastUpdatedAt as any).mockReturnValue('2026-04-14T12:00:00.000Z');
+    (prisma.productStock.findMany as any).mockResolvedValue([
+      {
+        stockQuantity: '0',
+        minimumStock: '0',
+        capturedAt: new Date('2026-04-14T12:00:00.000Z'),
+      },
+    ]);
 
     const app = await buildApp();
     await app.ready();
@@ -152,7 +157,7 @@ describe('Stock endpoints', () => {
       omieCode: '99999',
       stockQuantity: '0',
       minimumStock: '0',
-      stockCacheUpdatedAt: '2026-04-14T12:00:00.000Z',
+      capturedAt: '2026-04-14T12:00:00.000Z',
     });
 
     await app.close();

@@ -309,7 +309,25 @@ async function omieRoutes(app) {
             omieCode: zod_1.z.string().min(1),
         });
         const { omieCode } = paramsSchema.parse(request.params);
-        const stock = await (0, omieStock_service_1.getStockByRawPayload)({ codigo: omieCode });
-        return reply.send((0, http_1.ok)(stock));
+        const latestRows = await db_1.prisma.productStock.findMany({
+            where: { omieCode },
+            orderBy: { capturedAt: 'desc' },
+            take: 1,
+            select: {
+                stockQuantity: true,
+                minimumStock: true,
+                capturedAt: true,
+            },
+        });
+        const latest = latestRows?.[0];
+        if (!latest) {
+            throw new AppError_1.AppError('STOCK_NOT_FOUND', 404, 'Stock not found');
+        }
+        return reply.send((0, http_1.ok)({
+            omieCode,
+            stockQuantity: String(latest.stockQuantity),
+            minimumStock: String(latest.minimumStock),
+            capturedAt: latest.capturedAt,
+        }));
     });
 }

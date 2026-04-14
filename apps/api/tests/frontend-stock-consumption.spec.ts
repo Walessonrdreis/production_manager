@@ -148,8 +148,13 @@ describe('Frontend consumption (stock endpoints)', () => {
   });
 
   it('consome GET /v1/omie/products/by-code/:omieCode/stock retornando zeros sem quebrar o frontend', async () => {
-    (omieStockCache.getSnapshot as any).mockResolvedValue(new Map());
-    (omieStockCache.getLastUpdatedAt as any).mockReturnValue('2026-04-14T12:00:00.000Z');
+    (prisma.productStock.findMany as any).mockResolvedValue([
+      {
+        stockQuantity: '0',
+        minimumStock: '0',
+        capturedAt: new Date('2026-04-14T12:00:00.000Z'),
+      },
+    ]);
 
     const app = await buildApp();
     await app.ready();
