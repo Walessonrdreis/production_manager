@@ -23,10 +23,10 @@ model JobLock {
 model OmieProduct {
   id                String   @id @default(uuid())
   omieId            String   @unique
-  omieCode          String?  @db.VarChar(32)
-  sku               String?
-  description       String
-  familyDescription String?
+  omieCode          String?  @db.VarChar(64)
+  sku               String?  @db.VarChar(128)
+  description       String   @db.Text
+  familyDescription String?  @db.Text
   active            Boolean  @default(true)
   rawPayload        Json
   lastSyncAt        DateTime @default(now())

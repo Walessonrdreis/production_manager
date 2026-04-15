@@ -35,9 +35,9 @@ function buildFieldLengthSummary(item: {
   return {
     sample: {
       omieCode: item.omieCode ?? null,
-      description: String(item.description ?? '').slice(0, 80),
-      sku: item.sku ? String(item.sku).slice(0, 80) : null,
-      familyDescription: item.familyDescription ? String(item.familyDescription).slice(0, 80) : null,
+      description: String(item.description ?? ''),
+      sku: item.sku ? String(item.sku) : null,
+      familyDescription: item.familyDescription ? String(item.familyDescription) : null,
     },
     length: {
       omieCode: safeLen(item.omieCode),
@@ -46,6 +46,34 @@ function buildFieldLengthSummary(item: {
       familyDescription: safeLen(item.familyDescription),
     },
   };
+}
+
+function warnFieldLengthOutliers(item: {
+  omieId: string;
+  omieCode: string | null;
+  sku: string | null;
+  description: string;
+  familyDescription: string | null;
+}) {
+  const omieCode = item.omieCode ?? item.omieId;
+
+  const skuExpectedMax = 64;
+  if (item.sku && item.sku.length > skuExpectedMax) {
+    console.warn('⚠️ omie product sync: sku length outlier', {
+      omieCode,
+      len: item.sku.length,
+      expectedMax: skuExpectedMax,
+    });
+  }
+
+  const omieCodeExpectedMax = 64;
+  if (item.omieCode && item.omieCode.length > omieCodeExpectedMax) {
+    console.warn('⚠️ omie product sync: omieCode length outlier', {
+      omieCode,
+      len: item.omieCode.length,
+      expectedMax: omieCodeExpectedMax,
+    });
+  }
 }
 
 function toTrimmedString(value: unknown): string | null {
@@ -85,14 +113,20 @@ function normalizeOmieProduct(raw: any): OmieProductNormalized | null {
 
   const omieCode = extractOmieCode(raw);
   const sku = toTrimmedString(raw?.sku);
-  const description = normalizeDescription(raw?.descricao ?? raw?.descricao_produto);
-  const familyDescription = toTrimmedString(OmieAdapter.extractFamilyDescription(raw));
+
+  const descriptionRaw = raw?.descricao ?? raw?.descricao_produto ?? 'Sem descrição';
+  const descriptionTrimmed = String(descriptionRaw).trim();
+  const description = descriptionTrimmed.length > 0 ? descriptionTrimmed : 'Sem descrição';
+
+  const familyDescriptionRaw = OmieAdapter.extractFamilyDescription(raw);
+  const familyDescription = familyDescriptionRaw == null ? null : String(familyDescriptionRaw).trim() || null;
+
   const active = raw?.ativo !== undefined ? Boolean(raw.ativo) : true;
 
   return {
-    omieId,
-    omieCode,
-    sku,
+    omieId: String(omieId).trim(),
+    omieCode: omieCode == null ? null : String(omieCode).trim() || null,
+    sku: sku == null ? null : String(sku).trim() || null,
     description,
     familyDescription,
     active,
@@ -226,6 +260,8 @@ export async function runOmieProductSync(): Promise<{
       const existingByOmieId = new Map(existingRows.map((row) => [row.omieId, row]));
 
       for (const item of normalizedItems) {
+        warnFieldLengthOutliers(item);
+
         const existing = existingByOmieId.get(item.omieId);
         const omieCodeSample = item.omieCode ?? item.omieId;
 
