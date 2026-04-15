@@ -5,39 +5,19 @@ export async function acquireJobLock(key: string, ttlMs: number): Promise<boolea
   const lockedUntil = new Date(now.getTime() + ttlMs);
 
   try {
-    return await prisma.$transaction(async (tx: any) => {
-      const existing = await tx.jobLock.findUnique({
-        where: { key },
-        select: { key: true, lockedUntil: true },
-      });
+    const rows = await prisma.$queryRaw<Array<{ key: string }>>`
+      INSERT INTO "job_lock" ("key", "lockedUntil", "updatedAt")
+      VALUES (${key}, ${lockedUntil}, ${now})
+      ON CONFLICT ("key")
+      DO UPDATE SET
+        "lockedUntil" = EXCLUDED."lockedUntil",
+        "updatedAt" = EXCLUDED."updatedAt"
+      WHERE "job_lock"."lockedUntil" < ${now}
+      RETURNING "key"
+    `;
 
-      if (!existing) {
-        await tx.jobLock.create({
-          data: {
-            key,
-            lockedUntil,
-          },
-        });
-        return true;
-      }
-
-      if (existing.lockedUntil < now) {
-        await tx.jobLock.update({
-          where: { key },
-          data: { lockedUntil },
-        });
-        return true;
-      }
-
-      return false;
-    });
+    return rows.length > 0;
   } catch (err: any) {
-    // Corrida de criação/atualização em execuções concorrentes:
-    // não adquirir lock não é erro de fluxo, deve retornar false.
-    if (err?.code === 'P2002' || err?.code === 'P2025') {
-      return false;
-    }
-
     throw err;
   }
 }
@@ -45,11 +25,9 @@ export async function acquireJobLock(key: string, ttlMs: number): Promise<boolea
 export async function releaseJobLock(key: string): Promise<void> {
   const now = new Date();
 
-  await prisma.$transaction(async (tx: any) => {
-    await tx.jobLock.updateMany({
-      where: { key },
-      data: { lockedUntil: now },
-    });
-  });
+  await prisma.$executeRaw`
+    UPDATE "job_lock"
+    SET "lockedUntil" = ${now}, "updatedAt" = ${now}
+    WHERE "key" = ${key}
+  `;
 }
-

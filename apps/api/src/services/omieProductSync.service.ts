@@ -1,3 +1,5 @@
+console.log("✅ omieProductSync.job.ts loaded");
+
 import { prisma } from '../db';
 import { omieClient } from '../integrations/omie/OmieClient';
 import { OmieAdapter } from '../integrations/omie/OmieAdapter';
@@ -133,13 +135,24 @@ export async function runOmieProductSync(): Promise<{
   updatedCount: number;
   deactivatedCount: number;
 }> {
-  if (!env.OMIE_APP_KEY || !env.OMIE_APP_SECRET || !env.OMIE_BASE_URL) {
-    throw new AppError('OMIE_NOT_CONFIGURED', 400, 'Omie não configurado');
+  console.log('🔥 runOmieProductSync ENTERED');
+
+  console.log('🔐 attempting acquireJobLock: omie_product_sync');
+  let lockAcquired = false;
+  try {
+    lockAcquired = await acquireJobLock(JOB_LOCK_KEY, JOB_LOCK_TTL_MS);
+  } catch (err: any) {
+    console.log('🔐 acquireJobLock threw:', err?.code ?? 'UNKNOWN', err?.message ?? String(err));
+    throw err;
+  }
+  console.log('🔐 acquireJobLock result:', lockAcquired);
+
+  if (!lockAcquired) {
+    return { upsertedCount: 0, updatedCount: 0, deactivatedCount: 0 };
   }
 
-  const lockAcquired = await acquireJobLock(JOB_LOCK_KEY, JOB_LOCK_TTL_MS);
-  if (!lockAcquired) {
-    throw new AppError('SYNC_IN_PROGRESS', 409, 'Sincronização já em andamento');
+  if (!env.OMIE_APP_KEY || !env.OMIE_APP_SECRET || !env.OMIE_BASE_URL) {
+    throw new AppError('OMIE_NOT_CONFIGURED', 400, 'Omie não configurado');
   }
 
   const syncAt = new Date();
@@ -268,6 +281,7 @@ export async function runOmieProductSync(): Promise<{
       deactivatedCount,
     };
   } finally {
+    console.log('🔓 releaseJobLock: omie_product_sync');
     await releaseJobLock(JOB_LOCK_KEY);
   }
 }

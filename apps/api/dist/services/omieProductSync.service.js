@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runOmieProductSync = runOmieProductSync;
+console.log("✅ omieProductSync.job.ts loaded");
 const db_1 = require("../db");
 const OmieClient_1 = require("../integrations/omie/OmieClient");
 const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
@@ -103,12 +104,22 @@ async function fetchProductsPage(page) {
     throw new AppError_1.AppError('OMIE_PAGINATION_ERROR', 502, 'Falha ao paginar produtos no Omie', { page });
 }
 async function runOmieProductSync() {
+    console.log('🔥 runOmieProductSync ENTERED');
+    console.log('🔐 attempting acquireJobLock: omie_product_sync');
+    let lockAcquired = false;
+    try {
+        lockAcquired = await (0, jobLock_service_1.acquireJobLock)(JOB_LOCK_KEY, JOB_LOCK_TTL_MS);
+    }
+    catch (err) {
+        console.log('🔐 acquireJobLock threw:', err?.code ?? 'UNKNOWN', err?.message ?? String(err));
+        throw err;
+    }
+    console.log('🔐 acquireJobLock result:', lockAcquired);
+    if (!lockAcquired) {
+        return { upsertedCount: 0, updatedCount: 0, deactivatedCount: 0 };
+    }
     if (!env_1.env.OMIE_APP_KEY || !env_1.env.OMIE_APP_SECRET || !env_1.env.OMIE_BASE_URL) {
         throw new AppError_1.AppError('OMIE_NOT_CONFIGURED', 400, 'Omie não configurado');
-    }
-    const lockAcquired = await (0, jobLock_service_1.acquireJobLock)(JOB_LOCK_KEY, JOB_LOCK_TTL_MS);
-    if (!lockAcquired) {
-        throw new AppError_1.AppError('SYNC_IN_PROGRESS', 409, 'Sincronização já em andamento');
     }
     const syncAt = new Date();
     let upsertedCount = 0;
@@ -216,6 +227,7 @@ async function runOmieProductSync() {
         };
     }
     finally {
+        console.log('🔓 releaseJobLock: omie_product_sync');
         await (0, jobLock_service_1.releaseJobLock)(JOB_LOCK_KEY);
     }
 }

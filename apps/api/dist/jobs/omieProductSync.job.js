@@ -17,7 +17,11 @@ function resolveLogger(input) {
 }
 function startOmieProductSyncJob(appOrLogger) {
     const log = resolveLogger(appOrLogger);
-    const enabled = String(process.env.ENABLE_OMIE_PRODUCT_SYNC_JOB ?? '').trim().toLowerCase() === 'true';
+    if (process.env.NODE_ENV === 'test') {
+        return;
+    }
+    const enabledValue = String(process.env.ENABLE_OMIE_PRODUCT_SYNC_JOB ?? '').trim().toLowerCase();
+    const enabled = enabledValue === 'true' || enabledValue === '1';
     if (!enabled) {
         return;
     }
@@ -26,6 +30,7 @@ function startOmieProductSyncJob(appOrLogger) {
     if (effectiveCronExpr !== cronExpr) {
         log.warn({ cronExpr }, 'omie product sync job: invalid cron expr, falling back to 0 */6 * * *');
     }
+    console.log('omie product sync job scheduled', { cronExpr: effectiveCronExpr });
     log.info({ cronExpr: effectiveCronExpr }, 'omie product sync job scheduled');
     let inFlight = false;
     const tick = async () => {
