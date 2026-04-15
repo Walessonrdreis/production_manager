@@ -49,17 +49,20 @@ function startStockRefreshJob(appOrLogger) {
         }
         inFlight = true;
         const startedAt = Date.now();
-        log.info({}, 'stock refresh started');
+        const startedAtIso = new Date(startedAt).toISOString();
+        log.info({ startedAt: startedAtIso }, 'stock refresh started');
         try {
             const result = await (0, stockRefresh_service_1.runStockRefresh)();
             log.info({
+                startedAt: startedAtIso,
+                finishedAt: new Date().toISOString(),
                 insertedCount: result.insertedCount,
                 meta: result.meta,
                 durationMs: Date.now() - startedAt,
             }, 'stock refresh finished');
         }
         catch (err) {
-            log.error({ err, stack: err?.stack }, 'stock refresh failed');
+            log.error({ err, stack: err?.stack, startedAt: startedAtIso }, 'stock refresh failed');
         }
         finally {
             inFlight = false;

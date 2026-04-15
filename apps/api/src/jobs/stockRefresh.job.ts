@@ -68,13 +68,16 @@ export function startStockRefreshJob(appOrLogger: FastifyInstance | LoggerLike) 
 
     inFlight = true;
     const startedAt = Date.now();
+    const startedAtIso = new Date(startedAt).toISOString();
 
-    log.info({}, 'stock refresh started');
+    log.info({ startedAt: startedAtIso }, 'stock refresh started');
 
     try {
       const result = await runStockRefresh();
       log.info(
         {
+          startedAt: startedAtIso,
+          finishedAt: new Date().toISOString(),
           insertedCount: result.insertedCount,
           meta: result.meta,
           durationMs: Date.now() - startedAt,
@@ -82,7 +85,7 @@ export function startStockRefreshJob(appOrLogger: FastifyInstance | LoggerLike) 
         'stock refresh finished'
       );
     } catch (err: any) {
-      log.error({ err, stack: err?.stack }, 'stock refresh failed');
+      log.error({ err, stack: err?.stack, startedAt: startedAtIso }, 'stock refresh failed');
     } finally {
       inFlight = false;
     }
@@ -94,4 +97,3 @@ export function startStockRefreshJob(appOrLogger: FastifyInstance | LoggerLike) 
 
   return () => clearInterval(intervalId);
 }
-
