@@ -137,4 +137,33 @@ describe('POST /v1/omie/products/stock/refresh (persist history)', () => {
 
     await app.close();
   });
+
+  it('dryRun=1 retorna insertedCount sem persistir e sem lock', async () => {
+    (omieStockCache.refreshNow as any).mockResolvedValue(undefined);
+    (omieStockCache.getSnapshot as any).mockResolvedValue({
+      items: {
+        '123': { stockQuantity: 10, minimumStock: 2 },
+        '456': { stockQuantity: 0, minimumStock: 5 },
+      },
+    });
+
+    const app = await buildApp();
+    await app.ready();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/omie/products/stock/refresh?dryRun=1',
+      payload: {},
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.payload);
+    expect(body.data.insertedCount).toBe(2);
+    expect(prisma.productStock.createMany).not.toHaveBeenCalled();
+    expect(prisma.syncLock.create).not.toHaveBeenCalled();
+    expect(prisma.syncLock.updateMany).not.toHaveBeenCalled();
+
+    await app.close();
+  });
 });

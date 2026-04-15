@@ -37,11 +37,17 @@ async function omieRoutes(app) {
         const result = await service.execute(request.requestId, force);
         return reply.send(result);
     });
-    app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
-        const result = await (0, stockRefresh_service_1.runStockRefresh)();
+    app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
+        const querySchema = zod_1.z.object({
+            dryRun: zod_1.z.string().optional(),
+        });
+        const { dryRun } = querySchema.parse(request.query);
+        const isDryRun = dryRun?.trim() === '1' || dryRun?.trim().toLowerCase() === 'true';
+        const capturedAt = new Date().toISOString();
+        const result = await (0, stockRefresh_service_1.runStockRefresh)({ dryRun: isDryRun });
         return reply.send((0, http_1.ok)({
             insertedCount: result.insertedCount,
-            capturedAt: new Date().toISOString(),
+            capturedAt,
         }, result.meta));
     });
     app.get('/v1/omie/stock', async (_request, reply) => {

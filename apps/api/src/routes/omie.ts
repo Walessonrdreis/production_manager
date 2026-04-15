@@ -40,14 +40,22 @@ export async function omieRoutes(app: FastifyInstance) {
     return reply.send(result);
   });
 
-  app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
-    const result = await runStockRefresh();
+  app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
+    const querySchema = z.object({
+      dryRun: z.string().optional(),
+    });
+
+    const { dryRun } = querySchema.parse(request.query);
+    const isDryRun = dryRun?.trim() === '1' || dryRun?.trim().toLowerCase() === 'true';
+
+    const capturedAt = new Date().toISOString();
+    const result = await runStockRefresh({ dryRun: isDryRun });
 
     return reply.send(
       ok(
         {
           insertedCount: result.insertedCount,
-          capturedAt: new Date().toISOString(),
+          capturedAt,
         },
         result.meta
       )
