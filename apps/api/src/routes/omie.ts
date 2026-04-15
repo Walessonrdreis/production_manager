@@ -39,7 +39,7 @@ export async function omieRoutes(app: FastifyInstance) {
     return reply.send(result);
   });
 
-  app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
+  app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
     await omieStockCache.refreshNow();
 
     const capturedAt = new Date();
@@ -73,20 +73,24 @@ export async function omieRoutes(app: FastifyInstance) {
       for (const [k, v] of Object.entries(items)) snapshotMap.set(String(k).trim(), v);
     }
 
-    const MAX_OMIE_CODE_LENGTH = 32;
+    const EXPECTED_OMIE_CODE_LENGTH = 32;
     const MAX_DECIMAL_INTEGER_DIGITS = 14;
 
-    let skippedTooLongOmieCode = 0;
     let skippedOutOfRangeDecimal = 0;
 
     const rows = Array.from(snapshotMap.entries())
       .map(([omieCode, entry]) => {
-        const normalizedOmieCode = String(omieCode ?? '').trim();
+        const code = String(omieCode).trim();
+
+        if (code.length > EXPECTED_OMIE_CODE_LENGTH) {
+          request.log.warn({ omieCode: code, length: code.length }, 'omieCode outside expected size');
+        }
+
         const stockQuantity = normalizeNumberString(entry?.stockQuantity);
         const minimumStock = normalizeNumberString(entry?.minimumStock);
 
         return {
-          omieCode: normalizedOmieCode,
+          omieCode: code,
           stockQuantity,
           minimumStock,
           capturedAt,
@@ -94,11 +98,6 @@ export async function omieRoutes(app: FastifyInstance) {
       })
       .filter((row) => {
         if (!row.omieCode) return false;
-
-        if (row.omieCode.length > MAX_OMIE_CODE_LENGTH) {
-          skippedTooLongOmieCode += 1;
-          return false;
-        }
 
         const qty = toNumber(row.stockQuantity);
         const min = toNumber(row.minimumStock);
@@ -133,10 +132,7 @@ export async function omieRoutes(app: FastifyInstance) {
       ok({
         insertedCount,
         capturedAt: capturedAt.toISOString(),
-      }, {
-        skippedTooLongOmieCode,
-        skippedOutOfRangeDecimal,
-      })
+      }, skippedOutOfRangeDecimal > 0 ? { skippedOutOfRangeDecimal } : undefined)
     );
   });
 

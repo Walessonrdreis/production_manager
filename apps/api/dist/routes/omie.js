@@ -36,7 +36,7 @@ async function omieRoutes(app) {
         const result = await service.execute(request.requestId, force);
         return reply.send(result);
     });
-    app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
+    app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
         await OmieStockCache_1.omieStockCache.refreshNow();
         const capturedAt = new Date();
         const snapshot = await OmieStockCache_1.omieStockCache.getSnapshot();
@@ -69,17 +69,19 @@ async function omieRoutes(app) {
             for (const [k, v] of Object.entries(items))
                 snapshotMap.set(String(k).trim(), v);
         }
-        const MAX_OMIE_CODE_LENGTH = 32;
+        const EXPECTED_OMIE_CODE_LENGTH = 32;
         const MAX_DECIMAL_INTEGER_DIGITS = 14;
-        let skippedTooLongOmieCode = 0;
         let skippedOutOfRangeDecimal = 0;
         const rows = Array.from(snapshotMap.entries())
             .map(([omieCode, entry]) => {
-            const normalizedOmieCode = String(omieCode ?? '').trim();
+            const code = String(omieCode).trim();
+            if (code.length > EXPECTED_OMIE_CODE_LENGTH) {
+                request.log.warn({ omieCode: code, length: code.length }, 'omieCode outside expected size');
+            }
             const stockQuantity = normalizeNumberString(entry?.stockQuantity);
             const minimumStock = normalizeNumberString(entry?.minimumStock);
             return {
-                omieCode: normalizedOmieCode,
+                omieCode: code,
                 stockQuantity,
                 minimumStock,
                 capturedAt,
@@ -88,10 +90,6 @@ async function omieRoutes(app) {
             .filter((row) => {
             if (!row.omieCode)
                 return false;
-            if (row.omieCode.length > MAX_OMIE_CODE_LENGTH) {
-                skippedTooLongOmieCode += 1;
-                return false;
-            }
             const qty = toNumber(row.stockQuantity);
             const min = toNumber(row.minimumStock);
             const qtyIntDigits = qty == null ? 0 : Math.trunc(Math.abs(qty)).toString().replace('-', '').length;
@@ -116,10 +114,7 @@ async function omieRoutes(app) {
         return reply.send((0, http_1.ok)({
             insertedCount,
             capturedAt: capturedAt.toISOString(),
-        }, {
-            skippedTooLongOmieCode,
-            skippedOutOfRangeDecimal,
-        }));
+        }, skippedOutOfRangeDecimal > 0 ? { skippedOutOfRangeDecimal } : undefined));
     });
     app.get('/v1/omie/stock', async (_request, reply) => {
         const rows = await db_1.prisma.$queryRaw `SELECT MAX("capturedAt") AS "lastRefreshAt", COUNT(DISTINCT "omieCode") AS "totalItems" FROM "product_stock"`;

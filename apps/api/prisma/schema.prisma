@@ -13,15 +13,15 @@ model SyncLock {
 }
 
 model OmieProduct {
-  id          String   @id @default(uuid())
-  omieId      String   @unique
-  omieCode    String?  @db.VarChar(32)
-  sku         String?
-  description String
+  id                String   @id @default(uuid())
+  omieId            String   @unique
+  omieCode          String?  @db.VarChar(32)
+  sku               String?
+  description       String
   familyDescription String?
-  active      Boolean  @default(true)
-  rawPayload  Json
-  lastSyncAt  DateTime @default(now())
+  active            Boolean  @default(true)
+  rawPayload        Json
+  lastSyncAt        DateTime @default(now())
 
   product Product?
 
@@ -65,14 +65,14 @@ enum PlanStatus {
 }
 
 model ProductionPlan {
-  id        String               @id @default(uuid())
+  id        String     @id @default(uuid())
   name      String
   startDate DateTime
   endDate   DateTime
-  status    PlanStatus           @default(DRAFT)
-  createdAt DateTime             @default(now())
-  
-  items     ProductionPlanItem[]
+  status    PlanStatus @default(DRAFT)
+  createdAt DateTime   @default(now())
+
+  items ProductionPlanItem[]
 
   @@index([startDate, endDate])
 }
@@ -93,8 +93,8 @@ model ProductionPlanItem {
 }
 
 model ProductStock {
-  id           String   @id @default(uuid()) @db.Uuid
-  omieCode      String   @db.VarChar(32)
+  id            String   @id @default(uuid()) @db.Uuid
+  omieCode      String   @db.VarChar(64)
   stockQuantity Decimal  @db.Decimal(18, 4)
   minimumStock  Decimal  @db.Decimal(18, 4)
   capturedAt    DateTime @default(now())
