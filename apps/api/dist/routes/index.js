@@ -56,6 +56,7 @@ async function appRoutes(app) {
                 { method: 'POST', path: '/v1/products', description: 'Seleciona um produto Omie para ser gerenciado' },
                 { method: 'POST', path: '/v1/products/bulk', description: 'Seleciona vários produtos Omie em lote' },
                 { method: 'GET', path: '/v1/products', description: 'Lista produtos gerenciados' },
+                { method: 'GET', path: '/v1/products/stock', description: '[Public] Lista OmieProduct + estoque atual (ProductStock) por omieCode' },
                 { method: 'GET', path: '/v1/products/:id', description: '[Products] Detalhe do produto gerenciado (com OmieProduct e setor padrão). Ex: curl \"/v1/products/<uuid>\"' },
                 { method: 'PATCH', path: '/v1/products/:id', description: '[Products] Atualiza nickname/active. Ex: curl -X PATCH \"/v1/products/<uuid>\" -H \"Content-Type: application/json\" -d \"{\\\"data\\\":{\\\"nickname\\\":\\\"New\\\"}}\"' },
                 { method: 'GET', path: '/v1/products/:id/stock', description: '[Products] Estoque por UUID do Product. Ex: curl \"/v1/products/<uuid>/stock\"' },

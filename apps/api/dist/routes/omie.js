@@ -4,11 +4,11 @@ exports.omieRoutes = omieRoutes;
 const zod_1 = require("zod");
 const db_1 = require("../db");
 const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
-const OmieStockCache_1 = require("../integrations/omie/OmieStockCache");
 const http_1 = require("../lib/http");
 const AppError_1 = require("../core/errors/AppError");
 const stockRefresh_service_1 = require("../services/stockRefresh.service");
 const omieProductSync_service_1 = require("../services/omieProductSync.service");
+const omieProductRead_service_1 = require("../services/omieProductRead.service");
 async function omieRoutes(app) {
     const toNumber = (value) => {
         if (value == null)
@@ -239,24 +239,7 @@ async function omieRoutes(app) {
             pageSize: zod_1.z.coerce.number().min(1).max(5000).default(50),
         });
         const { search, family, page, pageSize } = querySchema.parse(request.query);
-        const [items, stockSnapshot] = await Promise.all([
-            db_1.prisma.omieProduct.findMany({
-                orderBy: {
-                    description: 'asc',
-                },
-            }),
-            OmieStockCache_1.omieStockCache.getSnapshot(),
-        ]);
-        const enrichedItems = items.map((item) => {
-            const code = item.omieCode;
-            return {
-                ...item,
-                code,
-                familyDescription: OmieAdapter_1.OmieAdapter.extractFamilyDescription(item.rawPayload),
-                stockQuantity: stockSnapshot.get(code)?.stockQuantity ?? OmieAdapter_1.OmieAdapter.extractStockQuantity(item.rawPayload),
-                minimumStock: stockSnapshot.get(code)?.minimumStock ?? OmieAdapter_1.OmieAdapter.extractMinimumStock(item.rawPayload),
-            };
-        });
+        const { items: enrichedItems, stockUpdatedAt } = await (0, omieProductRead_service_1.listOmieProductsWithCurrentStock)();
         const normalizedSearch = search?.trim().toLowerCase();
         const normalizedFamily = family?.trim().toLowerCase();
         const filteredItems = enrichedItems.filter((item) => {
@@ -284,7 +267,7 @@ async function omieRoutes(app) {
             : filteredItems.slice((page - 1) * pageSize, page * pageSize);
         const pageUsed = family ? 1 : page;
         const pageSizeUsed = family ? pagedItems.length : pageSize;
-        const stockCacheUpdatedAt = OmieStockCache_1.omieStockCache.getLastUpdatedAt();
+        const stockCacheUpdatedAt = stockUpdatedAt;
         if ((0, http_1.wantsLegacyResponse)(request)) {
             return reply.send({
                 items: pagedItems,

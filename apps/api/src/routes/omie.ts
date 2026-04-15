@@ -3,11 +3,11 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../db';
 import { OmieAdapter } from '../integrations/omie/OmieAdapter';
-import { omieStockCache } from '../integrations/omie/OmieStockCache';
 import { ok, paginated, wantsLegacyResponse } from '../lib/http';
 import { AppError } from '../core/errors/AppError';
 import { runStockRefresh } from '../services/stockRefresh.service';
 import { runOmieProductSync } from '../services/omieProductSync.service';
+import { listOmieProductsWithCurrentStock } from '../services/omieProductRead.service';
 
 export async function omieRoutes(app: FastifyInstance) {
   const toNumber = (value: any): number | null => {
@@ -327,25 +327,7 @@ export async function omieRoutes(app: FastifyInstance) {
 
     const { search, family, page, pageSize } = querySchema.parse(request.query);
 
-    const [items, stockSnapshot] = await Promise.all([
-      prisma.omieProduct.findMany({
-        orderBy: {
-          description: 'asc',
-        },
-      }),
-      omieStockCache.getSnapshot(),
-    ]);
-
-    const enrichedItems = items.map((item) => {
-      const code = item.omieCode;
-      return {
-        ...item,
-        code,
-        familyDescription: OmieAdapter.extractFamilyDescription(item.rawPayload),
-        stockQuantity: stockSnapshot.get(code)?.stockQuantity ?? OmieAdapter.extractStockQuantity(item.rawPayload),
-        minimumStock: stockSnapshot.get(code)?.minimumStock ?? OmieAdapter.extractMinimumStock(item.rawPayload),
-      };
-    });
+    const { items: enrichedItems, stockUpdatedAt } = await listOmieProductsWithCurrentStock();
 
     const normalizedSearch = search?.trim().toLowerCase();
     const normalizedFamily = family?.trim().toLowerCase();
@@ -385,7 +367,7 @@ export async function omieRoutes(app: FastifyInstance) {
     const pageUsed = family ? 1 : page;
     const pageSizeUsed = family ? pagedItems.length : pageSize;
 
-    const stockCacheUpdatedAt = omieStockCache.getLastUpdatedAt();
+    const stockCacheUpdatedAt = stockUpdatedAt;
 
     if (wantsLegacyResponse(request)) {
       return reply.send({
