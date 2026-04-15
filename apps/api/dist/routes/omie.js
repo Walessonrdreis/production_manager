@@ -35,6 +35,10 @@ async function omieRoutes(app) {
         const result = await (0, omieProductSync_service_1.runOmieProductSync)();
         return reply.send(result);
     });
+    app.post('/v1/omie/products/sync', async (_request, reply) => {
+        const result = await (0, omieProductSync_service_1.runOmieProductSync)();
+        return reply.send((0, http_1.ok)(result));
+    });
     app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
         const querySchema = zod_1.z.object({
             dryRun: zod_1.z.string().optional(),

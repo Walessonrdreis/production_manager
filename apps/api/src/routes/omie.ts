@@ -37,6 +37,11 @@ export async function omieRoutes(app: FastifyInstance) {
     return reply.send(result);
   });
 
+  app.post('/v1/omie/products/sync', async (_request, reply) => {
+    const result = await runOmieProductSync();
+    return reply.send(ok(result));
+  });
+
   app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
     const querySchema = z.object({
       dryRun: z.string().optional(),

@@ -53,6 +53,7 @@ export async function appRoutes(app: FastifyInstance) {
         { method: 'GET', path: '/v1/omie/products/:id/stock', description: '[Omie] Estoque por UUID do OmieProduct. Ex: curl \"/v1/omie/products/<uuid>/stock\"' },
         { method: 'GET', path: '/v1/omie/products/by-code/:omieCode/stock', description: '[Omie] Estoque por código do Omie. Ex: curl \"/v1/omie/products/by-code/12345/stock\"' },
         { method: 'POST', path: '/v1/omie/sync/products', description: 'Sincroniza produtos do Omie (ação; usar curl/cliente)' },
+        { method: 'POST', path: '/v1/omie/products/sync', description: '[Omie] (Admin/Debug) Sincronização manual do catálogo (envelope {data})' },
         { method: 'POST', path: '/v1/omie/products/stock/refresh', description: 'Atualiza o cache de estoque do Omie (ação; usar curl/cliente)' },
         { method: 'GET', path: '/v1/omie/products', description: 'Lista produtos sincronizados do Omie (filtros e paginação via querystring)' },
         { method: 'POST', path: '/v1/products', description: 'Seleciona um produto Omie para ser gerenciado' },
