@@ -3,12 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.omieRoutes = omieRoutes;
 const zod_1 = require("zod");
 const db_1 = require("../db");
-const SyncOmieProductsService_1 = require("../core/SyncOmieProductsService");
 const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
 const OmieStockCache_1 = require("../integrations/omie/OmieStockCache");
 const http_1 = require("../lib/http");
 const AppError_1 = require("../core/errors/AppError");
 const stockRefresh_service_1 = require("../services/stockRefresh.service");
+const omieProductSync_service_1 = require("../services/omieProductSync.service");
 async function omieRoutes(app) {
     const toNumber = (value) => {
         if (value == null)
@@ -31,10 +31,8 @@ async function omieRoutes(app) {
         const querySchema = zod_1.z.object({
             force: zod_1.z.coerce.boolean().optional().default(false),
         });
-        const { force } = querySchema.parse(request.query);
-        // A rota instancia e delega ao Service passando o requestId e o param force
-        const service = new SyncOmieProductsService_1.SyncOmieProductsService();
-        const result = await service.execute(request.requestId, force);
+        querySchema.parse(request.query);
+        const result = await (0, omieProductSync_service_1.runOmieProductSync)();
         return reply.send(result);
     });
     app.post('/v1/omie/products/stock/refresh', async (request, reply) => {

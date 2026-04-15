@@ -2,12 +2,12 @@ import { FastifyInstance } from 'fastify';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { SyncOmieProductsService } from '../core/SyncOmieProductsService';
 import { OmieAdapter } from '../integrations/omie/OmieAdapter';
 import { omieStockCache } from '../integrations/omie/OmieStockCache';
 import { ok, paginated, wantsLegacyResponse } from '../lib/http';
 import { AppError } from '../core/errors/AppError';
 import { runStockRefresh } from '../services/stockRefresh.service';
+import { runOmieProductSync } from '../services/omieProductSync.service';
 
 export async function omieRoutes(app: FastifyInstance) {
   const toNumber = (value: any): number | null => {
@@ -31,12 +31,9 @@ export async function omieRoutes(app: FastifyInstance) {
       force: z.coerce.boolean().optional().default(false),
     });
 
-    const { force } = querySchema.parse(request.query);
+    querySchema.parse(request.query);
 
-    // A rota instancia e delega ao Service passando o requestId e o param force
-    const service = new SyncOmieProductsService();
-    const result = await service.execute(request.requestId, force);
-    
+    const result = await runOmieProductSync();
     return reply.send(result);
   });
 
