@@ -8,6 +8,7 @@ const zod_1 = require("zod");
 const http_1 = require("../lib/http");
 const AppError_1 = require("../core/errors/AppError");
 const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
+const publicProductsRead_service_1 = require("../services/publicProductsRead.service");
 async function productsRoutes(app) {
     const logDeprecated = (request, legacyPath, replacementPath) => {
         if (process.env.NODE_ENV === 'test')
@@ -39,116 +40,23 @@ async function productsRoutes(app) {
             activeOnly: zod_1.z.coerce.boolean().optional().default(false),
         });
         const { q, page, pageSize, activeOnly } = querySchema.parse(request.query);
-        const normalizedQ = q?.trim() ? q.trim() : null;
-        const offset = (page - 1) * pageSize;
-        const rows = await db_1.prisma.$queryRaw `
-      WITH latest_stock AS (
-        SELECT DISTINCT ON ("omieCode")
-          "omieCode",
-          "stockQuantity",
-          "minimumStock",
-          "capturedAt"
-        FROM "product_stock"
-        ORDER BY "omieCode", "capturedAt" DESC
-      )
-      SELECT
-        o."omieCode" AS "omieCode",
-        o."description" AS "description",
-        o."sku" AS "sku",
-        o."familyDescription" AS "familyDescription",
-        o."active" AS "active",
-        COALESCE(to_char(latest_stock."stockQuantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
-        COALESCE(to_char(latest_stock."minimumStock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
-        latest_stock."capturedAt" AS "stockUpdatedAt"
-      FROM "OmieProduct" o
-      LEFT JOIN latest_stock
-        ON latest_stock."omieCode" = o."omieCode"
-      WHERE
-        (${activeOnly}::boolean = false OR o."active" = true)
-        AND (
-          ${normalizedQ}::text IS NULL
-          OR o."description" ILIKE ('%' || ${normalizedQ}::text || '%')
-          OR COALESCE(o."sku", '') ILIKE ('%' || ${normalizedQ}::text || '%')
-          OR o."omieCode" ILIKE ('%' || ${normalizedQ}::text || '%')
-        )
-      ORDER BY o."description" ASC
-      LIMIT ${pageSize}
-      OFFSET ${offset}
-    `;
-        const totalRows = await db_1.prisma.$queryRaw `
-      SELECT COUNT(*) AS "total"
-      FROM "OmieProduct" o
-      WHERE
-        (${activeOnly}::boolean = false OR o."active" = true)
-        AND (
-          ${normalizedQ}::text IS NULL
-          OR o."description" ILIKE ('%' || ${normalizedQ}::text || '%')
-          OR COALESCE(o."sku", '') ILIKE ('%' || ${normalizedQ}::text || '%')
-          OR o."omieCode" ILIKE ('%' || ${normalizedQ}::text || '%')
-        )
-    `;
-        const totalRaw = totalRows?.[0]?.total ?? 0;
-        const total = typeof totalRaw === 'bigint' ? Number(totalRaw) : Number(totalRaw ?? 0);
-        const data = rows.map((row) => ({
-            omieCode: row.omieCode,
-            description: row.description,
-            sku: row.sku,
-            familyDescription: row.familyDescription,
-            active: row.active,
-            stockQuantity: row.stockQuantity ?? '0.0000',
-            minimumStock: row.minimumStock ?? '0.0000',
-            stockUpdatedAt: row.stockUpdatedAt ? row.stockUpdatedAt.toISOString() : null,
-        }));
-        return reply.send((0, http_1.paginated)(data, {
+        const { data, meta } = await (0, publicProductsRead_service_1.listPublicProducts)({
+            q,
             page,
             pageSize,
-            total,
-        }));
+            activeOnly,
+        });
+        return reply.send((0, http_1.paginated)(data, meta));
     };
     const publicGetProductByOmieCodeHandler = async (request, reply) => {
         const paramsSchema = zod_1.z.object({
             omieCode: zod_1.z.string().min(1),
         });
         const { omieCode } = paramsSchema.parse(request.params);
-        const rows = await db_1.prisma.$queryRaw `
-      WITH latest_stock AS (
-        SELECT DISTINCT ON ("omieCode")
-          "omieCode",
-          "stockQuantity",
-          "minimumStock",
-          "capturedAt"
-        FROM "product_stock"
-        ORDER BY "omieCode", "capturedAt" DESC
-      )
-      SELECT
-        o."omieCode" AS "omieCode",
-        o."description" AS "description",
-        o."sku" AS "sku",
-        o."familyDescription" AS "familyDescription",
-        o."active" AS "active",
-        COALESCE(to_char(latest_stock."stockQuantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
-        COALESCE(to_char(latest_stock."minimumStock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
-        latest_stock."capturedAt" AS "stockUpdatedAt"
-      FROM "OmieProduct" o
-      LEFT JOIN latest_stock
-        ON latest_stock."omieCode" = o."omieCode"
-      WHERE o."omieCode" = ${omieCode}::text
-      LIMIT 1
-    `;
-        const row = rows?.[0];
-        if (!row) {
+        const product = await (0, publicProductsRead_service_1.getPublicProductByCode)(omieCode);
+        if (!product)
             throw new AppError_1.AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
-        }
-        return reply.send((0, http_1.ok)({
-            omieCode: row.omieCode,
-            description: row.description,
-            sku: row.sku,
-            familyDescription: row.familyDescription,
-            active: row.active,
-            stockQuantity: row.stockQuantity ?? '0.0000',
-            minimumStock: row.minimumStock ?? '0.0000',
-            stockUpdatedAt: row.stockUpdatedAt ? row.stockUpdatedAt.toISOString() : null,
-        }));
+        return reply.send((0, http_1.ok)(product));
     };
     async function resolveOmieCodeFromProduct(productId) {
         const product = await db_1.prisma.product.findUnique({
@@ -176,7 +84,7 @@ async function productsRoutes(app) {
         return { productId: product.id, omieCode };
     }
     app.get('/v1/products', publicListProductsHandler);
-    app.get('/v1/products/:omieCode(\\d+)', publicGetProductByOmieCodeHandler);
+    app.get('/v1/products/:omieCode([A-Za-z0-9]{1,64})', publicGetProductByOmieCodeHandler);
     app.get('/v1/products/stock', async (request, reply) => {
         logDeprecated(request, '/v1/products/stock', '/v1/products');
         return publicListProductsHandler(request, reply);

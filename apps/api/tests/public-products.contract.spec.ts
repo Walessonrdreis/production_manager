@@ -23,7 +23,7 @@ describe('Public contract: GET /v1/products (+ /v1/products/:omieCode)', () => {
           omieCode: '12345',
           description: 'Produto A',
           sku: 'SKU-A',
-          familyDescription: 'Família X',
+          family: 'Família X',
           active: true,
           stockQuantity: '10.0000',
           minimumStock: '2.0000',
@@ -52,7 +52,7 @@ describe('Public contract: GET /v1/products (+ /v1/products/:omieCode)', () => {
       omieCode: '12345',
       description: 'Produto A',
       sku: 'SKU-A',
-      familyDescription: 'Família X',
+      family: 'Família X',
       active: true,
       stockQuantity: '10.0000',
       minimumStock: '2.0000',
@@ -72,7 +72,7 @@ describe('Public contract: GET /v1/products (+ /v1/products/:omieCode)', () => {
         omieCode: '777',
         description: 'Produto 777',
         sku: null,
-        familyDescription: null,
+        family: null,
         active: true,
         stockQuantity: '0.0000',
         minimumStock: '0.0000',
@@ -95,7 +95,7 @@ describe('Public contract: GET /v1/products (+ /v1/products/:omieCode)', () => {
       omieCode: '777',
       description: 'Produto 777',
       sku: null,
-      familyDescription: null,
+      family: null,
       active: true,
       stockQuantity: '0.0000',
       minimumStock: '0.0000',
@@ -127,4 +127,3 @@ describe('Public contract: GET /v1/products (+ /v1/products/:omieCode)', () => {
     await app.close();
   });
 });
-

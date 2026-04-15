@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { ok, paginated, wantsLegacyResponse } from '../lib/http';
 import { AppError } from '../core/errors/AppError';
 import { OmieAdapter } from '../integrations/omie/OmieAdapter';
+import { getPublicProductByCode, listPublicProducts } from '../services/publicProductsRead.service';
 
 export async function productsRoutes(app: FastifyInstance) {
   const logDeprecated = (request: any, legacyPath: string, replacementPath: string) => {
@@ -41,88 +42,15 @@ export async function productsRoutes(app: FastifyInstance) {
     });
 
     const { q, page, pageSize, activeOnly } = querySchema.parse(request.query);
-    const normalizedQ = q?.trim() ? q.trim() : null;
-    const offset = (page - 1) * pageSize;
-
-    const rows = await prisma.$queryRaw<
-      Array<{
-        omieCode: string;
-        description: string;
-        sku: string | null;
-        familyDescription: string | null;
-        active: boolean;
-        stockQuantity: string | null;
-        minimumStock: string | null;
-        stockUpdatedAt: Date | null;
-      }>
-    >`
-      WITH latest_stock AS (
-        SELECT DISTINCT ON ("omieCode")
-          "omieCode",
-          "stockQuantity",
-          "minimumStock",
-          "capturedAt"
-        FROM "product_stock"
-        ORDER BY "omieCode", "capturedAt" DESC
-      )
-      SELECT
-        o."omieCode" AS "omieCode",
-        o."description" AS "description",
-        o."sku" AS "sku",
-        o."familyDescription" AS "familyDescription",
-        o."active" AS "active",
-        COALESCE(to_char(latest_stock."stockQuantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
-        COALESCE(to_char(latest_stock."minimumStock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
-        latest_stock."capturedAt" AS "stockUpdatedAt"
-      FROM "OmieProduct" o
-      LEFT JOIN latest_stock
-        ON latest_stock."omieCode" = o."omieCode"
-      WHERE
-        (${activeOnly}::boolean = false OR o."active" = true)
-        AND (
-          ${normalizedQ}::text IS NULL
-          OR o."description" ILIKE ('%' || ${normalizedQ}::text || '%')
-          OR COALESCE(o."sku", '') ILIKE ('%' || ${normalizedQ}::text || '%')
-          OR o."omieCode" ILIKE ('%' || ${normalizedQ}::text || '%')
-        )
-      ORDER BY o."description" ASC
-      LIMIT ${pageSize}
-      OFFSET ${offset}
-    `;
-
-    const totalRows = await prisma.$queryRaw<Array<{ total: bigint | number }>>`
-      SELECT COUNT(*) AS "total"
-      FROM "OmieProduct" o
-      WHERE
-        (${activeOnly}::boolean = false OR o."active" = true)
-        AND (
-          ${normalizedQ}::text IS NULL
-          OR o."description" ILIKE ('%' || ${normalizedQ}::text || '%')
-          OR COALESCE(o."sku", '') ILIKE ('%' || ${normalizedQ}::text || '%')
-          OR o."omieCode" ILIKE ('%' || ${normalizedQ}::text || '%')
-        )
-    `;
-
-    const totalRaw = totalRows?.[0]?.total ?? 0;
-    const total = typeof totalRaw === 'bigint' ? Number(totalRaw) : Number(totalRaw ?? 0);
-
-    const data = rows.map((row) => ({
-      omieCode: row.omieCode,
-      description: row.description,
-      sku: row.sku,
-      familyDescription: row.familyDescription,
-      active: row.active,
-      stockQuantity: row.stockQuantity ?? '0.0000',
-      minimumStock: row.minimumStock ?? '0.0000',
-      stockUpdatedAt: row.stockUpdatedAt ? row.stockUpdatedAt.toISOString() : null,
-    }));
+    const { data, meta } = await listPublicProducts({
+      q,
+      page,
+      pageSize,
+      activeOnly,
+    });
 
     return reply.send(
-      paginated(data, {
-        page,
-        pageSize,
-        total,
-      })
+      paginated(data, meta)
     );
   };
 
@@ -132,60 +60,11 @@ export async function productsRoutes(app: FastifyInstance) {
     });
 
     const { omieCode } = paramsSchema.parse(request.params);
-
-    const rows = await prisma.$queryRaw<
-      Array<{
-        omieCode: string;
-        description: string;
-        sku: string | null;
-        familyDescription: string | null;
-        active: boolean;
-        stockQuantity: string | null;
-        minimumStock: string | null;
-        stockUpdatedAt: Date | null;
-      }>
-    >`
-      WITH latest_stock AS (
-        SELECT DISTINCT ON ("omieCode")
-          "omieCode",
-          "stockQuantity",
-          "minimumStock",
-          "capturedAt"
-        FROM "product_stock"
-        ORDER BY "omieCode", "capturedAt" DESC
-      )
-      SELECT
-        o."omieCode" AS "omieCode",
-        o."description" AS "description",
-        o."sku" AS "sku",
-        o."familyDescription" AS "familyDescription",
-        o."active" AS "active",
-        COALESCE(to_char(latest_stock."stockQuantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
-        COALESCE(to_char(latest_stock."minimumStock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
-        latest_stock."capturedAt" AS "stockUpdatedAt"
-      FROM "OmieProduct" o
-      LEFT JOIN latest_stock
-        ON latest_stock."omieCode" = o."omieCode"
-      WHERE o."omieCode" = ${omieCode}::text
-      LIMIT 1
-    `;
-
-    const row = rows?.[0];
-    if (!row) {
-      throw new AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
-    }
+    const product = await getPublicProductByCode(omieCode);
+    if (!product) throw new AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
 
     return reply.send(
-      ok({
-        omieCode: row.omieCode,
-        description: row.description,
-        sku: row.sku,
-        familyDescription: row.familyDescription,
-        active: row.active,
-        stockQuantity: row.stockQuantity ?? '0.0000',
-        minimumStock: row.minimumStock ?? '0.0000',
-        stockUpdatedAt: row.stockUpdatedAt ? row.stockUpdatedAt.toISOString() : null,
-      })
+      ok(product)
     );
   };
 
