@@ -105,9 +105,9 @@ async function runStockRefresh(options) {
             for (const [k, v] of Object.entries(items))
                 snapshotMap.set(String(k).trim(), v);
         }
-        const EXPECTED_OMIE_CODE_LENGTH = 32;
+        const EXPECTED_OMIE_CODE_LENGTH = 64;
         const MAX_DECIMAL_INTEGER_DIGITS = 14;
-        const BATCH_SIZE = 1000;
+        const BATCH_SIZE = 200;
         const MAX_WARN_LOGS = 10;
         let outsideExpectedOmieCodeLength = 0;
         let skippedOutOfRangeDecimal = 0;
@@ -157,10 +157,22 @@ async function runStockRefresh(options) {
         if (rows.length > 0) {
             for (let i = 0; i < rows.length; i += BATCH_SIZE) {
                 const batch = rows.slice(i, i + BATCH_SIZE);
-                const result = await db_1.prisma.productStock.createMany({
-                    data: batch,
-                });
-                insertedCount += result?.count ?? 0;
+                await db_1.prisma.$transaction(batch.map((row) => db_1.prisma.productStock.upsert({
+                    where: { omieCode: row.omieCode },
+                    create: {
+                        omieCode: row.omieCode,
+                        stockQuantity: row.stockQuantity,
+                        minimumStock: row.minimumStock,
+                        capturedAt: row.capturedAt,
+                    },
+                    update: {
+                        stockQuantity: row.stockQuantity,
+                        minimumStock: row.minimumStock,
+                        capturedAt: row.capturedAt,
+                        updatedAt: row.capturedAt,
+                    },
+                })));
+                insertedCount += batch.length;
             }
         }
         const meta = {};

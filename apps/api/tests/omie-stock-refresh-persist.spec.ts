@@ -18,8 +18,9 @@ vi.mock('../src/db', () => {
         updateMany: vi.fn(),
       },
       productStock: {
-        createMany: vi.fn(),
+        upsert: vi.fn(),
       },
+      $transaction: vi.fn(async (ops: any[]) => Promise.all(ops)),
     },
   };
 });
@@ -36,6 +37,7 @@ describe('POST /v1/omie/products/stock/refresh (persist history)', () => {
       lockedUntil: new Date('2099-01-01T00:00:00.000Z'),
     });
     (prisma.syncLock.updateMany as any).mockResolvedValue({ count: 1 });
+    (prisma.$transaction as any).mockImplementation(async (ops: any[]) => Promise.all(ops));
   });
 
   it('persiste um snapshot no product_stock (1 linha por omieCode) e retorna insertedCount e capturedAt', async () => {
@@ -49,7 +51,7 @@ describe('POST /v1/omie/products/stock/refresh (persist history)', () => {
       }
     );
 
-    (prisma.productStock.createMany as any).mockResolvedValue({ count: 2 });
+    (prisma.productStock.upsert as any).mockResolvedValue({ id: 'ok' });
 
     const app = await buildApp();
     await app.ready();
@@ -69,23 +71,16 @@ describe('POST /v1/omie/products/stock/refresh (persist history)', () => {
     expect(typeof body.data.capturedAt).toBe('string');
     expect(new Date(body.data.capturedAt).toISOString()).toBe(body.data.capturedAt);
 
-    expect(prisma.productStock.createMany).toHaveBeenCalledTimes(1);
-    const args = (prisma.productStock.createMany as any).mock.calls[0][0];
-    expect(args.data).toHaveLength(2);
-    expect(args.data[0]).toMatchObject({
-      omieCode: '123',
-      stockQuantity: '10',
-      minimumStock: '2',
-    });
-    expect(args.data[1]).toMatchObject({
-      omieCode: '456',
-      stockQuantity: '0',
-      minimumStock: '5',
-    });
-
-    expect(args.data[0].capturedAt).toBeInstanceOf(Date);
-    expect(args.data[1].capturedAt).toBeInstanceOf(Date);
-    expect(args.data[1].capturedAt.getTime()).toBe(args.data[0].capturedAt.getTime());
+    expect(prisma.productStock.upsert).toHaveBeenCalledTimes(2);
+    const first = (prisma.productStock.upsert as any).mock.calls[0][0];
+    const second = (prisma.productStock.upsert as any).mock.calls[1][0];
+    expect(first.where).toEqual({ omieCode: '123' });
+    expect(second.where).toEqual({ omieCode: '456' });
+    expect(first.create).toMatchObject({ omieCode: '123', stockQuantity: '10', minimumStock: '2' });
+    expect(second.create).toMatchObject({ omieCode: '456', stockQuantity: '0', minimumStock: '5' });
+    expect(first.create.capturedAt).toBeInstanceOf(Date);
+    expect(second.create.capturedAt).toBeInstanceOf(Date);
+    expect(second.create.capturedAt.getTime()).toBe(first.create.capturedAt.getTime());
 
     await app.close();
   });
@@ -109,7 +104,7 @@ describe('POST /v1/omie/products/stock/refresh (persist history)', () => {
     expect(body.data.insertedCount).toBe(0);
     expect(typeof body.data.capturedAt).toBe('string');
     expect(new Date(body.data.capturedAt).toISOString()).toBe(body.data.capturedAt);
-    expect(prisma.productStock.createMany).not.toHaveBeenCalled();
+    expect(prisma.productStock.upsert).not.toHaveBeenCalled();
 
     await app.close();
   });
@@ -133,7 +128,7 @@ describe('POST /v1/omie/products/stock/refresh (persist history)', () => {
     expect(body.data.insertedCount).toBe(0);
     expect(body.meta).toMatchObject({ skippedLocked: 1 });
     expect(omieStockCache.refreshNow).not.toHaveBeenCalled();
-    expect(prisma.productStock.createMany).not.toHaveBeenCalled();
+    expect(prisma.productStock.upsert).not.toHaveBeenCalled();
 
     await app.close();
   });
@@ -160,7 +155,7 @@ describe('POST /v1/omie/products/stock/refresh (persist history)', () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.payload);
     expect(body.data.insertedCount).toBe(2);
-    expect(prisma.productStock.createMany).not.toHaveBeenCalled();
+    expect(prisma.productStock.upsert).not.toHaveBeenCalled();
     expect(prisma.syncLock.create).not.toHaveBeenCalled();
     expect(prisma.syncLock.updateMany).not.toHaveBeenCalled();
 

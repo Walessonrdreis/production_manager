@@ -105,9 +105,9 @@ model ProductStock {
   omieCode      String   @db.VarChar(64)
   stockQuantity Decimal  @db.Decimal(18, 4)
   minimumStock  Decimal  @db.Decimal(18, 4)
+  updatedAt     DateTime @updatedAt
   capturedAt    DateTime @default(now())
 
-  @@index([omieCode])
-  @@index([omieCode, capturedAt])
+  @@unique([omieCode])
   @@map("product_stock")
 }

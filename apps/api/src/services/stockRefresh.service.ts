@@ -116,9 +116,9 @@ export async function runStockRefresh(options?: StockRefreshOptions): Promise<St
       for (const [k, v] of Object.entries(items)) snapshotMap.set(String(k).trim(), v);
     }
 
-    const EXPECTED_OMIE_CODE_LENGTH = 32;
+    const EXPECTED_OMIE_CODE_LENGTH = 64;
     const MAX_DECIMAL_INTEGER_DIGITS = 14;
-    const BATCH_SIZE = 1000;
+    const BATCH_SIZE = 200;
     const MAX_WARN_LOGS = 10;
 
     let outsideExpectedOmieCodeLength = 0;
@@ -178,10 +178,28 @@ export async function runStockRefresh(options?: StockRefreshOptions): Promise<St
     if (rows.length > 0) {
       for (let i = 0; i < rows.length; i += BATCH_SIZE) {
         const batch = rows.slice(i, i + BATCH_SIZE);
-        const result = await (prisma as any).productStock.createMany({
-          data: batch,
-        });
-        insertedCount += result?.count ?? 0;
+
+        await prisma.$transaction(
+          batch.map((row) =>
+            (prisma as any).productStock.upsert({
+              where: { omieCode: row.omieCode },
+              create: {
+                omieCode: row.omieCode,
+                stockQuantity: row.stockQuantity,
+                minimumStock: row.minimumStock,
+                capturedAt: row.capturedAt,
+              },
+              update: {
+                stockQuantity: row.stockQuantity,
+                minimumStock: row.minimumStock,
+                capturedAt: row.capturedAt,
+                updatedAt: row.capturedAt,
+              },
+            })
+          )
+        );
+
+        insertedCount += batch.length;
       }
     }
 
