@@ -42,60 +42,99 @@ describe('GET /v1/products/stock', () => {
     vi.resetAllMocks();
   });
 
-  it('retorna lista paginada com stockQuantity/minimumStock e stockUpdatedAt por item', async () => {
-    (prisma.$queryRaw as any)
-      .mockResolvedValueOnce([
+  it('retorna 2 itens, com estoque para A e zero/null para B', async () => {
+    const omieProducts = [
       {
-        omieCode: 'ABC',
-        description: 'A',
+        omieCode: 'A',
+        description: 'Produto A',
         sku: null,
         familyDescription: null,
         active: true,
-        stockQuantity: '0.0000',
-        minimumStock: '0.0000',
-        stockUpdatedAt: null,
       },
       {
-        omieCode: 'XTE',
-        description: 'X',
-        sku: 'SKU',
-        familyDescription: 'Fam',
+        omieCode: 'B',
+        description: 'Produto B',
+        sku: null,
+        familyDescription: null,
         active: true,
-        stockQuantity: '10.0000',
-        minimumStock: '2.0000',
-        stockUpdatedAt: new Date('2026-04-15T00:00:00.000Z'),
       },
-    ])
-      .mockResolvedValueOnce([{ total: BigInt(2) }]);
+    ];
+
+    const productStockRows = [
+      {
+        omieCode: 'A',
+        stockQuantity: 10,
+        minimumStock: 2,
+        capturedAt: new Date('2026-04-15T00:00:00.000Z'),
+      },
+    ];
+
+    const formatDecimal = (value: number) => value.toFixed(4);
+
+    let callIndex = 0;
+    (prisma.$queryRaw as any).mockImplementation(async () => {
+      if (callIndex === 0) {
+        const latestStockByCode = new Map<string, { stockQuantity: number; minimumStock: number; capturedAt: Date }>();
+        for (const row of productStockRows) {
+          const existing = latestStockByCode.get(row.omieCode);
+          if (!existing || row.capturedAt.getTime() > existing.capturedAt.getTime()) {
+            latestStockByCode.set(row.omieCode, row);
+          }
+        }
+
+        const rows = omieProducts
+          .slice()
+          .sort((a, b) => a.description.localeCompare(b.description))
+          .map((p) => {
+            const stock = latestStockByCode.get(p.omieCode);
+            return {
+              omieCode: p.omieCode,
+              description: p.description,
+              sku: p.sku,
+              familyDescription: p.familyDescription,
+              active: p.active,
+              stockQuantity: stock ? formatDecimal(stock.stockQuantity) : '0.0000',
+              minimumStock: stock ? formatDecimal(stock.minimumStock) : '0.0000',
+              stockUpdatedAt: stock ? stock.capturedAt : null,
+            };
+          });
+
+        callIndex += 1;
+        return rows;
+      }
+
+      callIndex += 1;
+      return [{ total: BigInt(omieProducts.length) }];
+    });
 
     const app = await buildApp();
     await app.ready();
 
     const response = await app.inject({
       method: 'GET',
-      url: '/v1/products/stock?q=te&page=1&pageSize=2&activeOnly=true',
+      url: '/v1/products/stock?page=1&pageSize=50',
     });
 
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.payload);
     expect(body).toHaveProperty('data');
     expect(body).toHaveProperty('meta');
-    expect(body.meta).toMatchObject({ page: 1, pageSize: 2, total: 2 });
+    expect(body.meta).toMatchObject({ page: 1, pageSize: 50, total: 2 });
 
     expect(body.data).toHaveLength(2);
     expect(body.data[0]).toMatchObject({
-      omieCode: 'ABC',
-      description: 'A',
-      stockQuantity: '0.0000',
-      minimumStock: '0.0000',
-      stockUpdatedAt: null,
-    });
-    expect(body.data[1]).toMatchObject({
-      omieCode: 'XTE',
-      description: 'X',
+      omieCode: 'A',
+      description: 'Produto A',
       stockQuantity: '10.0000',
       minimumStock: '2.0000',
       stockUpdatedAt: '2026-04-15T00:00:00.000Z',
+    });
+    expect(body.data[1]).toMatchObject({
+      omieCode: 'B',
+      description: 'Produto B',
+      stockQuantity: '0.0000',
+      minimumStock: '0.0000',
+      stockUpdatedAt: null,
     });
 
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
