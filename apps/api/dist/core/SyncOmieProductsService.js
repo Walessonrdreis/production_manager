@@ -168,11 +168,19 @@ class SyncOmieProductsService {
                     let dto;
                     try {
                         dto = OmieAdapter_1.OmieAdapter.toProductDTO(item);
+                        const omieCode = String(item?.codigo ?? item?.cod_int ?? item?.codigo_item ?? dto?.omieId ?? '')
+                            .trim();
+                        if (!omieCode) {
+                            throw new AppError_1.AppError('OMIE_CODE_NOT_FOUND', 502, 'Omie code not found in payload');
+                        }
+                        const omieId = (item?.id ?? item?.codigo_produto) !== undefined && (item?.id ?? item?.codigo_produto) !== null
+                            ? String(item?.id ?? item?.codigo_produto).trim()
+                            : null;
                         await db_1.prisma.omieProduct.upsert({
-                            where: { omieId: dto.omieId },
+                            where: { omieCode },
                             create: {
-                                omieId: dto.omieId,
-                                omieCode: dto.omieId,
+                                omieCode,
+                                omieId,
                                 sku: dto.sku,
                                 description: dto.description,
                                 familyDescription: OmieAdapter_1.OmieAdapter.extractFamilyDescription(dto.rawPayload),
@@ -181,7 +189,7 @@ class SyncOmieProductsService {
                                 lastSyncAt: new Date(),
                             },
                             update: {
-                                omieCode: dto.omieId,
+                                omieId,
                                 sku: dto.sku,
                                 description: dto.description,
                                 familyDescription: OmieAdapter_1.OmieAdapter.extractFamilyDescription(dto.rawPayload),

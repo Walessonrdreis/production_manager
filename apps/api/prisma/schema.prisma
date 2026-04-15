@@ -22,8 +22,8 @@ model JobLock {
 
 model OmieProduct {
   id                String   @id @default(uuid())
-  omieId            String   @unique
-  omieCode          String?  @db.VarChar(64)
+  omieCode          String   @db.VarChar(64)
+  omieId            String?  @db.VarChar(64)
   sku               String?  @db.VarChar(128)
   description       String   @db.Text
   familyDescription String?  @db.Text
@@ -33,7 +33,7 @@ model OmieProduct {
 
   product Product?
 
-  @@index([omieCode])
+  @@unique([omieCode])
   @@index([description])
 }
 

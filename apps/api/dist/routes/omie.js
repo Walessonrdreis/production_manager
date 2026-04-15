@@ -173,7 +173,7 @@ async function omieRoutes(app) {
             sku: omieProduct.sku,
             familyDescription: omieProduct.familyDescription ?? OmieAdapter_1.OmieAdapter.extractFamilyDescription(omieProduct.rawPayload),
             active: omieProduct.active,
-            omieCode: omieProduct.omieCode ?? omieProduct.omieId,
+            omieCode: omieProduct.omieCode,
         };
         if (includeRaw) {
             data.rawPayload = omieProduct.rawPayload;
@@ -189,7 +189,7 @@ async function omieRoutes(app) {
         });
         const { omieCode } = paramsSchema.parse(request.params);
         const { includeRaw } = querySchema.parse(request.query);
-        const omieProduct = ((await db_1.prisma.omieProduct.findFirst({
+        const omieProduct = ((await db_1.prisma.omieProduct.findUnique({
             where: { omieCode },
             select: {
                 id: true,
@@ -202,7 +202,7 @@ async function omieRoutes(app) {
                 rawPayload: true,
             },
         })) ??
-            (await db_1.prisma.omieProduct.findUnique({
+            (await db_1.prisma.omieProduct.findFirst({
                 where: { omieId: omieCode },
                 select: {
                     id: true,
@@ -224,7 +224,7 @@ async function omieRoutes(app) {
             sku: omieProduct.sku,
             familyDescription: omieProduct.familyDescription ?? OmieAdapter_1.OmieAdapter.extractFamilyDescription(omieProduct.rawPayload),
             active: omieProduct.active,
-            omieCode: omieProduct.omieCode ?? omieProduct.omieId,
+            omieCode: omieProduct.omieCode,
         };
         if (includeRaw) {
             data.rawPayload = omieProduct.rawPayload;
@@ -248,7 +248,7 @@ async function omieRoutes(app) {
             OmieStockCache_1.omieStockCache.getSnapshot(),
         ]);
         const enrichedItems = items.map((item) => {
-            const code = OmieAdapter_1.OmieAdapter.extractProductCode(item.rawPayload) || item.omieId;
+            const code = item.omieCode;
             return {
                 ...item,
                 code,

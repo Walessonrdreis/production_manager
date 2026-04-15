@@ -237,7 +237,7 @@ export async function omieRoutes(app: FastifyInstance) {
       sku: omieProduct.sku,
       familyDescription: omieProduct.familyDescription ?? OmieAdapter.extractFamilyDescription(omieProduct.rawPayload),
       active: omieProduct.active,
-      omieCode: omieProduct.omieCode ?? omieProduct.omieId,
+      omieCode: omieProduct.omieCode,
     };
 
     if (includeRaw) {
@@ -259,7 +259,7 @@ export async function omieRoutes(app: FastifyInstance) {
     const { omieCode } = paramsSchema.parse(request.params);
     const { includeRaw } = querySchema.parse(request.query);
 
-    const omieProduct = ((await prisma.omieProduct.findFirst({
+    const omieProduct = ((await prisma.omieProduct.findUnique({
         where: { omieCode },
         select: {
           id: true,
@@ -272,7 +272,7 @@ export async function omieRoutes(app: FastifyInstance) {
           rawPayload: true,
         },
       } as any)) ??
-      (await prisma.omieProduct.findUnique({
+      (await prisma.omieProduct.findFirst({
         where: { omieId: omieCode },
         select: {
           id: true,
@@ -287,8 +287,8 @@ export async function omieRoutes(app: FastifyInstance) {
       } as any))) as
       | {
           id: string;
-          omieId: string;
-          omieCode: string | null;
+          omieId: string | null;
+          omieCode: string;
           description: string;
           sku: string | null;
           familyDescription: string | null;
@@ -307,7 +307,7 @@ export async function omieRoutes(app: FastifyInstance) {
       sku: omieProduct.sku,
       familyDescription: omieProduct.familyDescription ?? OmieAdapter.extractFamilyDescription(omieProduct.rawPayload),
       active: omieProduct.active,
-      omieCode: omieProduct.omieCode ?? omieProduct.omieId,
+      omieCode: omieProduct.omieCode,
     };
 
     if (includeRaw) {
@@ -337,7 +337,7 @@ export async function omieRoutes(app: FastifyInstance) {
     ]);
 
     const enrichedItems = items.map((item) => {
-      const code = OmieAdapter.extractProductCode(item.rawPayload) || item.omieId;
+      const code = item.omieCode;
       return {
         ...item,
         code,

@@ -18,7 +18,7 @@ function buildFieldLengthSummary(item) {
     const safeLen = (value) => (value == null ? 0 : String(value).length);
     return {
         sample: {
-            omieCode: item.omieCode ?? null,
+            omieCode: item.omieCode,
             description: String(item.description ?? ''),
             sku: item.sku ? String(item.sku) : null,
             familyDescription: item.familyDescription ? String(item.familyDescription) : null,
@@ -32,8 +32,8 @@ function buildFieldLengthSummary(item) {
     };
 }
 function warnFieldLengthOutliers(item) {
-    const omieCode = item.omieCode ?? item.omieId;
-    const skuExpectedMax = 64;
+    const omieCode = item.omieCode;
+    const skuExpectedMax = 128;
     if (item.sku && item.sku.length > skuExpectedMax) {
         console.warn('⚠️ omie product sync: sku length outlier', {
             omieCode,
@@ -59,26 +59,25 @@ function toTrimmedString(value) {
 function normalizeDescription(value) {
     return toTrimmedString(value) ?? 'Sem descrição';
 }
-function extractOmieId(raw) {
-    return (toTrimmedString(raw?.codigo_produto) ??
-        toTrimmedString(raw?.id) ??
-        toTrimmedString(raw?.codigo) ??
-        toTrimmedString(raw?.codigo_item) ??
-        toTrimmedString(OmieAdapter_1.OmieAdapter.extractProductCode(raw)));
-}
 function extractOmieCode(raw) {
     return (toTrimmedString(raw?.codigo) ??
         toTrimmedString(raw?.cod_int) ??
         toTrimmedString(raw?.codigo_item) ??
+        toTrimmedString(raw?.codigoItem) ??
+        toTrimmedString(raw?.codInt) ??
+        null);
+}
+function extractOmieId(raw) {
+    return (toTrimmedString(raw?.id) ??
         toTrimmedString(raw?.codigo_produto) ??
-        toTrimmedString(raw?.id) ??
-        toTrimmedString(OmieAdapter_1.OmieAdapter.extractProductCode(raw)));
+        toTrimmedString(raw?.codigoProduto) ??
+        null);
 }
 function normalizeOmieProduct(raw) {
-    const omieId = extractOmieId(raw);
-    if (!omieId)
-        return null;
     const omieCode = extractOmieCode(raw);
+    if (!omieCode)
+        return null;
+    const omieId = extractOmieId(raw);
     const sku = toTrimmedString(raw?.sku);
     const descriptionRaw = raw?.descricao ?? raw?.descricao_produto ?? 'Sem descrição';
     const descriptionTrimmed = String(descriptionRaw).trim();
@@ -87,8 +86,8 @@ function normalizeOmieProduct(raw) {
     const familyDescription = familyDescriptionRaw == null ? null : String(familyDescriptionRaw).trim() || null;
     const active = raw?.ativo !== undefined ? Boolean(raw.ativo) : true;
     return {
-        omieId: String(omieId).trim(),
-        omieCode: omieCode == null ? null : String(omieCode).trim() || null,
+        omieCode: String(omieCode).trim(),
+        omieId: omieId == null ? null : String(omieId).trim() || null,
         sku: sku == null ? null : String(sku).trim() || null,
         description,
         familyDescription,
@@ -183,65 +182,54 @@ async function runOmieProductSync() {
                 break;
             }
             const normalizedItems = items.map(normalizeOmieProduct).filter((v) => Boolean(v));
-            const omieIds = normalizedItems.map((item) => item.omieId);
+            const omieCodes = Array.from(new Set(normalizedItems.map((item) => item.omieCode)));
             const existingRows = await db_1.prisma.omieProduct.findMany({
-                where: { omieId: { in: omieIds } },
+                where: { omieCode: { in: omieCodes } },
                 select: {
-                    omieId: true,
                     omieCode: true,
+                    omieId: true,
                     sku: true,
                     description: true,
                     familyDescription: true,
                     active: true,
                 },
             });
-            const existingByOmieId = new Map(existingRows.map((row) => [row.omieId, row]));
+            const existingByOmieCode = new Map(existingRows.map((row) => [row.omieCode, row]));
             for (const item of normalizedItems) {
                 warnFieldLengthOutliers(item);
-                const existing = existingByOmieId.get(item.omieId);
-                const omieCodeSample = item.omieCode ?? item.omieId;
+                const existing = existingByOmieCode.get(item.omieCode);
+                const omieCodeSample = item.omieCode;
+                const changed = (existing?.omieId ?? null) !== (item.omieId ?? null) ||
+                    (existing?.sku ?? null) !== (item.sku ?? null) ||
+                    (existing?.description ?? null) !== item.description ||
+                    (existing?.familyDescription ?? null) !== (item.familyDescription ?? null) ||
+                    (existing?.active ?? null) !== item.active;
                 if (!existing) {
-                    try {
-                        await db_1.prisma.omieProduct.create({
-                            data: {
-                                omieId: item.omieId,
-                                omieCode: item.omieCode,
-                                sku: item.sku,
-                                description: item.description,
-                                familyDescription: item.familyDescription,
-                                active: item.active,
-                                rawPayload: item.rawPayload,
-                                lastSyncAt: syncAt,
-                            },
-                        });
-                    }
-                    catch (err) {
-                        if (err?.code === 'P2000') {
-                            console.log('🚨 Prisma P2000 on OmieProduct.create', {
-                                modelName: err?.meta?.modelName,
-                                column_name: err?.meta?.column_name,
-                                omieCodeSample,
-                                fieldLengthSummary: buildFieldLengthSummary(item),
-                            });
-                        }
-                        throw err;
-                    }
                     upsertedCount += 1;
-                    continue;
                 }
-                const changed = (existing.omieCode ?? null) !== (item.omieCode ?? null) ||
-                    (existing.sku ?? null) !== (item.sku ?? null) ||
-                    existing.description !== item.description ||
-                    (existing.familyDescription ?? null) !== (item.familyDescription ?? null) ||
-                    existing.active !== item.active;
-                if (existing.active && !item.active) {
-                    deactivatedCount += 1;
+                else {
+                    if (existing.active && !item.active) {
+                        deactivatedCount += 1;
+                    }
+                    if (changed) {
+                        updatedCount += 1;
+                    }
                 }
                 try {
-                    await db_1.prisma.omieProduct.update({
-                        where: { omieId: item.omieId },
-                        data: {
+                    await db_1.prisma.omieProduct.upsert({
+                        where: { omieCode: item.omieCode },
+                        create: {
                             omieCode: item.omieCode,
+                            omieId: item.omieId,
+                            sku: item.sku,
+                            description: item.description,
+                            familyDescription: item.familyDescription,
+                            active: item.active,
+                            rawPayload: item.rawPayload,
+                            lastSyncAt: syncAt,
+                        },
+                        update: {
+                            omieId: item.omieId,
                             sku: item.sku,
                             description: item.description,
                             familyDescription: item.familyDescription,
@@ -253,7 +241,7 @@ async function runOmieProductSync() {
                 }
                 catch (err) {
                     if (err?.code === 'P2000') {
-                        console.log('🚨 Prisma P2000 on OmieProduct.update', {
+                        console.log('🚨 Prisma P2000 on OmieProduct.upsert', {
                             modelName: err?.meta?.modelName,
                             column_name: err?.meta?.column_name,
                             omieCodeSample,
@@ -261,9 +249,6 @@ async function runOmieProductSync() {
                         });
                     }
                     throw err;
-                }
-                if (changed) {
-                    updatedCount += 1;
                 }
             }
             if (totalPages != null) {

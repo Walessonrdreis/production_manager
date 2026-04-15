@@ -15,8 +15,8 @@ const JOB_LOCK_KEY = 'omie_product_sync';
 const JOB_LOCK_TTL_MS = 10 * 60 * 1000;
 
 type OmieProductNormalized = {
-  omieId: string;
-  omieCode: string | null;
+  omieCode: string;
+  omieId: string | null;
   sku: string | null;
   description: string;
   familyDescription: string | null;
@@ -25,7 +25,7 @@ type OmieProductNormalized = {
 };
 
 function buildFieldLengthSummary(item: {
-  omieCode: string | null;
+  omieCode: string;
   description: string;
   sku: string | null;
   familyDescription: string | null;
@@ -34,7 +34,7 @@ function buildFieldLengthSummary(item: {
 
   return {
     sample: {
-      omieCode: item.omieCode ?? null,
+      omieCode: item.omieCode,
       description: String(item.description ?? ''),
       sku: item.sku ? String(item.sku) : null,
       familyDescription: item.familyDescription ? String(item.familyDescription) : null,
@@ -49,15 +49,15 @@ function buildFieldLengthSummary(item: {
 }
 
 function warnFieldLengthOutliers(item: {
-  omieId: string;
-  omieCode: string | null;
+  omieCode: string;
+  omieId: string | null;
   sku: string | null;
   description: string;
   familyDescription: string | null;
 }) {
-  const omieCode = item.omieCode ?? item.omieId;
+  const omieCode = item.omieCode;
 
-  const skuExpectedMax = 64;
+  const skuExpectedMax = 128;
   if (item.sku && item.sku.length > skuExpectedMax) {
     console.warn('⚠️ omie product sync: sku length outlier', {
       omieCode,
@@ -86,32 +86,31 @@ function normalizeDescription(value: unknown): string {
   return toTrimmedString(value) ?? 'Sem descrição';
 }
 
-function extractOmieId(raw: any): string | null {
-  return (
-    toTrimmedString(raw?.codigo_produto) ??
-    toTrimmedString(raw?.id) ??
-    toTrimmedString(raw?.codigo) ??
-    toTrimmedString(raw?.codigo_item) ??
-    toTrimmedString(OmieAdapter.extractProductCode(raw))
-  );
-}
-
 function extractOmieCode(raw: any): string | null {
   return (
     toTrimmedString(raw?.codigo) ??
     toTrimmedString(raw?.cod_int) ??
     toTrimmedString(raw?.codigo_item) ??
-    toTrimmedString(raw?.codigo_produto) ??
+    toTrimmedString(raw?.codigoItem) ??
+    toTrimmedString(raw?.codInt) ??
+    null
+  );
+}
+
+function extractOmieId(raw: any): string | null {
+  return (
     toTrimmedString(raw?.id) ??
-    toTrimmedString(OmieAdapter.extractProductCode(raw))
+    toTrimmedString(raw?.codigo_produto) ??
+    toTrimmedString(raw?.codigoProduto) ??
+    null
   );
 }
 
 function normalizeOmieProduct(raw: any): OmieProductNormalized | null {
-  const omieId = extractOmieId(raw);
-  if (!omieId) return null;
-
   const omieCode = extractOmieCode(raw);
+  if (!omieCode) return null;
+
+  const omieId = extractOmieId(raw);
   const sku = toTrimmedString(raw?.sku);
 
   const descriptionRaw = raw?.descricao ?? raw?.descricao_produto ?? 'Sem descrição';
@@ -124,8 +123,8 @@ function normalizeOmieProduct(raw: any): OmieProductNormalized | null {
   const active = raw?.ativo !== undefined ? Boolean(raw.ativo) : true;
 
   return {
-    omieId: String(omieId).trim(),
-    omieCode: omieCode == null ? null : String(omieCode).trim() || null,
+    omieCode: String(omieCode).trim(),
+    omieId: omieId == null ? null : String(omieId).trim() || null,
     sku: sku == null ? null : String(sku).trim() || null,
     description,
     familyDescription,
@@ -243,13 +242,13 @@ export async function runOmieProductSync(): Promise<{
       }
 
       const normalizedItems = items.map(normalizeOmieProduct).filter((v): v is OmieProductNormalized => Boolean(v));
-      const omieIds = normalizedItems.map((item) => item.omieId);
+      const omieCodes = Array.from(new Set(normalizedItems.map((item) => item.omieCode)));
 
       const existingRows = await prisma.omieProduct.findMany({
-        where: { omieId: { in: omieIds } },
+        where: { omieCode: { in: omieCodes } },
         select: {
-          omieId: true,
           omieCode: true,
+          omieId: true,
           sku: true,
           description: true,
           familyDescription: true,
@@ -257,60 +256,38 @@ export async function runOmieProductSync(): Promise<{
         },
       });
 
-      const existingByOmieId = new Map(existingRows.map((row) => [row.omieId, row]));
+      const existingByOmieCode = new Map(existingRows.map((row) => [row.omieCode, row]));
 
       for (const item of normalizedItems) {
         warnFieldLengthOutliers(item);
 
-        const existing = existingByOmieId.get(item.omieId);
-        const omieCodeSample = item.omieCode ?? item.omieId;
-
-        if (!existing) {
-          try {
-            await prisma.omieProduct.create({
-              data: {
-                omieId: item.omieId,
-                omieCode: item.omieCode,
-                sku: item.sku,
-                description: item.description,
-                familyDescription: item.familyDescription,
-                active: item.active,
-                rawPayload: item.rawPayload as any,
-                lastSyncAt: syncAt,
-              },
-            });
-          } catch (err: any) {
-            if (err?.code === 'P2000') {
-              console.log('🚨 Prisma P2000 on OmieProduct.create', {
-                modelName: err?.meta?.modelName,
-                column_name: err?.meta?.column_name,
-                omieCodeSample,
-                fieldLengthSummary: buildFieldLengthSummary(item),
-              });
-            }
-            throw err;
-          }
-
-          upsertedCount += 1;
-          continue;
-        }
+        const existing = existingByOmieCode.get(item.omieCode);
+        const omieCodeSample = item.omieCode;
 
         const changed =
-          (existing.omieCode ?? null) !== (item.omieCode ?? null) ||
-          (existing.sku ?? null) !== (item.sku ?? null) ||
-          existing.description !== item.description ||
-          (existing.familyDescription ?? null) !== (item.familyDescription ?? null) ||
-          existing.active !== item.active;
+          (existing?.omieId ?? null) !== (item.omieId ?? null) ||
+          (existing?.sku ?? null) !== (item.sku ?? null) ||
+          (existing?.description ?? null) !== item.description ||
+          (existing?.familyDescription ?? null) !== (item.familyDescription ?? null) ||
+          (existing?.active ?? null) !== item.active;
 
-        if (existing.active && !item.active) {
-          deactivatedCount += 1;
+        if (!existing) {
+          upsertedCount += 1;
+        } else {
+          if (existing.active && !item.active) {
+            deactivatedCount += 1;
+          }
+          if (changed) {
+            updatedCount += 1;
+          }
         }
 
         try {
-          await prisma.omieProduct.update({
-            where: { omieId: item.omieId },
-            data: {
+          await prisma.omieProduct.upsert({
+            where: { omieCode: item.omieCode },
+            create: {
               omieCode: item.omieCode,
+              omieId: item.omieId,
               sku: item.sku,
               description: item.description,
               familyDescription: item.familyDescription,
@@ -318,10 +295,19 @@ export async function runOmieProductSync(): Promise<{
               rawPayload: item.rawPayload as any,
               lastSyncAt: syncAt,
             },
-          });
+            update: {
+              omieId: item.omieId,
+              sku: item.sku,
+              description: item.description,
+              familyDescription: item.familyDescription,
+              active: item.active,
+              rawPayload: item.rawPayload as any,
+              lastSyncAt: syncAt,
+            },
+          } as any);
         } catch (err: any) {
           if (err?.code === 'P2000') {
-            console.log('🚨 Prisma P2000 on OmieProduct.update', {
+            console.log('🚨 Prisma P2000 on OmieProduct.upsert', {
               modelName: err?.meta?.modelName,
               column_name: err?.meta?.column_name,
               omieCodeSample,
@@ -329,10 +315,6 @@ export async function runOmieProductSync(): Promise<{
             });
           }
           throw err;
-        }
-
-        if (changed) {
-          updatedCount += 1;
         }
       }
 

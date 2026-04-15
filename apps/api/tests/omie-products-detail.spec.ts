@@ -99,10 +99,10 @@ describe('Omie product detail endpoints', () => {
     await app.close();
   });
 
-  it('GET /v1/omie/products/by-code/:omieCode busca por omieId e retorna canônico', async () => {
-    (prisma.omieProduct.findFirst as any).mockResolvedValue({
+  it('GET /v1/omie/products/by-code/:omieCode busca por omieCode e retorna canônico', async () => {
+    (prisma.omieProduct.findUnique as any).mockResolvedValue({
       id: '0a74a47a-3b19-4f22-9b0f-8b8d41d8c6c6',
-      omieId: '99999',
+      omieId: '9116172831',
       omieCode: '99999',
       description: 'Produto Y',
       sku: null,
@@ -129,8 +129,8 @@ describe('Omie product detail endpoints', () => {
   });
 
   it('quando não encontrado retorna 404 OMIE_PRODUCT_NOT_FOUND', async () => {
-    (prisma.omieProduct.findFirst as any).mockResolvedValue(null);
     (prisma.omieProduct.findUnique as any).mockResolvedValue(null);
+    (prisma.omieProduct.findFirst as any).mockResolvedValue(null);
 
     const app = await buildApp();
     await app.ready();
