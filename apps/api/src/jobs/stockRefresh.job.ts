@@ -74,6 +74,12 @@ export function startStockRefreshJob(appOrLogger: FastifyInstance | LoggerLike) 
 
     try {
       const result = await runStockRefresh();
+
+      if (result.meta?.skippedLocked) {
+        log.warn({ startedAt: startedAtIso, meta: result.meta }, 'skipped: already running');
+        return;
+      }
+
       log.info(
         {
           startedAt: startedAtIso,

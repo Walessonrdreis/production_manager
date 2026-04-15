@@ -53,6 +53,10 @@ function startStockRefreshJob(appOrLogger) {
         log.info({ startedAt: startedAtIso }, 'stock refresh started');
         try {
             const result = await (0, stockRefresh_service_1.runStockRefresh)();
+            if (result.meta?.skippedLocked) {
+                log.warn({ startedAt: startedAtIso, meta: result.meta }, 'skipped: already running');
+                return;
+            }
             log.info({
                 startedAt: startedAtIso,
                 finishedAt: new Date().toISOString(),
