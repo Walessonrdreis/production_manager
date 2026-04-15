@@ -43,7 +43,8 @@ describe('GET /v1/products/stock', () => {
   });
 
   it('retorna lista paginada com stockQuantity/minimumStock e stockUpdatedAt por item', async () => {
-    (prisma.$queryRaw as any).mockResolvedValue([
+    (prisma.$queryRaw as any)
+      .mockResolvedValueOnce([
       {
         omieCode: 'ABC',
         description: 'A',
@@ -53,7 +54,6 @@ describe('GET /v1/products/stock', () => {
         stockQuantity: '0.0000',
         minimumStock: '0.0000',
         stockUpdatedAt: null,
-        total: BigInt(2),
       },
       {
         omieCode: 'XTE',
@@ -64,9 +64,9 @@ describe('GET /v1/products/stock', () => {
         stockQuantity: '10.0000',
         minimumStock: '2.0000',
         stockUpdatedAt: new Date('2026-04-15T00:00:00.000Z'),
-        total: BigInt(2),
       },
-    ]);
+    ])
+      .mockResolvedValueOnce([{ total: BigInt(2) }]);
 
     const app = await buildApp();
     await app.ready();
@@ -98,9 +98,8 @@ describe('GET /v1/products/stock', () => {
       stockUpdatedAt: '2026-04-15T00:00:00.000Z',
     });
 
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
 
     await app.close();
   });
 });
-

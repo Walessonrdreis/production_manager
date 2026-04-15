@@ -82,7 +82,6 @@ export async function productsRoutes(app: FastifyInstance) {
         stockQuantity: string | null;
         minimumStock: string | null;
         stockUpdatedAt: Date | null;
-        total: bigint | number;
       }>
     >`
       WITH latest_stock AS (
@@ -102,8 +101,7 @@ export async function productsRoutes(app: FastifyInstance) {
         o."active" AS "active",
         COALESCE(to_char(latest_stock."stockQuantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
         COALESCE(to_char(latest_stock."minimumStock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
-        latest_stock."capturedAt" AS "stockUpdatedAt",
-        COUNT(*) OVER() AS "total"
+        latest_stock."capturedAt" AS "stockUpdatedAt"
       FROM "OmieProduct" o
       LEFT JOIN latest_stock
         ON latest_stock."omieCode" = o."omieCode"
@@ -120,7 +118,20 @@ export async function productsRoutes(app: FastifyInstance) {
       OFFSET ${offset}
     `;
 
-    const totalRaw = rows[0]?.total ?? 0;
+    const totalRows = await prisma.$queryRaw<Array<{ total: bigint | number }>>`
+      SELECT COUNT(*) AS "total"
+      FROM "OmieProduct" o
+      WHERE
+        (${activeOnly}::boolean = false OR o."active" = true)
+        AND (
+          ${normalizedQ}::text IS NULL
+          OR o."description" ILIKE ('%' || ${normalizedQ}::text || '%')
+          OR COALESCE(o."sku", '') ILIKE ('%' || ${normalizedQ}::text || '%')
+          OR o."omieCode" ILIKE ('%' || ${normalizedQ}::text || '%')
+        )
+    `;
+
+    const totalRaw = totalRows?.[0]?.total ?? 0;
     const total = typeof totalRaw === 'bigint' ? Number(totalRaw) : Number(totalRaw ?? 0);
 
     const data = rows.map((row) => ({
