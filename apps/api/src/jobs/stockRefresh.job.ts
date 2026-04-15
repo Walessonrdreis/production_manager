@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import cron from 'node-cron';
 import { runStockRefresh } from '../services/stockRefresh.service';
 
 type LoggerLike = {
@@ -18,28 +19,6 @@ function resolveLogger(input: FastifyInstance | LoggerLike): LoggerLike {
   return maybeLogger;
 }
 
-function parseCronToIntervalMs(expr: string): { intervalMs: number; mode: 'minutes' | 'hours'; step: number } | null {
-  const normalized = expr.trim().replace(/\s+/g, ' ');
-
-  const minutesMatch = normalized.match(/^\*\/(\d+)\s+\*\s+\*\s+\*\s+\*$/);
-  if (minutesMatch) {
-    const step = Number(minutesMatch[1]);
-    if (Number.isFinite(step) && step > 0) {
-      return { intervalMs: step * 60 * 1000, mode: 'minutes', step };
-    }
-  }
-
-  const hoursMatch = normalized.match(/^0\s+\*\/(\d+)\s+\*\s+\*\s+\*$/);
-  if (hoursMatch) {
-    const step = Number(hoursMatch[1]);
-    if (Number.isFinite(step) && step > 0) {
-      return { intervalMs: step * 60 * 60 * 1000, mode: 'hours', step };
-    }
-  }
-
-  return null;
-}
-
 export function startStockRefreshJob(appOrLogger: FastifyInstance | LoggerLike) {
   const log = resolveLogger(appOrLogger);
 
@@ -49,14 +28,13 @@ export function startStockRefreshJob(appOrLogger: FastifyInstance | LoggerLike) 
   }
 
   const cronExpr = String(process.env.STOCK_REFRESH_CRON ?? '').trim() || '*/30 * * * *';
-  const parsed = parseCronToIntervalMs(cronExpr);
-  const intervalMs = parsed?.intervalMs ?? 30 * 60 * 1000;
+  const effectiveCronExpr = cron.validate(cronExpr) ? cronExpr : '*/30 * * * *';
 
-  if (!parsed) {
-    log.warn({ cronExpr }, 'stock refresh job: unsupported cron expr, falling back to 30 minutes interval');
+  if (effectiveCronExpr !== cronExpr) {
+    log.warn({ cronExpr }, 'stock refresh job: invalid cron expr, falling back to */30 * * * *');
   }
 
-  log.info({ cronExpr, intervalMs }, 'stock refresh job scheduled');
+  log.info({ cronExpr: effectiveCronExpr }, 'stock refresh job scheduled');
 
   let inFlight = false;
 
@@ -97,9 +75,9 @@ export function startStockRefreshJob(appOrLogger: FastifyInstance | LoggerLike) 
     }
   };
 
-  const intervalId = setInterval(() => {
+  const task = cron.schedule(effectiveCronExpr, () => {
     void tick();
-  }, intervalMs);
+  });
 
-  return () => clearInterval(intervalId);
+  return () => task.stop();
 }

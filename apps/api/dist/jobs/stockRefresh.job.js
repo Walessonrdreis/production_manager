@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startStockRefreshJob = startStockRefreshJob;
+const node_cron_1 = __importDefault(require("node-cron"));
 const stockRefresh_service_1 = require("../services/stockRefresh.service");
 function resolveLogger(input) {
     const maybeFastify = input;
@@ -10,24 +14,6 @@ function resolveLogger(input) {
     }
     return maybeLogger;
 }
-function parseCronToIntervalMs(expr) {
-    const normalized = expr.trim().replace(/\s+/g, ' ');
-    const minutesMatch = normalized.match(/^\*\/(\d+)\s+\*\s+\*\s+\*\s+\*$/);
-    if (minutesMatch) {
-        const step = Number(minutesMatch[1]);
-        if (Number.isFinite(step) && step > 0) {
-            return { intervalMs: step * 60 * 1000, mode: 'minutes', step };
-        }
-    }
-    const hoursMatch = normalized.match(/^0\s+\*\/(\d+)\s+\*\s+\*\s+\*$/);
-    if (hoursMatch) {
-        const step = Number(hoursMatch[1]);
-        if (Number.isFinite(step) && step > 0) {
-            return { intervalMs: step * 60 * 60 * 1000, mode: 'hours', step };
-        }
-    }
-    return null;
-}
 function startStockRefreshJob(appOrLogger) {
     const log = resolveLogger(appOrLogger);
     const enabled = String(process.env.ENABLE_STOCK_REFRESH_JOB ?? '').trim().toLowerCase() === 'true';
@@ -35,12 +21,11 @@ function startStockRefreshJob(appOrLogger) {
         return;
     }
     const cronExpr = String(process.env.STOCK_REFRESH_CRON ?? '').trim() || '*/30 * * * *';
-    const parsed = parseCronToIntervalMs(cronExpr);
-    const intervalMs = parsed?.intervalMs ?? 30 * 60 * 1000;
-    if (!parsed) {
-        log.warn({ cronExpr }, 'stock refresh job: unsupported cron expr, falling back to 30 minutes interval');
+    const effectiveCronExpr = node_cron_1.default.validate(cronExpr) ? cronExpr : '*/30 * * * *';
+    if (effectiveCronExpr !== cronExpr) {
+        log.warn({ cronExpr }, 'stock refresh job: invalid cron expr, falling back to */30 * * * *');
     }
-    log.info({ cronExpr, intervalMs }, 'stock refresh job scheduled');
+    log.info({ cronExpr: effectiveCronExpr }, 'stock refresh job scheduled');
     let inFlight = false;
     const tick = async () => {
         if (inFlight) {
@@ -72,8 +57,8 @@ function startStockRefreshJob(appOrLogger) {
             inFlight = false;
         }
     };
-    const intervalId = setInterval(() => {
+    const task = node_cron_1.default.schedule(effectiveCronExpr, () => {
         void tick();
-    }, intervalMs);
-    return () => clearInterval(intervalId);
+    });
+    return () => task.stop();
 }
