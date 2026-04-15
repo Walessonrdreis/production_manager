@@ -53,5 +53,32 @@ describe('GET /v1/omie/stock', () => {
 
     await app.close();
   });
-});
 
+  it('retorna 200 com lastRefreshAt=null e totalItems=0 quando não há dados', async () => {
+    (prisma.$queryRaw as any).mockResolvedValue([
+      { lastRefreshAt: null, totalItems: BigInt(0) },
+    ]);
+
+    const app = await buildApp();
+    await app.ready();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/omie/stock',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('application/json');
+
+    const body = JSON.parse(response.payload);
+    expect(body).toEqual({
+      data: {
+        lastRefreshAt: null,
+        totalItems: 0,
+        source: 'database',
+      },
+    });
+
+    await app.close();
+  });
+});
