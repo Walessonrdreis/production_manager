@@ -14,6 +14,23 @@ const OMIE_PRODUCTS_PAGE_SIZE = 100;
 const OMIE_PRODUCTS_MAX_PAGES = 2000;
 const JOB_LOCK_KEY = 'omie_product_sync';
 const JOB_LOCK_TTL_MS = 10 * 60 * 1000;
+function buildFieldLengthSummary(item) {
+    const safeLen = (value) => (value == null ? 0 : String(value).length);
+    return {
+        sample: {
+            omieCode: item.omieCode ?? null,
+            description: String(item.description ?? '').slice(0, 80),
+            sku: item.sku ? String(item.sku).slice(0, 80) : null,
+            familyDescription: item.familyDescription ? String(item.familyDescription).slice(0, 80) : null,
+        },
+        length: {
+            omieCode: safeLen(item.omieCode),
+            description: safeLen(item.description),
+            sku: safeLen(item.sku),
+            familyDescription: safeLen(item.familyDescription),
+        },
+    };
+}
 function toTrimmedString(value) {
     if (value === undefined || value === null)
         return null;
@@ -159,19 +176,33 @@ async function runOmieProductSync() {
             const existingByOmieId = new Map(existingRows.map((row) => [row.omieId, row]));
             for (const item of normalizedItems) {
                 const existing = existingByOmieId.get(item.omieId);
+                const omieCodeSample = item.omieCode ?? item.omieId;
                 if (!existing) {
-                    await db_1.prisma.omieProduct.create({
-                        data: {
-                            omieId: item.omieId,
-                            omieCode: item.omieCode,
-                            sku: item.sku,
-                            description: item.description,
-                            familyDescription: item.familyDescription,
-                            active: item.active,
-                            rawPayload: item.rawPayload,
-                            lastSyncAt: syncAt,
-                        },
-                    });
+                    try {
+                        await db_1.prisma.omieProduct.create({
+                            data: {
+                                omieId: item.omieId,
+                                omieCode: item.omieCode,
+                                sku: item.sku,
+                                description: item.description,
+                                familyDescription: item.familyDescription,
+                                active: item.active,
+                                rawPayload: item.rawPayload,
+                                lastSyncAt: syncAt,
+                            },
+                        });
+                    }
+                    catch (err) {
+                        if (err?.code === 'P2000') {
+                            console.log('🚨 Prisma P2000 on OmieProduct.create', {
+                                modelName: err?.meta?.modelName,
+                                column_name: err?.meta?.column_name,
+                                omieCodeSample,
+                                fieldLengthSummary: buildFieldLengthSummary(item),
+                            });
+                        }
+                        throw err;
+                    }
                     upsertedCount += 1;
                     continue;
                 }
@@ -183,18 +214,31 @@ async function runOmieProductSync() {
                 if (existing.active && !item.active) {
                     deactivatedCount += 1;
                 }
-                await db_1.prisma.omieProduct.update({
-                    where: { omieId: item.omieId },
-                    data: {
-                        omieCode: item.omieCode,
-                        sku: item.sku,
-                        description: item.description,
-                        familyDescription: item.familyDescription,
-                        active: item.active,
-                        rawPayload: item.rawPayload,
-                        lastSyncAt: syncAt,
-                    },
-                });
+                try {
+                    await db_1.prisma.omieProduct.update({
+                        where: { omieId: item.omieId },
+                        data: {
+                            omieCode: item.omieCode,
+                            sku: item.sku,
+                            description: item.description,
+                            familyDescription: item.familyDescription,
+                            active: item.active,
+                            rawPayload: item.rawPayload,
+                            lastSyncAt: syncAt,
+                        },
+                    });
+                }
+                catch (err) {
+                    if (err?.code === 'P2000') {
+                        console.log('🚨 Prisma P2000 on OmieProduct.update', {
+                            modelName: err?.meta?.modelName,
+                            column_name: err?.meta?.column_name,
+                            omieCodeSample,
+                            fieldLengthSummary: buildFieldLengthSummary(item),
+                        });
+                    }
+                    throw err;
+                }
                 if (changed) {
                     updatedCount += 1;
                 }

@@ -24,6 +24,30 @@ type OmieProductNormalized = {
   rawPayload: unknown;
 };
 
+function buildFieldLengthSummary(item: {
+  omieCode: string | null;
+  description: string;
+  sku: string | null;
+  familyDescription: string | null;
+}) {
+  const safeLen = (value: string | null | undefined) => (value == null ? 0 : String(value).length);
+
+  return {
+    sample: {
+      omieCode: item.omieCode ?? null,
+      description: String(item.description ?? '').slice(0, 80),
+      sku: item.sku ? String(item.sku).slice(0, 80) : null,
+      familyDescription: item.familyDescription ? String(item.familyDescription).slice(0, 80) : null,
+    },
+    length: {
+      omieCode: safeLen(item.omieCode),
+      description: safeLen(item.description),
+      sku: safeLen(item.sku),
+      familyDescription: safeLen(item.familyDescription),
+    },
+  };
+}
+
 function toTrimmedString(value: unknown): string | null {
   if (value === undefined || value === null) return null;
   const s = String(value).trim();
@@ -203,20 +227,33 @@ export async function runOmieProductSync(): Promise<{
 
       for (const item of normalizedItems) {
         const existing = existingByOmieId.get(item.omieId);
+        const omieCodeSample = item.omieCode ?? item.omieId;
 
         if (!existing) {
-          await prisma.omieProduct.create({
-            data: {
-              omieId: item.omieId,
-              omieCode: item.omieCode,
-              sku: item.sku,
-              description: item.description,
-              familyDescription: item.familyDescription,
-              active: item.active,
-              rawPayload: item.rawPayload as any,
-              lastSyncAt: syncAt,
-            },
-          });
+          try {
+            await prisma.omieProduct.create({
+              data: {
+                omieId: item.omieId,
+                omieCode: item.omieCode,
+                sku: item.sku,
+                description: item.description,
+                familyDescription: item.familyDescription,
+                active: item.active,
+                rawPayload: item.rawPayload as any,
+                lastSyncAt: syncAt,
+              },
+            });
+          } catch (err: any) {
+            if (err?.code === 'P2000') {
+              console.log('🚨 Prisma P2000 on OmieProduct.create', {
+                modelName: err?.meta?.modelName,
+                column_name: err?.meta?.column_name,
+                omieCodeSample,
+                fieldLengthSummary: buildFieldLengthSummary(item),
+              });
+            }
+            throw err;
+          }
 
           upsertedCount += 1;
           continue;
@@ -233,18 +270,30 @@ export async function runOmieProductSync(): Promise<{
           deactivatedCount += 1;
         }
 
-        await prisma.omieProduct.update({
-          where: { omieId: item.omieId },
-          data: {
-            omieCode: item.omieCode,
-            sku: item.sku,
-            description: item.description,
-            familyDescription: item.familyDescription,
-            active: item.active,
-            rawPayload: item.rawPayload as any,
-            lastSyncAt: syncAt,
-          },
-        });
+        try {
+          await prisma.omieProduct.update({
+            where: { omieId: item.omieId },
+            data: {
+              omieCode: item.omieCode,
+              sku: item.sku,
+              description: item.description,
+              familyDescription: item.familyDescription,
+              active: item.active,
+              rawPayload: item.rawPayload as any,
+              lastSyncAt: syncAt,
+            },
+          });
+        } catch (err: any) {
+          if (err?.code === 'P2000') {
+            console.log('🚨 Prisma P2000 on OmieProduct.update', {
+              modelName: err?.meta?.modelName,
+              column_name: err?.meta?.column_name,
+              omieCodeSample,
+              fieldLengthSummary: buildFieldLengthSummary(item),
+            });
+          }
+          throw err;
+        }
 
         if (changed) {
           updatedCount += 1;
