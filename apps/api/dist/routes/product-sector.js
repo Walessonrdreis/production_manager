@@ -7,8 +7,13 @@ const SetProductDefaultSectorService_1 = require("../services/SetProductDefaultS
 const domainErrors_1 = require("../utils/domainErrors");
 const contracts_1 = require("@shared/contracts");
 async function productSectorRoutes(app) {
+    const logDeprecated = (request, legacyPath, replacementPath) => {
+        if (process.env.NODE_ENV === 'test')
+            return;
+        request.log?.warn?.({ legacyPath, replacementPath, requestId: request.requestId }, 'Deprecated endpoint used');
+    };
     // PUT /v1/products/:productId/sector
-    app.put('/v1/products/:productId/sector', async (request, reply) => {
+    const setDefaultSectorHandler = async (request, reply) => {
         const paramsSchema = zod_1.z.object({
             productId: zod_1.z.string().uuid('ID de produto inválido'),
         });
@@ -23,9 +28,9 @@ async function productSectorRoutes(app) {
         const service = new SetProductDefaultSectorService_1.SetProductDefaultSectorService();
         const productSector = await service.execute({ productId, sectorId, notes });
         return reply.status(200).send(productSector);
-    });
+    };
     // GET /v1/products/:productId/sector
-    app.get('/v1/products/:productId/sector', async (request, reply) => {
+    const getDefaultSectorHandler = async (request, reply) => {
         const paramsSchema = zod_1.z.object({
             productId: zod_1.z.string().uuid('ID de produto inválido'),
         });
@@ -49,5 +54,15 @@ async function productSectorRoutes(app) {
         });
         // Se não existir o mapeamento, retorna 200 com null para sinalizar a falta de vínculo
         return reply.send({ data: productSector || null });
+    };
+    app.put('/v1/admin/products/:productId/sector', setDefaultSectorHandler);
+    app.get('/v1/admin/products/:productId/sector', getDefaultSectorHandler);
+    app.put('/v1/products/:productId/sector', async (request, reply) => {
+        logDeprecated(request, '/v1/products/:productId/sector (PUT)', '/v1/admin/products/:productId/sector (PUT)');
+        return setDefaultSectorHandler(request, reply);
+    });
+    app.get('/v1/products/:productId/sector', async (request, reply) => {
+        logDeprecated(request, '/v1/products/:productId/sector (GET)', '/v1/admin/products/:productId/sector (GET)');
+        return getDefaultSectorHandler(request, reply);
     });
 }

@@ -8,8 +8,13 @@ const domainErrors_1 = require("../utils/domainErrors");
 const contracts_1 = require("@shared/contracts");
 const http_1 = require("../lib/http");
 async function sectorRoutes(app) {
+    const logDeprecated = (request, legacyPath, replacementPath) => {
+        if (process.env.NODE_ENV === 'test')
+            return;
+        request.log?.warn?.({ legacyPath, replacementPath, requestId: request.requestId }, 'Deprecated endpoint used');
+    };
     // POST /v1/sectors
-    app.post('/v1/sectors', async (request, reply) => {
+    const createSectorHandler = async (request, reply) => {
         const parseResult = contracts_1.CreateSectorInputSchema.safeParse(request.body);
         if (!parseResult.success) {
             throw new domainErrors_1.ValidationError('Dados inválidos.', parseResult.error.format());
@@ -18,9 +23,9 @@ async function sectorRoutes(app) {
         const service = new CreateSectorService_1.CreateSectorService();
         const sector = await service.execute({ name, order });
         return reply.status(201).send(sector);
-    });
+    };
     // GET /v1/sectors
-    app.get('/v1/sectors', async (request, reply) => {
+    const listSectorsHandler = async (request, reply) => {
         const querySchema = zod_1.z.object({
             includeInactive: zod_1.z.coerce.boolean().optional().default(false),
         });
@@ -40,9 +45,9 @@ async function sectorRoutes(app) {
             pageSize: sectors.length,
             total: sectors.length,
         }));
-    });
+    };
     // PATCH /v1/sectors/:id
-    app.patch('/v1/sectors/:id', async (request, reply) => {
+    const patchSectorHandler = async (request, reply) => {
         const paramsSchema = zod_1.z.object({
             id: zod_1.z.string().uuid('ID inválido'),
         });
@@ -77,9 +82,9 @@ async function sectorRoutes(app) {
             data,
         });
         return reply.send(updatedSector);
-    });
+    };
     // DELETE /v1/sectors/:id (soft delete)
-    app.delete('/v1/sectors/:id', async (request, reply) => {
+    const deleteSectorHandler = async (request, reply) => {
         const paramsSchema = zod_1.z.object({
             id: zod_1.z.string().uuid('ID inválido'),
         });
@@ -99,5 +104,25 @@ async function sectorRoutes(app) {
             data: { active: false },
         });
         return reply.send(deletedSector);
+    };
+    app.post('/v1/admin/sectors', createSectorHandler);
+    app.get('/v1/admin/sectors', listSectorsHandler);
+    app.patch('/v1/admin/sectors/:id', patchSectorHandler);
+    app.delete('/v1/admin/sectors/:id', deleteSectorHandler);
+    app.post('/v1/sectors', async (request, reply) => {
+        logDeprecated(request, '/v1/sectors (POST)', '/v1/admin/sectors (POST)');
+        return createSectorHandler(request, reply);
+    });
+    app.get('/v1/sectors', async (request, reply) => {
+        logDeprecated(request, '/v1/sectors (GET)', '/v1/admin/sectors (GET)');
+        return listSectorsHandler(request, reply);
+    });
+    app.patch('/v1/sectors/:id', async (request, reply) => {
+        logDeprecated(request, '/v1/sectors/:id (PATCH)', '/v1/admin/sectors/:id (PATCH)');
+        return patchSectorHandler(request, reply);
+    });
+    app.delete('/v1/sectors/:id', async (request, reply) => {
+        logDeprecated(request, '/v1/sectors/:id (DELETE)', '/v1/admin/sectors/:id (DELETE)');
+        return deleteSectorHandler(request, reply);
     });
 }

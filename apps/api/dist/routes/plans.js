@@ -9,8 +9,13 @@ const domainErrors_1 = require("../utils/domainErrors");
 const contracts_1 = require("@shared/contracts");
 const http_1 = require("../lib/http");
 async function plansRoutes(app) {
+    const logDeprecated = (request, legacyPath, replacementPath) => {
+        if (process.env.NODE_ENV === 'test')
+            return;
+        request.log?.warn?.({ legacyPath, replacementPath, requestId: request.requestId }, 'Deprecated endpoint used');
+    };
     // 1. POST /v1/plans
-    app.post('/v1/plans', async (request, reply) => {
+    const createPlanHandler = async (request, reply) => {
         const parseResult = contracts_1.CreatePlanInputSchema.safeParse(request.body);
         if (!parseResult.success) {
             throw new domainErrors_1.ValidationError('Dados inválidos.', parseResult.error.format());
@@ -19,9 +24,9 @@ async function plansRoutes(app) {
         const service = new CreatePlanService_1.CreatePlanService();
         const plan = await service.execute({ name, startDate, endDate });
         return reply.status(201).send(plan);
-    });
+    };
     // 2. GET /v1/plans
-    app.get('/v1/plans', async (request, reply) => {
+    const listPlansHandler = async (request, reply) => {
         const plans = await db_1.prisma.productionPlan.findMany({
             orderBy: { createdAt: 'desc' },
         });
@@ -33,9 +38,9 @@ async function plansRoutes(app) {
             pageSize: plans.length,
             total: plans.length,
         }));
-    });
+    };
     // 3. GET /v1/plans/:id
-    app.get('/v1/plans/:id', async (request, reply) => {
+    const getPlanByIdHandler = async (request, reply) => {
         const paramsSchema = zod_1.z.object({
             id: zod_1.z.string().uuid('ID inválido.'),
         });
@@ -55,9 +60,9 @@ async function plansRoutes(app) {
             throw new domainErrors_1.NotFoundError('Plano');
         }
         return reply.send(plan);
-    });
+    };
     // 4. POST /v1/plans/:id/items
-    app.post('/v1/plans/:id/items', async (request, reply) => {
+    const addPlanItemHandler = async (request, reply) => {
         const paramsSchema = zod_1.z.object({
             id: zod_1.z.string().uuid(),
         });
@@ -78,9 +83,9 @@ async function plansRoutes(app) {
             notes,
         });
         return reply.status(201).send(item);
-    });
+    };
     // 5. GET /v1/plans/:id/by-sector
-    app.get('/v1/plans/:id/by-sector', async (request, reply) => {
+    const getPlanItemsBySectorHandler = async (request, reply) => {
         const paramsSchema = zod_1.z.object({
             id: zod_1.z.string().uuid(),
         });
@@ -129,9 +134,9 @@ async function plansRoutes(app) {
             items: group.items,
         }));
         return reply.send(cleanedResult);
-    });
+    };
     // 6. GET /v1/plans/:id/export.csv
-    app.get('/v1/plans/:id/export.csv', async (request, reply) => {
+    const exportPlanCsvHandler = async (request, reply) => {
         const paramsSchema = zod_1.z.object({
             id: zod_1.z.string().uuid(),
         });
@@ -169,5 +174,35 @@ async function plansRoutes(app) {
         reply.header('Content-Type', 'text/csv');
         reply.header('Content-Disposition', `attachment; filename="plan-${id}.csv"`);
         return reply.send(csvContent);
+    };
+    app.post('/v1/admin/plans', createPlanHandler);
+    app.get('/v1/admin/plans', listPlansHandler);
+    app.get('/v1/admin/plans/:id', getPlanByIdHandler);
+    app.post('/v1/admin/plans/:id/items', addPlanItemHandler);
+    app.get('/v1/admin/plans/:id/by-sector', getPlanItemsBySectorHandler);
+    app.get('/v1/admin/plans/:id/export.csv', exportPlanCsvHandler);
+    app.post('/v1/plans', async (request, reply) => {
+        logDeprecated(request, '/v1/plans (POST)', '/v1/admin/plans (POST)');
+        return createPlanHandler(request, reply);
+    });
+    app.get('/v1/plans', async (request, reply) => {
+        logDeprecated(request, '/v1/plans (GET)', '/v1/admin/plans (GET)');
+        return listPlansHandler(request, reply);
+    });
+    app.get('/v1/plans/:id', async (request, reply) => {
+        logDeprecated(request, '/v1/plans/:id (GET)', '/v1/admin/plans/:id (GET)');
+        return getPlanByIdHandler(request, reply);
+    });
+    app.post('/v1/plans/:id/items', async (request, reply) => {
+        logDeprecated(request, '/v1/plans/:id/items (POST)', '/v1/admin/plans/:id/items (POST)');
+        return addPlanItemHandler(request, reply);
+    });
+    app.get('/v1/plans/:id/by-sector', async (request, reply) => {
+        logDeprecated(request, '/v1/plans/:id/by-sector (GET)', '/v1/admin/plans/:id/by-sector (GET)');
+        return getPlanItemsBySectorHandler(request, reply);
+    });
+    app.get('/v1/plans/:id/export.csv', async (request, reply) => {
+        logDeprecated(request, '/v1/plans/:id/export.csv (GET)', '/v1/admin/plans/:id/export.csv (GET)');
+        return exportPlanCsvHandler(request, reply);
     });
 }

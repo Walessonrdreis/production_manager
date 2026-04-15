@@ -7,8 +7,16 @@ import { CreateSectorInputSchema, UpdateSectorInputSchema } from '@shared/contra
 import { paginated, wantsLegacyResponse } from '../lib/http';
 
 export async function sectorRoutes(app: FastifyInstance) {
+  const logDeprecated = (request: any, legacyPath: string, replacementPath: string) => {
+    if (process.env.NODE_ENV === 'test') return;
+    request.log?.warn?.(
+      { legacyPath, replacementPath, requestId: request.requestId },
+      'Deprecated endpoint used'
+    );
+  };
+
   // POST /v1/sectors
-  app.post('/v1/sectors', async (request, reply) => {
+  const createSectorHandler = async (request: any, reply: any) => {
     const parseResult = CreateSectorInputSchema.safeParse(request.body);
     
     if (!parseResult.success) {
@@ -21,10 +29,10 @@ export async function sectorRoutes(app: FastifyInstance) {
     const sector = await service.execute({ name, order });
 
     return reply.status(201).send(sector);
-  });
+  };
 
   // GET /v1/sectors
-  app.get('/v1/sectors', async (request, reply) => {
+  const listSectorsHandler = async (request: any, reply: any) => {
     const querySchema = z.object({
       includeInactive: z.coerce.boolean().optional().default(false),
     });
@@ -50,10 +58,10 @@ export async function sectorRoutes(app: FastifyInstance) {
         total: sectors.length,
       })
     );
-  });
+  };
 
   // PATCH /v1/sectors/:id
-  app.patch('/v1/sectors/:id', async (request, reply) => {
+  const patchSectorHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
       id: z.string().uuid('ID inválido'),
     });
@@ -97,10 +105,10 @@ export async function sectorRoutes(app: FastifyInstance) {
     });
 
     return reply.send(updatedSector);
-  });
+  };
 
   // DELETE /v1/sectors/:id (soft delete)
-  app.delete('/v1/sectors/:id', async (request, reply) => {
+  const deleteSectorHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
       id: z.string().uuid('ID inválido'),
     });
@@ -126,5 +134,30 @@ export async function sectorRoutes(app: FastifyInstance) {
     });
 
     return reply.send(deletedSector);
+  };
+
+  app.post('/v1/admin/sectors', createSectorHandler);
+  app.get('/v1/admin/sectors', listSectorsHandler);
+  app.patch('/v1/admin/sectors/:id', patchSectorHandler);
+  app.delete('/v1/admin/sectors/:id', deleteSectorHandler);
+
+  app.post('/v1/sectors', async (request, reply) => {
+    logDeprecated(request, '/v1/sectors (POST)', '/v1/admin/sectors (POST)');
+    return createSectorHandler(request, reply);
+  });
+
+  app.get('/v1/sectors', async (request, reply) => {
+    logDeprecated(request, '/v1/sectors (GET)', '/v1/admin/sectors (GET)');
+    return listSectorsHandler(request, reply);
+  });
+
+  app.patch('/v1/sectors/:id', async (request, reply) => {
+    logDeprecated(request, '/v1/sectors/:id (PATCH)', '/v1/admin/sectors/:id (PATCH)');
+    return patchSectorHandler(request, reply);
+  });
+
+  app.delete('/v1/sectors/:id', async (request, reply) => {
+    logDeprecated(request, '/v1/sectors/:id (DELETE)', '/v1/admin/sectors/:id (DELETE)');
+    return deleteSectorHandler(request, reply);
   });
 }

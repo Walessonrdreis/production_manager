@@ -8,6 +8,14 @@ import { AppError } from '../core/errors/AppError';
 import { OmieAdapter } from '../integrations/omie/OmieAdapter';
 
 export async function productsRoutes(app: FastifyInstance) {
+  const logDeprecated = (request: any, legacyPath: string, replacementPath: string) => {
+    if (process.env.NODE_ENV === 'test') return;
+    request.log?.warn?.(
+      { legacyPath, replacementPath, requestId: request.requestId },
+      'Deprecated endpoint used'
+    );
+  };
+
   const toNumber = (value: any): number | null => {
     if (value == null) return null;
     if (typeof value === 'number') return Number.isFinite(value) ? value : null;
@@ -24,43 +32,7 @@ export async function productsRoutes(app: FastifyInstance) {
     return Number.isFinite(parsed) ? parsed : null;
   };
 
-  async function resolveOmieCodeFromProduct(productId: string): Promise<{
-    productId: string;
-    omieCode: string;
-  }> {
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      select: { id: true, omieProductId: true },
-    });
-
-    if (!product) {
-      throw new AppError('PRODUCT_NOT_FOUND', 404, 'Product not found');
-    }
-
-    if (!product.omieProductId) {
-      throw new AppError('OMIE_PRODUCT_LINK_MISSING', 409, 'Product is not linked to an OmieProduct');
-    }
-
-    const omieProduct = await prisma.omieProduct.findUnique({
-      where: { id: product.omieProductId },
-      select: { omieCode: true, omieId: true, rawPayload: true },
-    });
-
-    if (!omieProduct) {
-      throw new AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
-    }
-
-    const extractedOmieCode = OmieAdapter.extractProductCode(omieProduct.rawPayload)?.trim();
-    const omieCode = extractedOmieCode || omieProduct.omieCode || omieProduct.omieId;
-
-    if (!omieCode) {
-      throw new AppError('OMIE_CODE_NOT_FOUND', 422, 'Omie code not found');
-    }
-
-    return { productId: product.id, omieCode };
-  }
-
-  app.get('/v1/products/stock', async (request, reply) => {
+  const publicListProductsHandler = async (request: any, reply: any) => {
     const querySchema = z.object({
       q: z.string().optional(),
       page: z.coerce.number().min(1).default(1),
@@ -152,10 +124,118 @@ export async function productsRoutes(app: FastifyInstance) {
         total,
       })
     );
+  };
+
+  const publicGetProductByOmieCodeHandler = async (request: any, reply: any) => {
+    const paramsSchema = z.object({
+      omieCode: z.string().min(1),
+    });
+
+    const { omieCode } = paramsSchema.parse(request.params);
+
+    const rows = await prisma.$queryRaw<
+      Array<{
+        omieCode: string;
+        description: string;
+        sku: string | null;
+        familyDescription: string | null;
+        active: boolean;
+        stockQuantity: string | null;
+        minimumStock: string | null;
+        stockUpdatedAt: Date | null;
+      }>
+    >`
+      WITH latest_stock AS (
+        SELECT DISTINCT ON ("omieCode")
+          "omieCode",
+          "stockQuantity",
+          "minimumStock",
+          "capturedAt"
+        FROM "product_stock"
+        ORDER BY "omieCode", "capturedAt" DESC
+      )
+      SELECT
+        o."omieCode" AS "omieCode",
+        o."description" AS "description",
+        o."sku" AS "sku",
+        o."familyDescription" AS "familyDescription",
+        o."active" AS "active",
+        COALESCE(to_char(latest_stock."stockQuantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
+        COALESCE(to_char(latest_stock."minimumStock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
+        latest_stock."capturedAt" AS "stockUpdatedAt"
+      FROM "OmieProduct" o
+      LEFT JOIN latest_stock
+        ON latest_stock."omieCode" = o."omieCode"
+      WHERE o."omieCode" = ${omieCode}::text
+      LIMIT 1
+    `;
+
+    const row = rows?.[0];
+    if (!row) {
+      throw new AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
+    }
+
+    return reply.send(
+      ok({
+        omieCode: row.omieCode,
+        description: row.description,
+        sku: row.sku,
+        familyDescription: row.familyDescription,
+        active: row.active,
+        stockQuantity: row.stockQuantity ?? '0.0000',
+        minimumStock: row.minimumStock ?? '0.0000',
+        stockUpdatedAt: row.stockUpdatedAt ? row.stockUpdatedAt.toISOString() : null,
+      })
+    );
+  };
+
+  async function resolveOmieCodeFromProduct(productId: string): Promise<{
+    productId: string;
+    omieCode: string;
+  }> {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, omieProductId: true },
+    });
+
+    if (!product) {
+      throw new AppError('PRODUCT_NOT_FOUND', 404, 'Product not found');
+    }
+
+    if (!product.omieProductId) {
+      throw new AppError('OMIE_PRODUCT_LINK_MISSING', 409, 'Product is not linked to an OmieProduct');
+    }
+
+    const omieProduct = await prisma.omieProduct.findUnique({
+      where: { id: product.omieProductId },
+      select: { omieCode: true, omieId: true, rawPayload: true },
+    });
+
+    if (!omieProduct) {
+      throw new AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
+    }
+
+    const extractedOmieCode = OmieAdapter.extractProductCode(omieProduct.rawPayload)?.trim();
+    const omieCode = extractedOmieCode || omieProduct.omieCode || omieProduct.omieId;
+
+    if (!omieCode) {
+      throw new AppError('OMIE_CODE_NOT_FOUND', 422, 'Omie code not found');
+    }
+
+    return { productId: product.id, omieCode };
+  }
+
+  app.get('/v1/products', publicListProductsHandler);
+
+  app.get('/v1/products/:omieCode([A-Za-z0-9]{1,64})', publicGetProductByOmieCodeHandler);
+
+  app.get('/v1/products/stock', async (request, reply) => {
+    logDeprecated(request, '/v1/products/stock', '/v1/products');
+    return publicListProductsHandler(request, reply);
   });
 
   // POST /v1/products - Seleciona um produto do Omie para o Gerenciador
-  app.post('/v1/products', async (request, reply) => {
+  const createManagedProductHandler = async (request: any, reply: any) => {
     const parseResult = CreateProductInputSchema.safeParse(request.body);
     if (!parseResult.success) {
       throw new ValidationError('Corpo da requisição inválido', parseResult.error.format());
@@ -186,10 +266,17 @@ export async function productsRoutes(app: FastifyInstance) {
     });
 
     return reply.status(201).send(product);
+  };
+
+  app.post('/v1/admin/products', createManagedProductHandler);
+
+  app.post('/v1/products', async (request, reply) => {
+    logDeprecated(request, '/v1/products (POST)', '/v1/admin/products (POST)');
+    return createManagedProductHandler(request, reply);
   });
 
   // POST /v1/products/bulk - Seleciona vários produtos do Omie para o Gerenciador
-  app.post('/v1/products/bulk', async (request, reply) => {
+  const createManagedProductsBulkHandler = async (request: any, reply: any) => {
     const schema = z.object({
       omieProductIds: z.array(z.string().uuid()).min(1).max(5000),
     });
@@ -231,10 +318,16 @@ export async function productsRoutes(app: FastifyInstance) {
       skippedExisting: existingIdSet.size,
       requested: uniqueIds.length,
     });
+  };
+
+  app.post('/v1/admin/products/bulk', createManagedProductsBulkHandler);
+
+  app.post('/v1/products/bulk', async (request, reply) => {
+    logDeprecated(request, '/v1/products/bulk (POST)', '/v1/admin/products/bulk (POST)');
+    return createManagedProductsBulkHandler(request, reply);
   });
 
-  // GET /v1/products - Lista os produtos selecionados
-  app.get('/v1/products', async (request, reply) => {
+  const listManagedProductsHandler = async (request: any, reply: any) => {
     const products = await prisma.product.findMany({
       include: {
         omieProduct: true,
@@ -262,9 +355,16 @@ export async function productsRoutes(app: FastifyInstance) {
         total: products.length,
       })
     );
+  };
+
+  app.get('/v1/admin/products', listManagedProductsHandler);
+
+  app.get('/v1/products/managed', async (request, reply) => {
+    logDeprecated(request, '/v1/products/managed', '/v1/admin/products');
+    return listManagedProductsHandler(request, reply);
   });
 
-  app.get('/v1/products/:id', async (request, reply) => {
+  const getManagedProductHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
       id: z.string(),
     });
@@ -318,9 +418,16 @@ export async function productsRoutes(app: FastifyInstance) {
           : null,
       })
     );
+  };
+
+  app.get('/v1/admin/products/:id', getManagedProductHandler);
+
+  app.get('/v1/products/:id', async (request, reply) => {
+    logDeprecated(request, '/v1/products/:id', '/v1/admin/products/:id');
+    return getManagedProductHandler(request, reply);
   });
 
-  app.patch('/v1/products/:id', async (request, reply) => {
+  const patchManagedProductHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
       id: z.string().uuid(),
     });
@@ -363,10 +470,17 @@ export async function productsRoutes(app: FastifyInstance) {
     });
 
     return reply.send(ok(updated));
+  };
+
+  app.patch('/v1/admin/products/:id', patchManagedProductHandler);
+
+  app.patch('/v1/products/:id', async (request, reply) => {
+    logDeprecated(request, '/v1/products/:id (PATCH)', '/v1/admin/products/:id (PATCH)');
+    return patchManagedProductHandler(request, reply);
   });
 
   // DELETE /v1/products/:id - Remove um produto do Gerenciador
-  app.delete('/v1/products/:id', async (request, reply) => {
+  const deleteManagedProductHandler = async (request: any, reply: any) => {
     // Como é params não usamos contrato compartilhado aqui
     const { id } = request.params as { id: string };
 
@@ -383,9 +497,16 @@ export async function productsRoutes(app: FastifyInstance) {
     });
 
     return reply.send({ success: true });
+  };
+
+  app.delete('/v1/admin/products/:id', deleteManagedProductHandler);
+
+  app.delete('/v1/products/:id', async (request, reply) => {
+    logDeprecated(request, '/v1/products/:id (DELETE)', '/v1/admin/products/:id (DELETE)');
+    return deleteManagedProductHandler(request, reply);
   });
 
-  app.get('/v1/products/:id/stock', async (request, reply) => {
+  const getManagedProductStockHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
       id: z.string().uuid(),
     });
@@ -431,9 +552,16 @@ export async function productsRoutes(app: FastifyInstance) {
         capturedAt: latest.capturedAt,
       })
     );
+  };
+
+  app.get('/v1/admin/products/:id/stock', getManagedProductStockHandler);
+
+  app.get('/v1/products/:id/stock', async (request, reply) => {
+    logDeprecated(request, '/v1/products/:id/stock', '/v1/admin/products/:id/stock');
+    return getManagedProductStockHandler(request, reply);
   });
 
-  app.get('/v1/products/:id/stock/history', async (request, reply) => {
+  const getManagedProductStockHistoryHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
       id: z.string().uuid(),
     });
@@ -493,5 +621,12 @@ export async function productsRoutes(app: FastifyInstance) {
         }
       )
     );
+  };
+
+  app.get('/v1/admin/products/:id/stock/history', getManagedProductStockHistoryHandler);
+
+  app.get('/v1/products/:id/stock/history', async (request, reply) => {
+    logDeprecated(request, '/v1/products/:id/stock/history', '/v1/admin/products/:id/stock/history');
+    return getManagedProductStockHistoryHandler(request, reply);
   });
 }

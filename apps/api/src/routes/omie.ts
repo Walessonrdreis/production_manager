@@ -10,6 +10,14 @@ import { runOmieProductSync } from '../services/omieProductSync.service';
 import { listOmieProductsWithCurrentStock } from '../services/omieProductRead.service';
 
 export async function omieRoutes(app: FastifyInstance) {
+  const logDeprecated = (request: any, legacyPath: string, replacementPath: string) => {
+    if (process.env.NODE_ENV === 'test') return;
+    request.log?.warn?.(
+      { legacyPath, replacementPath, requestId: request.requestId },
+      'Deprecated endpoint used'
+    );
+  };
+
   const toNumber = (value: any): number | null => {
     if (value == null) return null;
     if (typeof value === 'number') return Number.isFinite(value) ? value : null;
@@ -26,7 +34,7 @@ export async function omieRoutes(app: FastifyInstance) {
     return Number.isFinite(parsed) ? parsed : null;
   };
 
-  app.post('/v1/omie/sync/products', async (request, reply) => {
+  const syncProductsHandler = async (request: any, reply: any) => {
     const querySchema = z.object({
       force: z.coerce.boolean().optional().default(false),
     });
@@ -35,14 +43,14 @@ export async function omieRoutes(app: FastifyInstance) {
 
     const result = await runOmieProductSync();
     return reply.send(result);
-  });
+  };
 
-  app.post('/v1/omie/products/sync', async (_request, reply) => {
+  const productsSyncHandler = async (_request: any, reply: any) => {
     const result = await runOmieProductSync();
     return reply.send(ok(result));
-  });
+  };
 
-  app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
+  const stockRefreshHandler = async (request: any, reply: any) => {
     const querySchema = z.object({
       dryRun: z.string().optional(),
     });
@@ -62,9 +70,9 @@ export async function omieRoutes(app: FastifyInstance) {
         result.meta
       )
     );
-  });
+  };
 
-  app.get('/v1/omie/stock', async (_request, reply) => {
+  const stockInfoHandler = async (_request: any, reply: any) => {
     const rows = await prisma.$queryRaw<
       Array<{
         lastRefreshAt: Date | null;
@@ -85,9 +93,9 @@ export async function omieRoutes(app: FastifyInstance) {
         source: 'database',
       })
     );
-  });
+  };
 
-  app.get('/v1/omie/categories', async (request, reply) => {
+  const categoriesHandler = async (request: any, reply: any) => {
     const querySchema = z.object({
       q: z.string().optional(),
     });
@@ -124,9 +132,9 @@ export async function omieRoutes(app: FastifyInstance) {
         total: families.length,
       })
     );
-  });
+  };
 
-  app.get('/v1/omie/products/search', async (request, reply) => {
+  const productsSearchHandler = async (request: any, reply: any) => {
     const querySchema = z.object({
       q: z.string().trim().min(1, 'q is required'),
       page: z.coerce.number().min(1).default(1),
@@ -188,9 +196,9 @@ export async function omieRoutes(app: FastifyInstance) {
         total,
       })
     );
-  });
+  };
 
-  app.get('/v1/omie/products/:id', async (request, reply) => {
+  const productByIdHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
       id: z.string().uuid(),
     });
@@ -245,9 +253,9 @@ export async function omieRoutes(app: FastifyInstance) {
     }
 
     return reply.send(ok(data));
-  });
+  };
 
-  app.get('/v1/omie/products/by-code/:omieCode', async (request, reply) => {
+  const productByCodeHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
       omieCode: z.string().min(1),
     });
@@ -315,9 +323,9 @@ export async function omieRoutes(app: FastifyInstance) {
     }
 
     return reply.send(ok(data));
-  });
+  };
 
-  app.get('/v1/omie/products', async (request, reply) => {
+  const productsListHandler = async (request: any, reply: any) => {
     const querySchema = z.object({
       search: z.string().optional(),
       family: z.string().optional(),
@@ -387,9 +395,9 @@ export async function omieRoutes(app: FastifyInstance) {
         stockCacheUpdatedAt,
       })
     );
-  });
+  };
 
-  app.get('/v1/omie/products/:id/stock', async (request, reply) => {
+  const productStockByIdHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
       id: z.string().uuid(),
     });
@@ -450,9 +458,9 @@ export async function omieRoutes(app: FastifyInstance) {
         capturedAt: latest.capturedAt,
       })
     );
-  });
+  };
 
-  app.get('/v1/omie/products/by-code/:omieCode/stock', async (request, reply) => {
+  const productStockByCodeHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
       omieCode: z.string().min(1),
     });
@@ -495,5 +503,76 @@ export async function omieRoutes(app: FastifyInstance) {
         capturedAt: latest.capturedAt,
       })
     );
+  };
+
+  app.post('/v1/admin/omie/sync/products', syncProductsHandler);
+  app.post('/v1/admin/omie/products/sync', productsSyncHandler);
+  app.post('/v1/admin/omie/products/stock/refresh', stockRefreshHandler);
+  app.get('/v1/admin/omie/stock', stockInfoHandler);
+  app.get('/v1/admin/omie/categories', categoriesHandler);
+  app.get('/v1/admin/omie/products/search', productsSearchHandler);
+  app.get('/v1/admin/omie/products/:id', productByIdHandler);
+  app.get('/v1/admin/omie/products/by-code/:omieCode', productByCodeHandler);
+  app.get('/v1/admin/omie/products', productsListHandler);
+  app.get('/v1/admin/omie/products/:id/stock', productStockByIdHandler);
+  app.get('/v1/admin/omie/products/by-code/:omieCode/stock', productStockByCodeHandler);
+
+  app.post('/v1/omie/sync/products', async (request, reply) => {
+    logDeprecated(request, '/v1/omie/sync/products', '/v1/admin/omie/sync/products');
+    return syncProductsHandler(request, reply);
+  });
+
+  app.post('/v1/omie/products/sync', async (request, reply) => {
+    logDeprecated(request, '/v1/omie/products/sync', '/v1/admin/omie/products/sync');
+    return productsSyncHandler(request, reply);
+  });
+
+  app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
+    logDeprecated(request, '/v1/omie/products/stock/refresh', '/v1/admin/omie/products/stock/refresh');
+    return stockRefreshHandler(request, reply);
+  });
+
+  app.get('/v1/omie/stock', async (request, reply) => {
+    logDeprecated(request, '/v1/omie/stock', '/v1/admin/omie/stock');
+    return stockInfoHandler(request, reply);
+  });
+
+  app.get('/v1/omie/categories', async (request, reply) => {
+    logDeprecated(request, '/v1/omie/categories', '/v1/admin/omie/categories');
+    return categoriesHandler(request, reply);
+  });
+
+  app.get('/v1/omie/products/search', async (request, reply) => {
+    logDeprecated(request, '/v1/omie/products/search', '/v1/admin/omie/products/search');
+    return productsSearchHandler(request, reply);
+  });
+
+  app.get('/v1/omie/products/:id', async (request, reply) => {
+    logDeprecated(request, '/v1/omie/products/:id', '/v1/admin/omie/products/:id');
+    return productByIdHandler(request, reply);
+  });
+
+  app.get('/v1/omie/products/by-code/:omieCode', async (request, reply) => {
+    logDeprecated(request, '/v1/omie/products/by-code/:omieCode', '/v1/admin/omie/products/by-code/:omieCode');
+    return productByCodeHandler(request, reply);
+  });
+
+  app.get('/v1/omie/products', async (request, reply) => {
+    logDeprecated(request, '/v1/omie/products', '/v1/admin/omie/products');
+    return productsListHandler(request, reply);
+  });
+
+  app.get('/v1/omie/products/:id/stock', async (request, reply) => {
+    logDeprecated(request, '/v1/omie/products/:id/stock', '/v1/admin/omie/products/:id/stock');
+    return productStockByIdHandler(request, reply);
+  });
+
+  app.get('/v1/omie/products/by-code/:omieCode/stock', async (request, reply) => {
+    logDeprecated(
+      request,
+      '/v1/omie/products/by-code/:omieCode/stock',
+      '/v1/admin/omie/products/by-code/:omieCode/stock'
+    );
+    return productStockByCodeHandler(request, reply);
   });
 }
