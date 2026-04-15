@@ -62,21 +62,21 @@ describe('POST /v1/omie/products/stock/refresh (persist history)', () => {
 
     expect(prisma.productStock.createMany).toHaveBeenCalledTimes(1);
     const args = (prisma.productStock.createMany as any).mock.calls[0][0];
-    const capturedAt = new Date(body.data.capturedAt);
-    expect(args.data).toEqual([
-      {
-        omieCode: '123',
-        stockQuantity: '10',
-        minimumStock: '2',
-        capturedAt,
-      },
-      {
-        omieCode: '456',
-        stockQuantity: '0',
-        minimumStock: '5',
-        capturedAt,
-      },
-    ]);
+    expect(args.data).toHaveLength(2);
+    expect(args.data[0]).toMatchObject({
+      omieCode: '123',
+      stockQuantity: '10',
+      minimumStock: '2',
+    });
+    expect(args.data[1]).toMatchObject({
+      omieCode: '456',
+      stockQuantity: '0',
+      minimumStock: '5',
+    });
+
+    expect(args.data[0].capturedAt).toBeInstanceOf(Date);
+    expect(args.data[1].capturedAt).toBeInstanceOf(Date);
+    expect(args.data[1].capturedAt.getTime()).toBe(args.data[0].capturedAt.getTime());
 
     await app.close();
   });

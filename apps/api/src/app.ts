@@ -5,6 +5,7 @@ import { ZodError } from 'zod';
 import { env } from './env';
 import { appRoutes } from './routes';
 import { AppError } from './core/errors/AppError';
+import { startStockRefreshJob } from './jobs/stockRefresh.job';
 
 // Extende a tipagem do Request do Fastify para aceitar a nova propriedade "requestId"
 declare module 'fastify' {
@@ -129,6 +130,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   await app.register(appRoutes);
+
+  startStockRefreshJob(app);
 
   return app;
 }

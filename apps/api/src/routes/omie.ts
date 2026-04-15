@@ -7,6 +7,7 @@ import { OmieAdapter } from '../integrations/omie/OmieAdapter';
 import { omieStockCache } from '../integrations/omie/OmieStockCache';
 import { ok, paginated, wantsLegacyResponse } from '../lib/http';
 import { AppError } from '../core/errors/AppError';
+import { runStockRefresh } from '../services/stockRefresh.service';
 
 export async function omieRoutes(app: FastifyInstance) {
   const toNumber = (value: any): number | null => {
@@ -39,100 +40,17 @@ export async function omieRoutes(app: FastifyInstance) {
     return reply.send(result);
   });
 
-  app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
-    await omieStockCache.refreshNow();
-
-    const capturedAt = new Date();
-    const snapshot = await omieStockCache.getSnapshot();
-
-    const normalizeNumberString = (value: unknown): string => {
-      if (typeof value === 'number') {
-        return Number.isFinite(value) ? String(value) : '0';
-      }
-
-      if (typeof value === 'string') {
-        const trimmed = value.trim();
-        if (!trimmed) return '0';
-        const parsed = Number(trimmed.replace(',', '.'));
-        return Number.isFinite(parsed) ? String(parsed) : '0';
-      }
-
-      return '0';
-    };
-
-    const snapshotMap = new Map<string, any>();
-    const maybeSnapshot: any = snapshot as any;
-    const items = maybeSnapshot?.items ?? maybeSnapshot;
-
-    if (items instanceof Map) {
-      for (const [k, v] of items.entries()) snapshotMap.set(String(k).trim(), v);
-    } else if (items && typeof items.entries === 'function') {
-      const entries = Array.from((items as any).entries()) as Array<[unknown, unknown]>;
-      for (const [k, v] of entries) snapshotMap.set(String(k).trim(), v);
-    } else if (items && typeof items === 'object') {
-      for (const [k, v] of Object.entries(items)) snapshotMap.set(String(k).trim(), v);
-    }
-
-    const EXPECTED_OMIE_CODE_LENGTH = 32;
-    const MAX_DECIMAL_INTEGER_DIGITS = 14;
-
-    let skippedOutOfRangeDecimal = 0;
-
-    const rows = Array.from(snapshotMap.entries())
-      .map(([omieCode, entry]) => {
-        const code = String(omieCode).trim();
-
-        if (code.length > EXPECTED_OMIE_CODE_LENGTH) {
-          request.log.warn({ omieCode: code, length: code.length }, 'omieCode outside expected size');
-        }
-
-        const stockQuantity = normalizeNumberString(entry?.stockQuantity);
-        const minimumStock = normalizeNumberString(entry?.minimumStock);
-
-        return {
-          omieCode: code,
-          stockQuantity,
-          minimumStock,
-          capturedAt,
-        };
-      })
-      .filter((row) => {
-        if (!row.omieCode) return false;
-
-        const qty = toNumber(row.stockQuantity);
-        const min = toNumber(row.minimumStock);
-
-        const qtyIntDigits =
-          qty == null ? 0 : Math.trunc(Math.abs(qty)).toString().replace('-', '').length;
-        const minIntDigits =
-          min == null ? 0 : Math.trunc(Math.abs(min)).toString().replace('-', '').length;
-
-        if (qtyIntDigits > MAX_DECIMAL_INTEGER_DIGITS || minIntDigits > MAX_DECIMAL_INTEGER_DIGITS) {
-          skippedOutOfRangeDecimal += 1;
-          return false;
-        }
-
-        return true;
-      });
-
-    const BATCH_SIZE = 1000;
-    let insertedCount = 0;
-
-    if (rows.length > 0) {
-      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-        const batch = rows.slice(i, i + BATCH_SIZE);
-        const result = await (prisma as any).productStock.createMany({
-          data: batch,
-        });
-        insertedCount += result?.count ?? 0;
-      }
-    }
+  app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
+    const result = await runStockRefresh();
 
     return reply.send(
-      ok({
-        insertedCount,
-        capturedAt: capturedAt.toISOString(),
-      }, skippedOutOfRangeDecimal > 0 ? { skippedOutOfRangeDecimal } : undefined)
+      ok(
+        {
+          insertedCount: result.insertedCount,
+          capturedAt: new Date().toISOString(),
+        },
+        result.meta
+      )
     );
   });
 

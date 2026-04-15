@@ -10,6 +10,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const zod_1 = require("zod");
 const env_1 = require("./env");
 const routes_1 = require("./routes");
+const stockRefresh_job_1 = require("./jobs/stockRefresh.job");
 // Duck-typing para verificar se é um AppError válido (mesmo se falhar no instanceof por conta de transpilação/imports duplos)
 function isAppError(err) {
     return (err !== null &&
@@ -104,5 +105,6 @@ async function buildApp() {
         });
     });
     await app.register(routes_1.appRoutes);
+    (0, stockRefresh_job_1.startStockRefreshJob)(app);
     return app;
 }

@@ -8,6 +8,7 @@ const OmieAdapter_1 = require("../integrations/omie/OmieAdapter");
 const OmieStockCache_1 = require("../integrations/omie/OmieStockCache");
 const http_1 = require("../lib/http");
 const AppError_1 = require("../core/errors/AppError");
+const stockRefresh_service_1 = require("../services/stockRefresh.service");
 async function omieRoutes(app) {
     const toNumber = (value) => {
         if (value == null)
@@ -36,85 +37,12 @@ async function omieRoutes(app) {
         const result = await service.execute(request.requestId, force);
         return reply.send(result);
     });
-    app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
-        await OmieStockCache_1.omieStockCache.refreshNow();
-        const capturedAt = new Date();
-        const snapshot = await OmieStockCache_1.omieStockCache.getSnapshot();
-        const normalizeNumberString = (value) => {
-            if (typeof value === 'number') {
-                return Number.isFinite(value) ? String(value) : '0';
-            }
-            if (typeof value === 'string') {
-                const trimmed = value.trim();
-                if (!trimmed)
-                    return '0';
-                const parsed = Number(trimmed.replace(',', '.'));
-                return Number.isFinite(parsed) ? String(parsed) : '0';
-            }
-            return '0';
-        };
-        const snapshotMap = new Map();
-        const maybeSnapshot = snapshot;
-        const items = maybeSnapshot?.items ?? maybeSnapshot;
-        if (items instanceof Map) {
-            for (const [k, v] of items.entries())
-                snapshotMap.set(String(k).trim(), v);
-        }
-        else if (items && typeof items.entries === 'function') {
-            const entries = Array.from(items.entries());
-            for (const [k, v] of entries)
-                snapshotMap.set(String(k).trim(), v);
-        }
-        else if (items && typeof items === 'object') {
-            for (const [k, v] of Object.entries(items))
-                snapshotMap.set(String(k).trim(), v);
-        }
-        const EXPECTED_OMIE_CODE_LENGTH = 32;
-        const MAX_DECIMAL_INTEGER_DIGITS = 14;
-        let skippedOutOfRangeDecimal = 0;
-        const rows = Array.from(snapshotMap.entries())
-            .map(([omieCode, entry]) => {
-            const code = String(omieCode).trim();
-            if (code.length > EXPECTED_OMIE_CODE_LENGTH) {
-                request.log.warn({ omieCode: code, length: code.length }, 'omieCode outside expected size');
-            }
-            const stockQuantity = normalizeNumberString(entry?.stockQuantity);
-            const minimumStock = normalizeNumberString(entry?.minimumStock);
-            return {
-                omieCode: code,
-                stockQuantity,
-                minimumStock,
-                capturedAt,
-            };
-        })
-            .filter((row) => {
-            if (!row.omieCode)
-                return false;
-            const qty = toNumber(row.stockQuantity);
-            const min = toNumber(row.minimumStock);
-            const qtyIntDigits = qty == null ? 0 : Math.trunc(Math.abs(qty)).toString().replace('-', '').length;
-            const minIntDigits = min == null ? 0 : Math.trunc(Math.abs(min)).toString().replace('-', '').length;
-            if (qtyIntDigits > MAX_DECIMAL_INTEGER_DIGITS || minIntDigits > MAX_DECIMAL_INTEGER_DIGITS) {
-                skippedOutOfRangeDecimal += 1;
-                return false;
-            }
-            return true;
-        });
-        const BATCH_SIZE = 1000;
-        let insertedCount = 0;
-        if (rows.length > 0) {
-            for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-                const batch = rows.slice(i, i + BATCH_SIZE);
-                const result = await db_1.prisma.productStock.createMany({
-                    data: batch,
-                });
-                insertedCount += result?.count ?? 0;
-            }
-        }
+    app.post('/v1/omie/products/stock/refresh', async (_request, reply) => {
+        const result = await (0, stockRefresh_service_1.runStockRefresh)();
         return reply.send((0, http_1.ok)({
-            insertedCount,
-            capturedAt: capturedAt.toISOString(),
-        }, skippedOutOfRangeDecimal > 0 ? { skippedOutOfRangeDecimal } : undefined));
+            insertedCount: result.insertedCount,
+            capturedAt: new Date().toISOString(),
+        }, result.meta));
     });
     app.get('/v1/omie/stock', async (_request, reply) => {
         const rows = await db_1.prisma.$queryRaw `SELECT MAX("capturedAt") AS "lastRefreshAt", COUNT(DISTINCT "omieCode") AS "totalItems" FROM "product_stock"`;
