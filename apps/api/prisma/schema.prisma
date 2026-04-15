@@ -12,6 +12,14 @@ model SyncLock {
   lockedUntil DateTime
 }
 
+model JobLock {
+  key         String   @id @db.VarChar(64)
+  lockedUntil DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@map("job_lock")
+}
+
 model OmieProduct {
   id                String   @id @default(uuid())
   omieId            String   @unique
