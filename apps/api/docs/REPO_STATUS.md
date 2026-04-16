@@ -1,6 +1,6 @@
 # Production Manager API — Status do Repositório
 
-_Gerado automaticamente em **16/04/2026, 15:57:25**_
+_Gerado automaticamente em **16/04/2026, 17:10:00**_
 
 ---
 
@@ -96,12 +96,12 @@ _Gerado automaticamente em **16/04/2026, 15:57:25**_
 
 ## 💾 Tamanho por pasta/arquivo
 
-- **Tamanho total (escopo)**: 168.78 KB
+- **Tamanho total (escopo)**: 180.52 KB
 
 ### Top pastas (por tamanho)
 - `src\routes` — **59.87 KB** (6 arquivos)
+- `scripts\metrics` — **39.33 KB** (14 arquivos)
 - `src\services` — **29.94 KB** (10 arquivos)
-- `scripts\metrics` — **27.59 KB** (13 arquivos)
 - `src\core` — **9.71 KB** (2 arquivos)
 - `prisma\migrations` — **9.54 KB** (11 arquivos)
 - `src\integrations` — **7.43 KB** (3 arquivos)
@@ -113,6 +113,7 @@ _Gerado automaticamente em **16/04/2026, 15:57:25**_
 ### Top arquivos (por tamanho)
 - `src\routes\products.ts` — **17.42 KB**
 - `src\routes\omie.ts` — **17.24 KB**
+- `scripts\metrics\render-reference.mjs` — **11.74 KB**
 - `src\services\omieProductSync.service.ts` — **10.53 KB**
 - `scripts\metrics\render-md.mjs` — **9.79 KB**
 - `src\routes\index.ts` — **9.44 KB**
@@ -120,7 +121,6 @@ _Gerado automaticamente em **16/04/2026, 15:57:25**_
 - `src\routes\plans.ts` — **7.66 KB**
 - `src\services\stockRefresh.service.ts` — **6.72 KB**
 - `src\services\publicProductsRead.service.ts` — **5.21 KB**
-- `src\routes\sectors.ts` — **4.66 KB**
 
 ---
 

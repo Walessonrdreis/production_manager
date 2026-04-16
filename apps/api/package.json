@@ -15,7 +15,6 @@
     "db:studio": "prisma studio",
     "test": "vitest run",
     "backfill:omie-code": "tsx scripts/backfill-omie-code.ts",
-   
     "metrics:all": "node scripts/metrics/all.mjs",
     "metrics:tree": "node scripts/metrics/tree.mjs src 4",
     "metrics:loc": "node scripts/metrics/loc.mjs",
@@ -29,9 +28,10 @@
     "metrics:readme": "node scripts/metrics/render-readme.mjs",
     "docs:contract": "node scripts/metrics/render-api-contract.mjs",
     "docs:status": "node scripts/metrics/render-md.mjs",
+    "docs:reference": "node scripts/metrics/render-reference.mjs",
+    "docs:typedoc": "typedoc",
     "docs:status:history": "node scripts/metrics/render-md.mjs --history",
     "metrics:update-docs": "pnpm metrics:all && pnpm docs:status"
-
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",
@@ -46,6 +46,8 @@
     "@types/node": "^20.12.7",
     "prisma": "^5.12.0",
     "tsx": "^4.7.2",
+    "typedoc": "^0.28.19",
+    "typedoc-plugin-markdown": "^4.11.0",
     "typescript": "^5.4.5",
     "vitest": "^1.5.0"
   }

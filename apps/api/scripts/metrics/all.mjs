@@ -16,6 +16,11 @@ const scripts = [
   "migrations.mjs",
   "env-check.mjs",
   "exports.mjs",
+  "render-readme.mjs",
+  "render-api-contract.mjs",
+  "render-reference.mjs",
+  "render-md.mjs",
+  "typedoc.mjs",
 ];
 
 function run(script) {
