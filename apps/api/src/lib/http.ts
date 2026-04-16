@@ -1,4 +1,4 @@
-import type { FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
 export type HttpLinks = Record<string, string>;
 
@@ -32,8 +32,8 @@ export function ok<T>(
     links?: HttpLinks;
   } = { data };
 
-  if (meta && Object.keys(meta).length > 0) response.meta = meta;
-  if (links && Object.keys(links).length > 0) response.links = links;
+  if (meta !== undefined) response.meta = meta;
+  if (links !== undefined) response.links = links;
 
   return response;
 }
@@ -52,4 +52,28 @@ export function paginated<T>(
   if (links && Object.keys(links).length > 0) response.links = links;
 
   return response;
+}
+
+export function markDeprecated(
+  request: FastifyRequest & { requestId?: string },
+  reply: FastifyReply,
+  legacyPath: string,
+  replacementPath: string,
+  sunsetIso?: string
+) {
+  reply.header('Deprecation', 'true');
+
+  const resolvedSunset =
+    sunsetIso !== undefined ? sunsetIso : (process.env.DEPRECATION_SUNSET ?? '2026-12-31T00:00:00.000Z');
+
+  if (resolvedSunset) {
+    reply.header('Sunset', resolvedSunset);
+  }
+
+  if (process.env.NODE_ENV === 'test') return;
+
+  (request as any).log?.warn?.(
+    { legacyPath, replacementPath, requestId: (request as any).requestId },
+    `deprecated endpoint used: ${legacyPath}`
+  );
 }

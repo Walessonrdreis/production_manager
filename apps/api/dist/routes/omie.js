@@ -10,12 +10,6 @@ const stockRefresh_service_1 = require("../services/stockRefresh.service");
 const omieProductSync_service_1 = require("../services/omieProductSync.service");
 const omieProductRead_service_1 = require("../services/omieProductRead.service");
 async function omieRoutes(app) {
-    const logDeprecated = (request, reply, legacyPath, replacementPath) => {
-        reply.header('Deprecation', 'true');
-        if (process.env.NODE_ENV === 'test')
-            return;
-        request.log?.warn?.({ legacyPath, replacementPath, requestId: request.requestId }, `deprecated endpoint used: ${legacyPath}`);
-    };
     const toNumber = (value) => {
         if (value == null)
             return null;
@@ -388,47 +382,47 @@ async function omieRoutes(app) {
     app.get('/v1/admin/omie/products/:id/stock', productStockByIdHandler);
     app.get('/v1/admin/omie/products/by-code/:omieCode/stock', productStockByCodeHandler);
     app.post('/v1/omie/sync/products', async (request, reply) => {
-        logDeprecated(request, reply, '/v1/omie/sync/products', '/v1/admin/omie/sync/products');
+        (0, http_1.markDeprecated)(request, reply, '/v1/omie/sync/products', '/v1/admin/omie/sync/products');
         return syncProductsHandler(request, reply);
     });
     app.post('/v1/omie/products/sync', async (request, reply) => {
-        logDeprecated(request, reply, '/v1/omie/products/sync', '/v1/admin/omie/products/sync');
+        (0, http_1.markDeprecated)(request, reply, '/v1/omie/products/sync', '/v1/admin/omie/products/sync');
         return productsSyncHandler(request, reply);
     });
     app.post('/v1/omie/products/stock/refresh', async (request, reply) => {
-        logDeprecated(request, reply, '/v1/omie/products/stock/refresh', '/v1/admin/omie/products/stock/refresh');
+        (0, http_1.markDeprecated)(request, reply, '/v1/omie/products/stock/refresh', '/v1/admin/omie/products/stock/refresh');
         return stockRefreshHandler(request, reply);
     });
     app.get('/v1/omie/stock', async (request, reply) => {
-        logDeprecated(request, reply, '/v1/omie/stock', '/v1/admin/omie/stock');
+        (0, http_1.markDeprecated)(request, reply, '/v1/omie/stock', '/v1/admin/omie/stock');
         return stockInfoHandler(request, reply);
     });
     app.get('/v1/omie/categories', async (request, reply) => {
-        logDeprecated(request, reply, '/v1/omie/categories', '/v1/admin/omie/categories');
+        (0, http_1.markDeprecated)(request, reply, '/v1/omie/categories', '/v1/admin/omie/categories');
         return categoriesHandler(request, reply);
     });
     app.get('/v1/omie/products/search', async (request, reply) => {
-        logDeprecated(request, reply, '/v1/omie/products/search', '/v1/admin/omie/products/search');
+        (0, http_1.markDeprecated)(request, reply, '/v1/omie/products/search', '/v1/admin/omie/products/search');
         return productsSearchHandler(request, reply);
     });
     app.get('/v1/omie/products/:id', async (request, reply) => {
-        logDeprecated(request, reply, '/v1/omie/products/:id', '/v1/admin/omie/products/:id');
+        (0, http_1.markDeprecated)(request, reply, '/v1/omie/products/:id', '/v1/admin/omie/products/:id');
         return productByIdHandler(request, reply);
     });
     app.get('/v1/omie/products/by-code/:omieCode', async (request, reply) => {
-        logDeprecated(request, reply, '/v1/omie/products/by-code/:omieCode', '/v1/admin/omie/products/by-code/:omieCode');
+        (0, http_1.markDeprecated)(request, reply, '/v1/omie/products/by-code/:omieCode', '/v1/admin/omie/products/by-code/:omieCode');
         return productByCodeHandler(request, reply);
     });
     app.get('/v1/omie/products', async (request, reply) => {
-        logDeprecated(request, reply, '/v1/omie/products', '/v1/admin/omie/products');
+        (0, http_1.markDeprecated)(request, reply, '/v1/omie/products', '/v1/admin/omie/products');
         return productsListHandler(request, reply);
     });
     app.get('/v1/omie/products/:id/stock', async (request, reply) => {
-        logDeprecated(request, reply, '/v1/omie/products/:id/stock', '/v1/admin/omie/products/:id/stock');
+        (0, http_1.markDeprecated)(request, reply, '/v1/omie/products/:id/stock', '/v1/admin/omie/products/:id/stock');
         return productStockByIdHandler(request, reply);
     });
     app.get('/v1/omie/products/by-code/:omieCode/stock', async (request, reply) => {
-        logDeprecated(request, reply, '/v1/omie/products/by-code/:omieCode/stock', '/v1/admin/omie/products/by-code/:omieCode/stock');
+        (0, http_1.markDeprecated)(request, reply, '/v1/omie/products/by-code/:omieCode/stock', '/v1/admin/omie/products/by-code/:omieCode/stock');
         return productStockByCodeHandler(request, reply);
     });
 }

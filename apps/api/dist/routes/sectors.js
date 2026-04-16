@@ -8,11 +8,6 @@ const domainErrors_1 = require("../utils/domainErrors");
 const contracts_1 = require("@shared/contracts");
 const http_1 = require("../lib/http");
 async function sectorRoutes(app) {
-    const logDeprecated = (request, legacyPath, replacementPath) => {
-        if (process.env.NODE_ENV === 'test')
-            return;
-        request.log?.warn?.({ legacyPath, replacementPath, requestId: request.requestId }, 'Deprecated endpoint used');
-    };
     // POST /v1/sectors
     const createSectorHandler = async (request, reply) => {
         const parseResult = contracts_1.CreateSectorInputSchema.safeParse(request.body);
@@ -110,19 +105,19 @@ async function sectorRoutes(app) {
     app.patch('/v1/admin/sectors/:id', patchSectorHandler);
     app.delete('/v1/admin/sectors/:id', deleteSectorHandler);
     app.post('/v1/sectors', async (request, reply) => {
-        logDeprecated(request, '/v1/sectors (POST)', '/v1/admin/sectors (POST)');
+        (0, http_1.markDeprecated)(request, reply, '/v1/sectors (POST)', '/v1/admin/sectors (POST)');
         return createSectorHandler(request, reply);
     });
     app.get('/v1/sectors', async (request, reply) => {
-        logDeprecated(request, '/v1/sectors (GET)', '/v1/admin/sectors (GET)');
+        (0, http_1.markDeprecated)(request, reply, '/v1/sectors (GET)', '/v1/admin/sectors (GET)');
         return listSectorsHandler(request, reply);
     });
     app.patch('/v1/sectors/:id', async (request, reply) => {
-        logDeprecated(request, '/v1/sectors/:id (PATCH)', '/v1/admin/sectors/:id (PATCH)');
+        (0, http_1.markDeprecated)(request, reply, '/v1/sectors/:id (PATCH)', '/v1/admin/sectors/:id (PATCH)');
         return patchSectorHandler(request, reply);
     });
     app.delete('/v1/sectors/:id', async (request, reply) => {
-        logDeprecated(request, '/v1/sectors/:id (DELETE)', '/v1/admin/sectors/:id (DELETE)');
+        (0, http_1.markDeprecated)(request, reply, '/v1/sectors/:id (DELETE)', '/v1/admin/sectors/:id (DELETE)');
         return deleteSectorHandler(request, reply);
     });
 }

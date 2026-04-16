@@ -35,10 +35,10 @@ async function appRoutes(app) {
                 'sync é POST',
                 'listas são GET',
             ],
-        });
+        }, {});
     });
     app.get('/health', async () => {
-        return (0, http_1.ok)({ ok: true });
+        return (0, http_1.ok)({ ok: true }, {});
     });
     app.get('/v1', async () => {
         const publicRoutes = [
@@ -89,8 +89,8 @@ async function appRoutes(app) {
             { method: 'DELETE', path: '/v1/products/:id', description: '[Deprecated] Use /v1/admin/managed-products/:id.' },
             { method: 'GET', path: '/v1/admin/products*', description: '[Deprecated] Use /v1/admin/managed-products*.' },
             { method: 'GET', path: '/v1/omie/*', description: '[Deprecated] Use /v1/admin/omie/*.' },
-            { method: 'GET', path: '/v1/sectors*', description: '[Deprecated] Use /v1/admin/sectors*.' },
-            { method: 'GET', path: '/v1/plans*', description: '[Deprecated] Use /v1/admin/plans*.' },
+            { method: 'ANY', path: '/v1/sectors*', description: '[Deprecated] Use /v1/admin/sectors*.' },
+            { method: 'ANY', path: '/v1/plans*', description: '[Deprecated] Use /v1/admin/plans*.' },
         ];
         return (0, http_1.ok)({
             public: publicRoutes,
@@ -102,7 +102,7 @@ async function appRoutes(app) {
                 ...adminRoutes,
                 ...deprecatedAliases,
             ],
-        });
+        }, {});
     });
     // Registro das rotas da Omie
     app.register(omie_1.omieRoutes);

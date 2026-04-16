@@ -13,7 +13,8 @@ export async function appRoutes(app: FastifyInstance) {
     const hostname = request.hostname;
     const baseUrl = `${protocol}://${hostname}`;
 
-    return ok({
+    return ok(
+      {
       name: 'Production Manager API',
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -36,11 +37,13 @@ export async function appRoutes(app: FastifyInstance) {
         'sync é POST',
         'listas são GET',
       ],
-    });
+      },
+      {}
+    );
   });
 
   app.get('/health', async () => {
-    return ok({ ok: true });
+    return ok({ ok: true }, {});
   });
 
   app.get('/v1', async () => {
@@ -94,11 +97,12 @@ export async function appRoutes(app: FastifyInstance) {
       { method: 'DELETE', path: '/v1/products/:id', description: '[Deprecated] Use /v1/admin/managed-products/:id.' },
       { method: 'GET', path: '/v1/admin/products*', description: '[Deprecated] Use /v1/admin/managed-products*.' },
       { method: 'GET', path: '/v1/omie/*', description: '[Deprecated] Use /v1/admin/omie/*.' },
-      { method: 'GET', path: '/v1/sectors*', description: '[Deprecated] Use /v1/admin/sectors*.' },
-      { method: 'GET', path: '/v1/plans*', description: '[Deprecated] Use /v1/admin/plans*.' },
+      { method: 'ANY', path: '/v1/sectors*', description: '[Deprecated] Use /v1/admin/sectors*.' },
+      { method: 'ANY', path: '/v1/plans*', description: '[Deprecated] Use /v1/admin/plans*.' },
     ];
 
-    return ok({
+    return ok(
+      {
       public: publicRoutes,
       admin: adminRoutes,
       deprecated: deprecatedAliases,
@@ -108,7 +112,9 @@ export async function appRoutes(app: FastifyInstance) {
         ...adminRoutes,
         ...deprecatedAliases,
       ],
-    });
+      },
+      {}
+    );
   });
 
   // Registro das rotas da Omie

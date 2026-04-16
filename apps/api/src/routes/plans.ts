@@ -5,17 +5,9 @@ import { CreatePlanItemService } from '../services/CreatePlanItemService';
 import { CreatePlanService } from '../services/CreatePlanService';
 import { NotFoundError, ValidationError } from '../utils/domainErrors';
 import { CreatePlanInputSchema, AddPlanItemInputSchema } from '@shared/contracts';
-import { paginated, wantsLegacyResponse } from '../lib/http';
+import { markDeprecated, paginated, wantsLegacyResponse } from '../lib/http';
 
 export async function plansRoutes(app: FastifyInstance) {
-  const logDeprecated = (request: any, legacyPath: string, replacementPath: string) => {
-    if (process.env.NODE_ENV === 'test') return;
-    request.log?.warn?.(
-      { legacyPath, replacementPath, requestId: request.requestId },
-      'Deprecated endpoint used'
-    );
-  };
-
   // 1. POST /v1/plans
   const createPlanHandler = async (request: any, reply: any) => {
     const parseResult = CreatePlanInputSchema.safeParse(request.body);
@@ -216,32 +208,32 @@ export async function plansRoutes(app: FastifyInstance) {
   app.get('/v1/admin/plans/:id/export.csv', exportPlanCsvHandler);
 
   app.post('/v1/plans', async (request, reply) => {
-    logDeprecated(request, '/v1/plans (POST)', '/v1/admin/plans (POST)');
+    markDeprecated(request, reply, '/v1/plans (POST)', '/v1/admin/plans (POST)');
     return createPlanHandler(request, reply);
   });
 
   app.get('/v1/plans', async (request, reply) => {
-    logDeprecated(request, '/v1/plans (GET)', '/v1/admin/plans (GET)');
+    markDeprecated(request, reply, '/v1/plans (GET)', '/v1/admin/plans (GET)');
     return listPlansHandler(request, reply);
   });
 
   app.get('/v1/plans/:id', async (request, reply) => {
-    logDeprecated(request, '/v1/plans/:id (GET)', '/v1/admin/plans/:id (GET)');
+    markDeprecated(request, reply, '/v1/plans/:id (GET)', '/v1/admin/plans/:id (GET)');
     return getPlanByIdHandler(request, reply);
   });
 
   app.post('/v1/plans/:id/items', async (request, reply) => {
-    logDeprecated(request, '/v1/plans/:id/items (POST)', '/v1/admin/plans/:id/items (POST)');
+    markDeprecated(request, reply, '/v1/plans/:id/items (POST)', '/v1/admin/plans/:id/items (POST)');
     return addPlanItemHandler(request, reply);
   });
 
   app.get('/v1/plans/:id/by-sector', async (request, reply) => {
-    logDeprecated(request, '/v1/plans/:id/by-sector (GET)', '/v1/admin/plans/:id/by-sector (GET)');
+    markDeprecated(request, reply, '/v1/plans/:id/by-sector (GET)', '/v1/admin/plans/:id/by-sector (GET)');
     return getPlanItemsBySectorHandler(request, reply);
   });
 
   app.get('/v1/plans/:id/export.csv', async (request, reply) => {
-    logDeprecated(request, '/v1/plans/:id/export.csv (GET)', '/v1/admin/plans/:id/export.csv (GET)');
+    markDeprecated(request, reply, '/v1/plans/:id/export.csv (GET)', '/v1/admin/plans/:id/export.csv (GET)');
     return exportPlanCsvHandler(request, reply);
   });
 }

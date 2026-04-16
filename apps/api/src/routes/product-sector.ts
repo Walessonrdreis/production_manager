@@ -4,16 +4,9 @@ import { prisma } from '../db';
 import { SetProductDefaultSectorService } from '../services/SetProductDefaultSectorService';
 import { NotFoundError, ValidationError } from '../utils/domainErrors';
 import { UpdateProductSectorInputSchema } from '@shared/contracts';
+import { markDeprecated } from '../lib/http';
 
 export async function productSectorRoutes(app: FastifyInstance) {
-  const logDeprecated = (request: any, legacyPath: string, replacementPath: string) => {
-    if (process.env.NODE_ENV === 'test') return;
-    request.log?.warn?.(
-      { legacyPath, replacementPath, requestId: request.requestId },
-      'Deprecated endpoint used'
-    );
-  };
-
   // PUT /v1/products/:productId/sector
   const setDefaultSectorHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
@@ -71,38 +64,22 @@ export async function productSectorRoutes(app: FastifyInstance) {
   app.get('/v1/admin/managed-products/:productId/sector', getDefaultSectorHandler);
 
   app.put('/v1/admin/products/:productId/sector', async (request, reply) => {
-    logDeprecated(
-      request,
-      '/v1/admin/products/:productId/sector (PUT)',
-      '/v1/admin/managed-products/:productId/sector (PUT)'
-    );
+    markDeprecated(request, reply, '/v1/admin/products/:productId/sector (PUT)', '/v1/admin/managed-products/:productId/sector (PUT)');
     return setDefaultSectorHandler(request, reply);
   });
 
   app.get('/v1/admin/products/:productId/sector', async (request, reply) => {
-    logDeprecated(
-      request,
-      '/v1/admin/products/:productId/sector (GET)',
-      '/v1/admin/managed-products/:productId/sector (GET)'
-    );
+    markDeprecated(request, reply, '/v1/admin/products/:productId/sector (GET)', '/v1/admin/managed-products/:productId/sector (GET)');
     return getDefaultSectorHandler(request, reply);
   });
 
   app.put('/v1/products/:productId/sector', async (request, reply) => {
-    logDeprecated(
-      request,
-      '/v1/products/:productId/sector (PUT)',
-      '/v1/admin/managed-products/:productId/sector (PUT)'
-    );
+    markDeprecated(request, reply, '/v1/products/:productId/sector (PUT)', '/v1/admin/managed-products/:productId/sector (PUT)');
     return setDefaultSectorHandler(request, reply);
   });
 
   app.get('/v1/products/:productId/sector', async (request, reply) => {
-    logDeprecated(
-      request,
-      '/v1/products/:productId/sector (GET)',
-      '/v1/admin/managed-products/:productId/sector (GET)'
-    );
+    markDeprecated(request, reply, '/v1/products/:productId/sector (GET)', '/v1/admin/managed-products/:productId/sector (GET)');
     return getDefaultSectorHandler(request, reply);
   });
 }
