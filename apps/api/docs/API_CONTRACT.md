@@ -1,6 +1,6 @@
 # 📦 API Contract — Production Manager
 
-_Última atualização automática: **16/04/2026, 15:57:10**_
+_Última atualização automática: **16/04/2026, 17:11:36**_
 
 ---
 

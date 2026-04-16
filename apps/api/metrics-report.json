@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-16T18:57:25.524Z",
+  "generatedAt": "2026-04-16T20:11:34.965Z",
   "cwd": "C:\\Users\\Dell\\OneDrive\\projects_git\\production_manager\\apps\\api",
   "results": {
     "tree.mjs": {
@@ -298,23 +298,23 @@
       ]
     },
     "sizes.mjs": {
-      "totalBytes": 172833,
-      "totalBytesHuman": "168.78 KB",
+      "totalBytes": 184973,
+      "totalBytesHuman": "180.64 KB",
       "byFolder": {
         "src\\routes": {
           "bytes": 61309,
           "files": 6,
           "bytesHuman": "59.87 KB"
         },
+        "scripts\\metrics": {
+          "bytes": 40392,
+          "files": 14,
+          "bytesHuman": "39.45 KB"
+        },
         "src\\services": {
           "bytes": 30659,
           "files": 10,
           "bytesHuman": "29.94 KB"
-        },
-        "scripts\\metrics": {
-          "bytes": 28252,
-          "files": 13,
-          "bytesHuman": "27.59 KB"
         },
         "src\\core": {
           "bytes": 9942,
@@ -407,6 +407,11 @@
           "file": "src\\routes\\omie.ts",
           "bytes": 17649,
           "bytesHuman": "17.24 KB"
+        },
+        {
+          "file": "scripts\\metrics\\render-reference.mjs",
+          "bytes": 12021,
+          "bytesHuman": "11.74 KB"
         },
         {
           "file": "src\\services\\omieProductSync.service.ts",
@@ -542,11 +547,6 @@
           "file": "scripts\\metrics\\endpoints-drift.mjs",
           "bytes": 1350,
           "bytesHuman": "1.32 KB"
-        },
-        {
-          "file": "scripts\\metrics\\endpoints.mjs",
-          "bytes": 1294,
-          "bytesHuman": "1.26 KB"
         }
       ]
     },
@@ -1462,6 +1462,28 @@
           "exports": 1
         }
       ]
+    },
+    "render-readme.mjs": {
+      "ok": true,
+      "output": "README.md"
+    },
+    "render-api-contract.mjs": {
+      "ok": true,
+      "output": "docs\\API_CONTRACT.md"
+    },
+    "render-reference.mjs": {
+      "error": "Command failed: node \"C:\\Users\\Dell\\OneDrive\\projects_git\\production_manager\\apps\\api\\scripts\\metrics\\render-reference.mjs\"\nfile:///C:/Users/Dell/OneDrive/projects_git/production_manager/apps/api/scripts/metrics/render-reference.mjs:121\r\n    if (imp.startsWith(\".\") || imp.startsWith(\"/\")) internal.push(imp);\r\n            ^\r\n\r\nTypeError: Cannot read properties of undefined (reading 'startsWith')\r\n    at extractImports (file:///C:/Users/Dell/OneDrive/projects_git/production_manager/apps/api/scripts/metrics/render-reference.mjs:121:13)\r\n    at summarizeFile (file:///C:/Users/Dell/OneDrive/projects_git/production_manager/apps/api/scripts/metrics/render-reference.mjs:133:62)\r\n    at Array.map (<anonymous>)\r\n    at main (file:///C:/Users/Dell/OneDrive/projects_git/production_manager/apps/api/scripts/metrics/render-reference.mjs:320:27)\r\n    at file:///C:/Users/Dell/OneDrive/projects_git/production_manager/apps/api/scripts/metrics/render-reference.mjs:367:1\r\n    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)\r\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)\r\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\r\n\r\nNode.js v24.13.1\r\n",
+      "stderr": "file:///C:/Users/Dell/OneDrive/projects_git/production_manager/apps/api/scripts/metrics/render-reference.mjs:121\r\n    if (imp.startsWith(\".\") || imp.startsWith(\"/\")) internal.push(imp);\r\n            ^\r\n\r\nTypeError: Cannot read properties of undefined (reading 'startsWith')\r\n    at extractImports (file:///C:/Users/Dell/OneDrive/projects_git/production_manager/apps/api/scripts/metrics/render-reference.mjs:121:13)\r\n    at summarizeFile (file:///C:/Users/Dell/OneDrive/projects_git/production_manager/apps/api/scripts/metrics/render-reference.mjs:133:62)\r\n    at Array.map (<anonymous>)\r\n    at main (file:///C:/Users/Dell/OneDrive/projects_git/production_manager/apps/api/scripts/metrics/render-reference.mjs:320:27)\r\n    at file:///C:/Users/Dell/OneDrive/projects_git/production_manager/apps/api/scripts/metrics/render-reference.mjs:367:1\r\n    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)\r\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)\r\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\r\n\r\nNode.js v24.13.1\r\n"
+    },
+    "render-md.mjs": {
+      "ok": true,
+      "input": "metrics-report.json",
+      "output": "docs\\REPO_STATUS.md",
+      "historySaved": false
+    },
+    "typedoc.mjs": {
+      "error": "Command failed: node \"C:\\Users\\Dell\\OneDrive\\projects_git\\production_manager\\apps\\api\\scripts\\metrics\\typedoc.mjs\"\nnode:internal/modules/cjs/loader:1451\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module 'C:\\Users\\Dell\\OneDrive\\projects_git\\production_manager\\apps\\api\\scripts\\metrics\\typedoc.mjs'\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1448:15)\r\n    at defaultResolveImpl (node:internal/modules/cjs/loader:1059:19)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1064:22)\r\n    at Module._load (node:internal/modules/cjs/loader:1234:25)\r\n    at TracingChannel.traceSync (node:diagnostics_channel:328:14)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: 'MODULE_NOT_FOUND',\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.13.1\r\n",
+      "stderr": "node:internal/modules/cjs/loader:1451\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module 'C:\\Users\\Dell\\OneDrive\\projects_git\\production_manager\\apps\\api\\scripts\\metrics\\typedoc.mjs'\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1448:15)\r\n    at defaultResolveImpl (node:internal/modules/cjs/loader:1059:19)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1064:22)\r\n    at Module._load (node:internal/modules/cjs/loader:1234:25)\r\n    at TracingChannel.traceSync (node:diagnostics_channel:328:14)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: 'MODULE_NOT_FOUND',\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.13.1\r\n"
     }
   }
 }
