@@ -116,6 +116,7 @@ describe('GET /v1/products/stock', () => {
     });
 
     expect(response.statusCode).toBe(200);
+    expect(response.headers['deprecation']).toBe('true');
     const body = JSON.parse(response.payload);
     expect(body).toHaveProperty('data');
     expect(body).toHaveProperty('meta');

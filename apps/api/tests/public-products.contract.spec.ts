@@ -29,8 +29,18 @@ describe('Public contract: GET /v1/products (+ /v1/products/:omieCode)', () => {
           minimumStock: '2.0000',
           stockUpdatedAt: new Date('2026-04-14T12:00:00.000Z'),
         },
+        {
+          omieCode: '999',
+          description: 'Produto Sem Estoque',
+          sku: null,
+          family: null,
+          active: true,
+          stockQuantity: '0.0000',
+          minimumStock: '0.0000',
+          stockUpdatedAt: null,
+        },
       ])
-      .mockResolvedValueOnce([{ total: 1n }]);
+      .mockResolvedValueOnce([{ total: 2n }]);
 
     const app = await buildApp();
     await app.ready();
@@ -45,10 +55,10 @@ describe('Public contract: GET /v1/products (+ /v1/products/:omieCode)', () => {
 
     const body = JSON.parse(response.payload);
     expect(Array.isArray(body.data)).toBe(true);
-    expect(body.meta).toEqual({ page: 1, pageSize: 50, total: 1 });
+    expect(body.meta).toEqual({ page: 1, pageSize: 50, total: 2 });
 
-    const item = body.data[0];
-    expect(item).toEqual({
+    const itemA = body.data[0];
+    expect(itemA).toEqual({
       omieCode: '12345',
       description: 'Produto A',
       sku: 'SKU-A',
@@ -59,9 +69,25 @@ describe('Public contract: GET /v1/products (+ /v1/products/:omieCode)', () => {
       stockUpdatedAt: '2026-04-14T12:00:00.000Z',
     });
 
-    expect(item).not.toHaveProperty('id');
-    expect(item).not.toHaveProperty('omieProductId');
-    expect(item).not.toHaveProperty('rawPayload');
+    const itemNoStock = body.data[1];
+    expect(itemNoStock).toEqual({
+      omieCode: '999',
+      description: 'Produto Sem Estoque',
+      sku: null,
+      family: null,
+      active: true,
+      stockQuantity: '0.0000',
+      minimumStock: '0.0000',
+      stockUpdatedAt: null,
+    });
+
+    expect(itemA).not.toHaveProperty('id');
+    expect(itemA).not.toHaveProperty('omieProductId');
+    expect(itemA).not.toHaveProperty('rawPayload');
+
+    expect(itemNoStock).not.toHaveProperty('id');
+    expect(itemNoStock).not.toHaveProperty('omieProductId');
+    expect(itemNoStock).not.toHaveProperty('rawPayload');
 
     await app.close();
   });

@@ -67,16 +67,42 @@ export async function productSectorRoutes(app: FastifyInstance) {
     return reply.send({ data: productSector || null });
   };
 
-  app.put('/v1/admin/products/:productId/sector', setDefaultSectorHandler);
-  app.get('/v1/admin/products/:productId/sector', getDefaultSectorHandler);
+  app.put('/v1/admin/managed-products/:productId/sector', setDefaultSectorHandler);
+  app.get('/v1/admin/managed-products/:productId/sector', getDefaultSectorHandler);
+
+  app.put('/v1/admin/products/:productId/sector', async (request, reply) => {
+    logDeprecated(
+      request,
+      '/v1/admin/products/:productId/sector (PUT)',
+      '/v1/admin/managed-products/:productId/sector (PUT)'
+    );
+    return setDefaultSectorHandler(request, reply);
+  });
+
+  app.get('/v1/admin/products/:productId/sector', async (request, reply) => {
+    logDeprecated(
+      request,
+      '/v1/admin/products/:productId/sector (GET)',
+      '/v1/admin/managed-products/:productId/sector (GET)'
+    );
+    return getDefaultSectorHandler(request, reply);
+  });
 
   app.put('/v1/products/:productId/sector', async (request, reply) => {
-    logDeprecated(request, '/v1/products/:productId/sector (PUT)', '/v1/admin/products/:productId/sector (PUT)');
+    logDeprecated(
+      request,
+      '/v1/products/:productId/sector (PUT)',
+      '/v1/admin/managed-products/:productId/sector (PUT)'
+    );
     return setDefaultSectorHandler(request, reply);
   });
 
   app.get('/v1/products/:productId/sector', async (request, reply) => {
-    logDeprecated(request, '/v1/products/:productId/sector (GET)', '/v1/admin/products/:productId/sector (GET)');
+    logDeprecated(
+      request,
+      '/v1/products/:productId/sector (GET)',
+      '/v1/admin/managed-products/:productId/sector (GET)'
+    );
     return getDefaultSectorHandler(request, reply);
   });
 }

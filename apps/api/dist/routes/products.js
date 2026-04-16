@@ -85,7 +85,10 @@ async function productsRoutes(app) {
     app.get('/v1/products', publicListProductsHandler);
     app.get('/v1/products/:omieCode([A-Za-z0-9]{1,64})', publicGetProductByOmieCodeHandler);
     app.get('/v1/products/stock', async (request, reply) => {
-        logDeprecated(request, '/v1/products/stock', '/v1/products');
+        reply.header('Deprecation', 'true');
+        if (process.env.NODE_ENV !== 'test') {
+            request.log?.warn?.({ legacyPath: '/v1/products/stock', replacementPath: '/v1/products', requestId: request.requestId }, 'deprecated endpoint used: /v1/products/stock');
+        }
         return publicListProductsHandler(request, reply);
     });
     // POST /v1/products - Seleciona um produto do Omie para o Gerenciador
@@ -114,9 +117,13 @@ async function productsRoutes(app) {
         });
         return reply.status(201).send(product);
     };
-    app.post('/v1/admin/products', createManagedProductHandler);
+    app.post('/v1/admin/managed-products', createManagedProductHandler);
+    app.post('/v1/admin/products', async (request, reply) => {
+        logDeprecated(request, '/v1/admin/products (POST)', '/v1/admin/managed-products (POST)');
+        return createManagedProductHandler(request, reply);
+    });
     app.post('/v1/products', async (request, reply) => {
-        logDeprecated(request, '/v1/products (POST)', '/v1/admin/products (POST)');
+        logDeprecated(request, '/v1/products (POST)', '/v1/admin/managed-products (POST)');
         return createManagedProductHandler(request, reply);
     });
     // POST /v1/products/bulk - Seleciona vários produtos do Omie para o Gerenciador
@@ -154,9 +161,13 @@ async function productsRoutes(app) {
             requested: uniqueIds.length,
         });
     };
-    app.post('/v1/admin/products/bulk', createManagedProductsBulkHandler);
+    app.post('/v1/admin/managed-products/bulk', createManagedProductsBulkHandler);
+    app.post('/v1/admin/products/bulk', async (request, reply) => {
+        logDeprecated(request, '/v1/admin/products/bulk (POST)', '/v1/admin/managed-products/bulk (POST)');
+        return createManagedProductsBulkHandler(request, reply);
+    });
     app.post('/v1/products/bulk', async (request, reply) => {
-        logDeprecated(request, '/v1/products/bulk (POST)', '/v1/admin/products/bulk (POST)');
+        logDeprecated(request, '/v1/products/bulk (POST)', '/v1/admin/managed-products/bulk (POST)');
         return createManagedProductsBulkHandler(request, reply);
     });
     const listManagedProductsHandler = async (request, reply) => {
@@ -184,9 +195,13 @@ async function productsRoutes(app) {
             total: products.length,
         }));
     };
-    app.get('/v1/admin/products', listManagedProductsHandler);
+    app.get('/v1/admin/managed-products', listManagedProductsHandler);
+    app.get('/v1/admin/products', async (request, reply) => {
+        logDeprecated(request, '/v1/admin/products (GET)', '/v1/admin/managed-products (GET)');
+        return listManagedProductsHandler(request, reply);
+    });
     app.get('/v1/products/managed', async (request, reply) => {
-        logDeprecated(request, '/v1/products/managed', '/v1/admin/products');
+        logDeprecated(request, '/v1/products/managed', '/v1/admin/managed-products');
         return listManagedProductsHandler(request, reply);
     });
     const getManagedProductHandler = async (request, reply) => {
@@ -237,9 +252,13 @@ async function productsRoutes(app) {
                 : null,
         }));
     };
-    app.get('/v1/admin/products/:id', getManagedProductHandler);
+    app.get('/v1/admin/managed-products/:id', getManagedProductHandler);
+    app.get('/v1/admin/products/:id', async (request, reply) => {
+        logDeprecated(request, '/v1/admin/products/:id (GET)', '/v1/admin/managed-products/:id (GET)');
+        return getManagedProductHandler(request, reply);
+    });
     app.get('/v1/products/:id', async (request, reply) => {
-        logDeprecated(request, '/v1/products/:id', '/v1/admin/products/:id');
+        logDeprecated(request, '/v1/products/:id', '/v1/admin/managed-products/:id');
         return getManagedProductHandler(request, reply);
     });
     const patchManagedProductHandler = async (request, reply) => {
@@ -280,9 +299,13 @@ async function productsRoutes(app) {
         });
         return reply.send((0, http_1.ok)(updated));
     };
-    app.patch('/v1/admin/products/:id', patchManagedProductHandler);
+    app.patch('/v1/admin/managed-products/:id', patchManagedProductHandler);
+    app.patch('/v1/admin/products/:id', async (request, reply) => {
+        logDeprecated(request, '/v1/admin/products/:id (PATCH)', '/v1/admin/managed-products/:id (PATCH)');
+        return patchManagedProductHandler(request, reply);
+    });
     app.patch('/v1/products/:id', async (request, reply) => {
-        logDeprecated(request, '/v1/products/:id (PATCH)', '/v1/admin/products/:id (PATCH)');
+        logDeprecated(request, '/v1/products/:id (PATCH)', '/v1/admin/managed-products/:id (PATCH)');
         return patchManagedProductHandler(request, reply);
     });
     // DELETE /v1/products/:id - Remove um produto do Gerenciador
@@ -300,9 +323,13 @@ async function productsRoutes(app) {
         });
         return reply.send({ success: true });
     };
-    app.delete('/v1/admin/products/:id', deleteManagedProductHandler);
+    app.delete('/v1/admin/managed-products/:id', deleteManagedProductHandler);
+    app.delete('/v1/admin/products/:id', async (request, reply) => {
+        logDeprecated(request, '/v1/admin/products/:id (DELETE)', '/v1/admin/managed-products/:id (DELETE)');
+        return deleteManagedProductHandler(request, reply);
+    });
     app.delete('/v1/products/:id', async (request, reply) => {
-        logDeprecated(request, '/v1/products/:id (DELETE)', '/v1/admin/products/:id (DELETE)');
+        logDeprecated(request, '/v1/products/:id (DELETE)', '/v1/admin/managed-products/:id (DELETE)');
         return deleteManagedProductHandler(request, reply);
     });
     const getManagedProductStockHandler = async (request, reply) => {
@@ -343,9 +370,13 @@ async function productsRoutes(app) {
             capturedAt: latest.capturedAt,
         }));
     };
-    app.get('/v1/admin/products/:id/stock', getManagedProductStockHandler);
+    app.get('/v1/admin/managed-products/:id/stock', getManagedProductStockHandler);
+    app.get('/v1/admin/products/:id/stock', async (request, reply) => {
+        logDeprecated(request, '/v1/admin/products/:id/stock (GET)', '/v1/admin/managed-products/:id/stock (GET)');
+        return getManagedProductStockHandler(request, reply);
+    });
     app.get('/v1/products/:id/stock', async (request, reply) => {
-        logDeprecated(request, '/v1/products/:id/stock', '/v1/admin/products/:id/stock');
+        logDeprecated(request, '/v1/products/:id/stock', '/v1/admin/managed-products/:id/stock');
         return getManagedProductStockHandler(request, reply);
     });
     const getManagedProductStockHistoryHandler = async (request, reply) => {
@@ -398,9 +429,13 @@ async function productsRoutes(app) {
             total,
         }));
     };
-    app.get('/v1/admin/products/:id/stock/history', getManagedProductStockHistoryHandler);
+    app.get('/v1/admin/managed-products/:id/stock/history', getManagedProductStockHistoryHandler);
+    app.get('/v1/admin/products/:id/stock/history', async (request, reply) => {
+        logDeprecated(request, '/v1/admin/products/:id/stock/history (GET)', '/v1/admin/managed-products/:id/stock/history (GET)');
+        return getManagedProductStockHistoryHandler(request, reply);
+    });
     app.get('/v1/products/:id/stock/history', async (request, reply) => {
-        logDeprecated(request, '/v1/products/:id/stock/history', '/v1/admin/products/:id/stock/history');
+        logDeprecated(request, '/v1/products/:id/stock/history', '/v1/admin/managed-products/:id/stock/history');
         return getManagedProductStockHistoryHandler(request, reply);
     });
 }
