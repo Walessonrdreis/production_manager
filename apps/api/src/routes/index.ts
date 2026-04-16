@@ -21,11 +21,13 @@ export async function appRoutes(app: FastifyInstance) {
       versions: {
         v1: `${baseUrl}/v1`,
       },
+      
       endpoints: {
         health: `${baseUrl}/health`,
         indexV1: `${baseUrl}/v1`,
         docs: `${baseUrl}/docs`,
       },
+        
       resources: {
         publicProducts: `${baseUrl}/v1/products`,
         adminOmie: `${baseUrl}/v1/admin/omie`,
@@ -33,6 +35,30 @@ export async function appRoutes(app: FastifyInstance) {
         adminSectors: `${baseUrl}/v1/admin/sectors`,
         adminPlans: `${baseUrl}/v1/admin/plans`,
       },
+      
+      contracts: {
+            public: {
+              products: {
+                endpoint: `${baseUrl}/v1/products`,
+                description:
+                  'Catálogo público (BizChat): produto + estoque atual + estoque mínimo.',
+                fields: {
+                  omieCode: 'string',
+                  description: 'string',
+                  sku: 'string | null',
+                  stockQuantity: 'string (decimal)',
+                  minimumStock: 'string (decimal)',
+                  stockUpdatedAt: 'ISO string | null',
+                },
+                discover: {
+                  query: '?describe=true',
+                  header: 'X-Describe: true',
+                },
+              },
+            },
+          },
+
+      
       tips: [
         'sync é POST',
         'listas são GET',
