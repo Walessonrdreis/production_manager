@@ -120,7 +120,7 @@ describe('Public contract: GET /v1/products (+ /v1/products/:omieCode)', () => {
     expect(response.headers['content-type']).toContain('application/json');
 
     const body = JSON.parse(response.payload);
-    expect(body.error.code).toBe('OMIE_PRODUCT_NOT_FOUND');
+    expect(body.error.code).toBe('PRODUCT_NOT_FOUND');
     expect(body.error.message).toBeDefined();
     expect(body.error.requestId).toBeDefined();
 

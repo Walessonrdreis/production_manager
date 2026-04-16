@@ -55,12 +55,12 @@ export async function productsRoutes(app: FastifyInstance) {
 
   const publicGetProductByOmieCodeHandler = async (request: any, reply: any) => {
     const paramsSchema = z.object({
-      omieCode: z.string().min(1),
+      omieCode: z.string().trim().min(1),
     });
 
     const { omieCode } = paramsSchema.parse(request.params);
     const product = await getPublicProductByCode(omieCode);
-    if (!product) throw new AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
+    if (!product) throw new AppError('PRODUCT_NOT_FOUND', 404, 'Product not found');
 
     return reply.send(
       ok(product)
@@ -108,7 +108,13 @@ export async function productsRoutes(app: FastifyInstance) {
   app.get('/v1/products/:omieCode([A-Za-z0-9]{1,64})', publicGetProductByOmieCodeHandler);
 
   app.get('/v1/products/stock', async (request, reply) => {
-    logDeprecated(request, '/v1/products/stock', '/v1/products');
+    reply.header('Deprecation', 'true');
+    if (process.env.NODE_ENV !== 'test') {
+      request.log?.warn?.(
+        { legacyPath: '/v1/products/stock', replacementPath: '/v1/products', requestId: request.requestId },
+        'deprecated endpoint used: /v1/products/stock'
+      );
+    }
     return publicListProductsHandler(request, reply);
   });
 

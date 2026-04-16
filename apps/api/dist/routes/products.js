@@ -49,12 +49,12 @@ async function productsRoutes(app) {
     };
     const publicGetProductByOmieCodeHandler = async (request, reply) => {
         const paramsSchema = zod_1.z.object({
-            omieCode: zod_1.z.string().min(1),
+            omieCode: zod_1.z.string().trim().min(1),
         });
         const { omieCode } = paramsSchema.parse(request.params);
         const product = await (0, publicProductsRead_service_1.getPublicProductByCode)(omieCode);
         if (!product)
-            throw new AppError_1.AppError('OMIE_PRODUCT_NOT_FOUND', 404, 'Omie product not found');
+            throw new AppError_1.AppError('PRODUCT_NOT_FOUND', 404, 'Product not found');
         return reply.send((0, http_1.ok)(product));
     };
     async function resolveOmieCodeFromProduct(productId) {
