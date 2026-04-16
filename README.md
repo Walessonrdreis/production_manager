@@ -184,15 +184,50 @@ Páginas principais:
 - `/plans/:id` detalhe do plano e agrupamento por setor
 
 ### Backend
+#### API Pública (BizChat)
 
-Rotas registradas:
-- `GET /health`
-- `POST /v1/omie/sync/products`
-- `GET /v1/omie/products`
-- rotas de setores
-- rotas de produtos
-- rotas de vínculo produto-setor
-- rotas de planos de produção
+Contrato público estável (não chama Omie externamente):
+- `GET /v1/products` (base)
+- `GET /v1/products/:omieCode`
+
+Exemplos:
+
+```bash
+curl "http://localhost:3333/v1/products?q=cor&page=1&pageSize=50"
+curl "http://localhost:3333/v1/products/12345"
+```
+
+Resposta padrão (public): `{ data, meta }`
+
+#### API Admin (interno)
+
+Base: `/v1/admin/*`
+
+Principais grupos:
+- Omie (admin): `/v1/admin/omie/*`
+- Produtos gerenciados: `/v1/admin/managed-products*`
+- Setores: `/v1/admin/sectors*`
+- Planos: `/v1/admin/plans*`
+
+Observação de compatibilidade:
+- Alguns endpoints antigos e/ou internos podem responder em formato "legacy" quando o header `X-Response-Format: legacy` é enviado.
+
+#### Aliases Deprecated
+
+Endpoints antigos continuam funcionando como aliases, mas retornam:
+- `Deprecation: true`
+- `Sunset: <ISO>` (configurável por `DEPRECATION_SUNSET`)
+
+O backend também registra warning com `requestId` (header `X-Request-Id` opcional) para rastrear consumo de endpoints deprecated.
+
+#### Descoberta e Debug
+
+- `GET /v1` retorna um índice autoexplicativo com:
+  - `publicEndpoints`
+  - `adminEndpoints`
+  - `deprecatedEndpoints` (inclui `replacement`)
+- Para resposta JSON mais legível:
+  - query `?pretty=true` ou header `X-Pretty: true`
 
 ## Regras de Uso
 
