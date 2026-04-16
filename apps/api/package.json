@@ -14,7 +14,23 @@
     "db:migrate:prod": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "test": "vitest run",
-    "backfill:omie-code": "tsx scripts/backfill-omie-code.ts"
+    "backfill:omie-code": "tsx scripts/backfill-omie-code.ts",
+   
+    "metrics:all": "node scripts/metrics/all.mjs",
+    "metrics:tree": "node scripts/metrics/tree.mjs src 4",
+    "metrics:loc": "node scripts/metrics/loc.mjs",
+    "metrics:sizes": "node scripts/metrics/sizes.mjs",
+    "metrics:endpoints": "node scripts/metrics/endpoints.mjs",
+    "metrics:drift": "node scripts/metrics/endpoints-drift.mjs",
+    "metrics:prisma": "node scripts/metrics/prisma-schema.mjs",
+    "metrics:migrations": "node scripts/metrics/migrations.mjs",
+    "metrics:env": "node scripts/metrics/env-check.mjs",
+    "metrics:exports": "node scripts/metrics/exports.mjs",
+  
+    "docs:status": "node scripts/metrics/render-md.mjs",
+    "docs:status:history": "node scripts/metrics/render-md.mjs --history",
+    "metrics:update-docs": "pnpm metrics:all && pnpm docs:status"
+
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

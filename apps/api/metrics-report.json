@@ -1,0 +1,1467 @@
+{
+  "generatedAt": "2026-04-16T17:37:27.214Z",
+  "cwd": "C:\\Users\\Dell\\OneDrive\\projects_git\\production_manager\\apps\\api",
+  "results": {
+    "tree.mjs": {
+      "target": "src",
+      "tree": [
+        {
+          "type": "file",
+          "path": "src\\app.ts"
+        },
+        {
+          "type": "dir",
+          "path": "src\\contracts"
+        },
+        {
+          "type": "file",
+          "path": "src\\contracts\\publicProducts.contract.ts"
+        },
+        {
+          "type": "dir",
+          "path": "src\\controllers"
+        },
+        {
+          "type": "dir",
+          "path": "src\\core"
+        },
+        {
+          "type": "dir",
+          "path": "src\\core\\errors"
+        },
+        {
+          "type": "file",
+          "path": "src\\core\\errors\\AppError.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\core\\SyncOmieProductsService.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\db.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\env.ts"
+        },
+        {
+          "type": "dir",
+          "path": "src\\integrations"
+        },
+        {
+          "type": "dir",
+          "path": "src\\integrations\\omie"
+        },
+        {
+          "type": "file",
+          "path": "src\\integrations\\omie\\OmieAdapter.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\integrations\\omie\\OmieClient.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\integrations\\omie\\OmieStockCache.ts"
+        },
+        {
+          "type": "dir",
+          "path": "src\\jobs"
+        },
+        {
+          "type": "file",
+          "path": "src\\jobs\\omieProductSync.job.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\jobs\\stockRefresh.job.ts"
+        },
+        {
+          "type": "dir",
+          "path": "src\\lib"
+        },
+        {
+          "type": "file",
+          "path": "src\\lib\\errors.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\lib\\http.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\lib\\logger.ts"
+        },
+        {
+          "type": "dir",
+          "path": "src\\middlewares"
+        },
+        {
+          "type": "dir",
+          "path": "src\\plugins"
+        },
+        {
+          "type": "dir",
+          "path": "src\\repositories"
+        },
+        {
+          "type": "file",
+          "path": "src\\repositories\\PlanRepository.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\repositories\\ProductRepository.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\repositories\\SectorRepository.ts"
+        },
+        {
+          "type": "dir",
+          "path": "src\\routes"
+        },
+        {
+          "type": "file",
+          "path": "src\\routes\\index.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\routes\\omie.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\routes\\plans.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\routes\\product-sector.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\routes\\products.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\routes\\sectors.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\server.ts"
+        },
+        {
+          "type": "dir",
+          "path": "src\\services"
+        },
+        {
+          "type": "file",
+          "path": "src\\services\\CreatePlanItemService.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\services\\CreatePlanService.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\services\\CreateSectorService.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\services\\jobLock.service.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\services\\omieProductRead.service.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\services\\omieProductSync.service.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\services\\omieStock.service.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\services\\publicProductsRead.service.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\services\\SetProductDefaultSectorService.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\services\\stockRefresh.service.ts"
+        },
+        {
+          "type": "dir",
+          "path": "src\\utils"
+        },
+        {
+          "type": "file",
+          "path": "src\\utils\\backoff.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\utils\\domainErrors.ts"
+        },
+        {
+          "type": "file",
+          "path": "src\\utils\\errors.ts"
+        }
+      ]
+    },
+    "loc.mjs": {
+      "totalFiles": 37,
+      "totalLines": 4229,
+      "topFiles": [
+        {
+          "file": "src\\routes\\omie.ts",
+          "lines": 567
+        },
+        {
+          "file": "src\\routes\\products.ts",
+          "lines": 543
+        },
+        {
+          "file": "src\\services\\omieProductSync.service.ts",
+          "lines": 356
+        },
+        {
+          "file": "src\\core\\SyncOmieProductsService.ts",
+          "lines": 299
+        },
+        {
+          "file": "src\\routes\\plans.ts",
+          "lines": 240
+        },
+        {
+          "file": "src\\services\\stockRefresh.service.ts",
+          "lines": 224
+        },
+        {
+          "file": "src\\routes\\index.ts",
+          "lines": 184
+        },
+        {
+          "file": "src\\services\\publicProductsRead.service.ts",
+          "lines": 176
+        },
+        {
+          "file": "src\\routes\\sectors.ts",
+          "lines": 156
+        },
+        {
+          "file": "src\\lib\\http.ts",
+          "lines": 141
+        },
+        {
+          "file": "src\\app.ts",
+          "lines": 140
+        },
+        {
+          "file": "src\\integrations\\omie\\OmieStockCache.ts",
+          "lines": 117
+        },
+        {
+          "file": "src\\integrations\\omie\\OmieAdapter.ts",
+          "lines": 114
+        },
+        {
+          "file": "src\\jobs\\omieProductSync.job.ts",
+          "lines": 90
+        },
+        {
+          "file": "src\\routes\\product-sector.ts",
+          "lines": 86
+        },
+        {
+          "file": "src\\jobs\\stockRefresh.job.ts",
+          "lines": 84
+        },
+        {
+          "file": "src\\services\\omieProductRead.service.ts",
+          "lines": 73
+        },
+        {
+          "file": "src\\integrations\\omie\\OmieClient.ts",
+          "lines": 71
+        },
+        {
+          "file": "src\\repositories\\ProductRepository.ts",
+          "lines": 70
+        },
+        {
+          "file": "src\\services\\CreatePlanItemService.ts",
+          "lines": 63
+        }
+      ]
+    },
+    "sizes.mjs": {
+      "totalBytes": 166446,
+      "totalBytesHuman": "162.54 KB",
+      "byFolder": {
+        "src\\routes": {
+          "bytes": 61309,
+          "files": 6,
+          "bytesHuman": "59.87 KB"
+        },
+        "src\\services": {
+          "bytes": 30659,
+          "files": 10,
+          "bytesHuman": "29.94 KB"
+        },
+        "scripts\\metrics": {
+          "bytes": 21865,
+          "files": 11,
+          "bytesHuman": "21.35 KB"
+        },
+        "src\\core": {
+          "bytes": 9942,
+          "files": 2,
+          "bytesHuman": "9.71 KB"
+        },
+        "prisma\\migrations": {
+          "bytes": 9774,
+          "files": 11,
+          "bytesHuman": "9.54 KB"
+        },
+        "src\\integrations": {
+          "bytes": 7610,
+          "files": 3,
+          "bytesHuman": "7.43 KB"
+        },
+        "src\\jobs": {
+          "bytes": 5129,
+          "files": 2,
+          "bytesHuman": "5.01 KB"
+        },
+        "src\\app.ts": {
+          "bytes": 3869,
+          "files": 1,
+          "bytesHuman": "3.78 KB"
+        },
+        "src\\lib": {
+          "bytes": 3318,
+          "files": 3,
+          "bytesHuman": "3.24 KB"
+        },
+        "src\\repositories": {
+          "bytes": 3213,
+          "files": 3,
+          "bytesHuman": "3.14 KB"
+        },
+        "src\\utils": {
+          "bytes": 2947,
+          "files": 3,
+          "bytesHuman": "2.88 KB"
+        },
+        "prisma\\schema.prisma": {
+          "bytes": 2791,
+          "files": 1,
+          "bytesHuman": "2.73 KB"
+        },
+        "scripts\\backfill-omie-code.ts": {
+          "bytes": 2622,
+          "files": 1,
+          "bytesHuman": "2.56 KB"
+        },
+        "src\\env.ts": {
+          "bytes": 654,
+          "files": 1,
+          "bytesHuman": "654 B"
+        },
+        "src\\db.ts": {
+          "bytes": 400,
+          "files": 1,
+          "bytesHuman": "400 B"
+        },
+        "src\\server.ts": {
+          "bytes": 344,
+          "files": 1,
+          "bytesHuman": "344 B"
+        },
+        "src\\contracts": {
+          "bytes": 0,
+          "files": 1,
+          "bytesHuman": "0 B"
+        },
+        "scripts\\check-env.mjs": {
+          "bytes": 0,
+          "files": 1,
+          "bytesHuman": "0 B"
+        },
+        "scripts\\repo-metrics.mjs": {
+          "bytes": 0,
+          "files": 1,
+          "bytesHuman": "0 B"
+        }
+      },
+      "topFiles": [
+        {
+          "file": "src\\routes\\products.ts",
+          "bytes": 17833,
+          "bytesHuman": "17.42 KB"
+        },
+        {
+          "file": "src\\routes\\omie.ts",
+          "bytes": 17649,
+          "bytesHuman": "17.24 KB"
+        },
+        {
+          "file": "src\\services\\omieProductSync.service.ts",
+          "bytes": 10780,
+          "bytesHuman": "10.53 KB"
+        },
+        {
+          "file": "scripts\\metrics\\render-md.mjs",
+          "bytes": 10026,
+          "bytesHuman": "9.79 KB"
+        },
+        {
+          "file": "src\\routes\\index.ts",
+          "bytes": 9671,
+          "bytesHuman": "9.44 KB"
+        },
+        {
+          "file": "src\\core\\SyncOmieProductsService.ts",
+          "bytes": 9510,
+          "bytesHuman": "9.29 KB"
+        },
+        {
+          "file": "src\\routes\\plans.ts",
+          "bytes": 7843,
+          "bytesHuman": "7.66 KB"
+        },
+        {
+          "file": "src\\services\\stockRefresh.service.ts",
+          "bytes": 6880,
+          "bytesHuman": "6.72 KB"
+        },
+        {
+          "file": "src\\services\\publicProductsRead.service.ts",
+          "bytes": 5332,
+          "bytesHuman": "5.21 KB"
+        },
+        {
+          "file": "src\\routes\\sectors.ts",
+          "bytes": 4768,
+          "bytesHuman": "4.66 KB"
+        },
+        {
+          "file": "src\\app.ts",
+          "bytes": 3869,
+          "bytesHuman": "3.78 KB"
+        },
+        {
+          "file": "src\\routes\\product-sector.ts",
+          "bytes": 3545,
+          "bytesHuman": "3.46 KB"
+        },
+        {
+          "file": "prisma\\migrations\\20260410002353_first_migrate\\migration.sql",
+          "bytes": 3497,
+          "bytesHuman": "3.42 KB"
+        },
+        {
+          "file": "prisma\\migrations\\20260415183012_omie_code_identity\\migration.sql",
+          "bytes": 3470,
+          "bytesHuman": "3.39 KB"
+        },
+        {
+          "file": "src\\lib\\http.ts",
+          "bytes": 3318,
+          "bytesHuman": "3.24 KB"
+        },
+        {
+          "file": "src\\integrations\\omie\\OmieStockCache.ts",
+          "bytes": 3107,
+          "bytesHuman": "3.03 KB"
+        },
+        {
+          "file": "prisma\\schema.prisma",
+          "bytes": 2791,
+          "bytesHuman": "2.73 KB"
+        },
+        {
+          "file": "src\\integrations\\omie\\OmieAdapter.ts",
+          "bytes": 2778,
+          "bytesHuman": "2.71 KB"
+        },
+        {
+          "file": "src\\jobs\\omieProductSync.job.ts",
+          "bytes": 2706,
+          "bytesHuman": "2.64 KB"
+        },
+        {
+          "file": "scripts\\backfill-omie-code.ts",
+          "bytes": 2622,
+          "bytesHuman": "2.56 KB"
+        },
+        {
+          "file": "src\\jobs\\stockRefresh.job.ts",
+          "bytes": 2423,
+          "bytesHuman": "2.37 KB"
+        },
+        {
+          "file": "src\\services\\omieProductRead.service.ts",
+          "bytes": 2144,
+          "bytesHuman": "2.09 KB"
+        },
+        {
+          "file": "scripts\\metrics\\sizes.mjs",
+          "bytes": 1763,
+          "bytesHuman": "1.72 KB"
+        },
+        {
+          "file": "src\\integrations\\omie\\OmieClient.ts",
+          "bytes": 1725,
+          "bytesHuman": "1.68 KB"
+        },
+        {
+          "file": "src\\services\\CreatePlanItemService.ts",
+          "bytes": 1612,
+          "bytesHuman": "1.57 KB"
+        },
+        {
+          "file": "src\\repositories\\ProductRepository.ts",
+          "bytes": 1352,
+          "bytesHuman": "1.32 KB"
+        },
+        {
+          "file": "scripts\\metrics\\endpoints-drift.mjs",
+          "bytes": 1350,
+          "bytesHuman": "1.32 KB"
+        },
+        {
+          "file": "scripts\\metrics\\endpoints.mjs",
+          "bytes": 1294,
+          "bytesHuman": "1.26 KB"
+        },
+        {
+          "file": "scripts\\metrics\\exports.mjs",
+          "bytes": 1230,
+          "bytesHuman": "1.20 KB"
+        },
+        {
+          "file": "src\\utils\\domainErrors.ts",
+          "bytes": 1229,
+          "bytesHuman": "1.20 KB"
+        }
+      ]
+    },
+    "endpoints.mjs": {
+      "counts": {
+        "total": 78,
+        "GET": 47,
+        "POST": 18,
+        "PUT": 3,
+        "PATCH": 5,
+        "DELETE": 5
+      },
+      "endpoints": [
+        {
+          "method": "DELETE",
+          "path": "/v1/admin/managed-products/:id",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "DELETE",
+          "path": "/v1/admin/products/:id",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "DELETE",
+          "path": "/v1/admin/sectors/:id",
+          "file": "src\\routes\\sectors.ts"
+        },
+        {
+          "method": "DELETE",
+          "path": "/v1/products/:id",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "DELETE",
+          "path": "/v1/sectors/:id",
+          "file": "src\\routes\\sectors.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "file": "src\\routes\\index.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/health",
+          "file": "src\\routes\\index.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1",
+          "file": "src\\routes\\index.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/managed-products",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/managed-products/:id",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/managed-products/:id/stock",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/managed-products/:id/stock/history",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/managed-products/:productId/sector",
+          "file": "src\\routes\\product-sector.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/omie/categories",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/omie/products",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/omie/products/:id",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/omie/products/:id/stock",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/omie/products/by-code/:omieCode",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/omie/products/by-code/:omieCode/stock",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/omie/products/search",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/omie/stock",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/plans",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/plans/:id",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/plans/:id/by-sector",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/plans/:id/export.csv",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/products",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/products/:id",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/products/:id/stock",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/products/:id/stock/history",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/products/:productId/sector",
+          "file": "src\\routes\\product-sector.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/admin/sectors",
+          "file": "src\\routes\\sectors.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/omie/categories",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/omie/products",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/omie/products/:id",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/omie/products/:id/stock",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/omie/products/by-code/:omieCode",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/omie/products/by-code/:omieCode/stock",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/omie/products/search",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/omie/stock",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/plans",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/plans/:id",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/plans/:id/by-sector",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/plans/:id/export.csv",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/products",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/products/:id",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/products/:id/stock",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/products/:id/stock/history",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/products/:omieCode([A-Za-z0-9]{1,64})",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/products/:productId/sector",
+          "file": "src\\routes\\product-sector.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/products/managed",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/products/stock",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/sectors",
+          "file": "src\\routes\\sectors.ts"
+        },
+        {
+          "method": "PATCH",
+          "path": "/v1/admin/managed-products/:id",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "PATCH",
+          "path": "/v1/admin/products/:id",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "PATCH",
+          "path": "/v1/admin/sectors/:id",
+          "file": "src\\routes\\sectors.ts"
+        },
+        {
+          "method": "PATCH",
+          "path": "/v1/products/:id",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "PATCH",
+          "path": "/v1/sectors/:id",
+          "file": "src\\routes\\sectors.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/admin/managed-products",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/admin/managed-products/bulk",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/admin/omie/products/stock/refresh",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/admin/omie/products/sync",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/admin/omie/sync/products",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/admin/plans",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/admin/plans/:id/items",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/admin/products",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/admin/products/bulk",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/admin/sectors",
+          "file": "src\\routes\\sectors.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/omie/products/stock/refresh",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/omie/products/sync",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/omie/sync/products",
+          "file": "src\\routes\\omie.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/plans",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/plans/:id/items",
+          "file": "src\\routes\\plans.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/products",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/products/bulk",
+          "file": "src\\routes\\products.ts"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/sectors",
+          "file": "src\\routes\\sectors.ts"
+        },
+        {
+          "method": "PUT",
+          "path": "/v1/admin/managed-products/:productId/sector",
+          "file": "src\\routes\\product-sector.ts"
+        },
+        {
+          "method": "PUT",
+          "path": "/v1/admin/products/:productId/sector",
+          "file": "src\\routes\\product-sector.ts"
+        },
+        {
+          "method": "PUT",
+          "path": "/v1/products/:productId/sector",
+          "file": "src\\routes\\product-sector.ts"
+        }
+      ]
+    },
+    "endpoints-drift.mjs": {
+      "indexFile": "src\\routes\\index.ts",
+      "documentedCount": 46,
+      "detectedCount": 78,
+      "onlyInDocs": [
+        "/v1/admin/products*",
+        "/v1/omie/*",
+        "/v1/plans*",
+        "/v1/products/:omieCode",
+        "/v1/sectors*"
+      ],
+      "onlyInCode": [
+        "/",
+        "/health",
+        "/v1/admin/omie/stock",
+        "/v1/admin/products",
+        "/v1/admin/products/:id",
+        "/v1/admin/products/:id/stock",
+        "/v1/admin/products/:id/stock/history",
+        "/v1/admin/products/:productId/sector",
+        "/v1/admin/products/bulk",
+        "/v1/omie/categories",
+        "/v1/omie/products",
+        "/v1/omie/products/:id",
+        "/v1/omie/products/:id/stock",
+        "/v1/omie/products/by-code/:omieCode",
+        "/v1/omie/products/by-code/:omieCode/stock",
+        "/v1/omie/products/search",
+        "/v1/omie/products/stock/refresh",
+        "/v1/omie/products/sync",
+        "/v1/omie/stock",
+        "/v1/omie/sync/products",
+        "/v1/plans",
+        "/v1/plans/:id",
+        "/v1/plans/:id/by-sector",
+        "/v1/plans/:id/export.csv",
+        "/v1/plans/:id/items",
+        "/v1/products/:omieCode([A-Za-z0-9]{1,64})",
+        "/v1/products/:productId/sector",
+        "/v1/sectors",
+        "/v1/sectors/:id"
+      ]
+    },
+    "prisma-schema.mjs": {
+      "prisma": "prisma/schema.prisma",
+      "modelCount": 9,
+      "models": [
+        {
+          "name": "SyncLock",
+          "fields": [
+            {
+              "name": "key",
+              "type": "String",
+              "attrs": "@id"
+            },
+            {
+              "name": "lockedUntil",
+              "type": "DateTime",
+              "attrs": ""
+            }
+          ],
+          "indexes": []
+        },
+        {
+          "name": "JobLock",
+          "fields": [
+            {
+              "name": "key",
+              "type": "String",
+              "attrs": "@id @db.VarChar(64)"
+            },
+            {
+              "name": "lockedUntil",
+              "type": "DateTime",
+              "attrs": "updatedAt   DateTime @updatedAt"
+            }
+          ],
+          "indexes": [
+            {
+              "kind": "map",
+              "expr": "\"job_lock\""
+            }
+          ]
+        },
+        {
+          "name": "OmieProduct",
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "attrs": "@id @default(uuid())"
+            },
+            {
+              "name": "omieCode",
+              "type": "String",
+              "attrs": "@db.VarChar(64)"
+            },
+            {
+              "name": "omieId",
+              "type": "String?",
+              "attrs": "@db.VarChar(64)"
+            },
+            {
+              "name": "sku",
+              "type": "String?",
+              "attrs": "@db.VarChar(128)"
+            },
+            {
+              "name": "description",
+              "type": "String",
+              "attrs": "@db.Text"
+            },
+            {
+              "name": "familyDescription",
+              "type": "String?",
+              "attrs": "@db.Text"
+            },
+            {
+              "name": "active",
+              "type": "Boolean",
+              "attrs": "@default(true)"
+            },
+            {
+              "name": "rawPayload",
+              "type": "Json",
+              "attrs": "lastSyncAt        DateTime @default(now())"
+            },
+            {
+              "name": "product",
+              "type": "Product?",
+              "attrs": "@@unique([omieCode])"
+            }
+          ],
+          "indexes": [
+            {
+              "kind": "unique",
+              "expr": "[omieCode]"
+            },
+            {
+              "kind": "index",
+              "expr": "[description]"
+            }
+          ]
+        },
+        {
+          "name": "Product",
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "attrs": "@id @default(uuid())"
+            },
+            {
+              "name": "omieProductId",
+              "type": "String",
+              "attrs": "@unique"
+            },
+            {
+              "name": "omieProduct",
+              "type": "OmieProduct",
+              "attrs": "@relation(fields: [omieProductId], references: [id], onDelete: Cascade)"
+            },
+            {
+              "name": "nickname",
+              "type": "String?",
+              "attrs": "active        Boolean     @default(true)"
+            },
+            {
+              "name": "productSector",
+              "type": "ProductSector?",
+              "attrs": "planItems     ProductionPlanItem[]"
+            }
+          ],
+          "indexes": []
+        },
+        {
+          "name": "Sector",
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "attrs": "@id @default(uuid())"
+            },
+            {
+              "name": "name",
+              "type": "String",
+              "attrs": "@unique"
+            },
+            {
+              "name": "order",
+              "type": "Int",
+              "attrs": "@default(0)"
+            },
+            {
+              "name": "active",
+              "type": "Boolean",
+              "attrs": "@default(true)"
+            },
+            {
+              "name": "productSectors",
+              "type": "ProductSector[]",
+              "attrs": "planItems      ProductionPlanItem[]"
+            }
+          ],
+          "indexes": []
+        },
+        {
+          "name": "ProductSector",
+          "fields": [
+            {
+              "name": "productId",
+              "type": "String",
+              "attrs": "@id"
+            },
+            {
+              "name": "product",
+              "type": "Product",
+              "attrs": "@relation(fields: [productId], references: [id], onDelete: Cascade)"
+            },
+            {
+              "name": "sectorId",
+              "type": "String",
+              "attrs": "sector    Sector  @relation(fields: [sectorId], references: [id], onDelete: Restrict)"
+            },
+            {
+              "name": "notes",
+              "type": "String?",
+              "attrs": ""
+            }
+          ],
+          "indexes": []
+        },
+        {
+          "name": "ProductionPlan",
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "attrs": "@id @default(uuid())"
+            },
+            {
+              "name": "name",
+              "type": "String",
+              "attrs": "startDate DateTime"
+            },
+            {
+              "name": "endDate",
+              "type": "DateTime",
+              "attrs": "status    PlanStatus @default(DRAFT)"
+            },
+            {
+              "name": "createdAt",
+              "type": "DateTime",
+              "attrs": "@default(now())"
+            },
+            {
+              "name": "items",
+              "type": "ProductionPlanItem[]",
+              "attrs": "@@index([startDate, endDate])"
+            }
+          ],
+          "indexes": [
+            {
+              "kind": "index",
+              "expr": "[startDate, endDate]"
+            }
+          ]
+        },
+        {
+          "name": "ProductionPlanItem",
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "attrs": "@id @default(uuid())"
+            },
+            {
+              "name": "planId",
+              "type": "String",
+              "attrs": "plan      ProductionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)"
+            },
+            {
+              "name": "productId",
+              "type": "String",
+              "attrs": "product   Product        @relation(fields: [productId], references: [id], onDelete: Restrict)"
+            },
+            {
+              "name": "sectorId",
+              "type": "String",
+              "attrs": "sector    Sector         @relation(fields: [sectorId], references: [id], onDelete: Restrict)"
+            },
+            {
+              "name": "quantity",
+              "type": "Int",
+              "attrs": "notes     String?"
+            }
+          ],
+          "indexes": [
+            {
+              "kind": "index",
+              "expr": "[planId, sectorId]"
+            },
+            {
+              "kind": "index",
+              "expr": "[productId]"
+            }
+          ]
+        },
+        {
+          "name": "ProductStock",
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "attrs": "@id @default(uuid()) @db.Uuid"
+            },
+            {
+              "name": "omieCode",
+              "type": "String",
+              "attrs": "@db.VarChar(64)"
+            },
+            {
+              "name": "stockQuantity",
+              "type": "Decimal",
+              "attrs": "@db.Decimal(18, 4)"
+            },
+            {
+              "name": "minimumStock",
+              "type": "Decimal",
+              "attrs": "@db.Decimal(18, 4)"
+            },
+            {
+              "name": "updatedAt",
+              "type": "DateTime",
+              "attrs": "@updatedAt"
+            },
+            {
+              "name": "capturedAt",
+              "type": "DateTime",
+              "attrs": "@default(now())"
+            }
+          ],
+          "indexes": [
+            {
+              "kind": "unique",
+              "expr": "[omieCode]"
+            },
+            {
+              "kind": "map",
+              "expr": "\"product_stock\""
+            }
+          ]
+        }
+      ]
+    },
+    "migrations.mjs": {
+      "migrations": 10,
+      "latest": [
+        {
+          "name": "20260415190836_",
+          "hasSql": true,
+          "bytes": 81
+        },
+        {
+          "name": "20260415190742_unique_product_stock_by_code",
+          "hasSql": true,
+          "bytes": 1062
+        },
+        {
+          "name": "20260415183012_omie_code_identity",
+          "hasSql": true,
+          "bytes": 3470
+        },
+        {
+          "name": "20260415170012_widen_omie_product_fields",
+          "hasSql": true,
+          "bytes": 337
+        },
+        {
+          "name": "20260415124006_add_job_lock_table",
+          "hasSql": true,
+          "bytes": 208
+        },
+        {
+          "name": "20260415100605_expand_product_stock_omie_code_64",
+          "hasSql": true,
+          "bytes": 93
+        },
+        {
+          "name": "20260414131000_add_product_stock",
+          "hasSql": true,
+          "bytes": 513
+        },
+        {
+          "name": "20260414125500_add_omie_code_and_family_description",
+          "hasSql": true,
+          "bytes": 225
+        },
+        {
+          "name": "20260410005913_add_sync_lock",
+          "hasSql": true,
+          "bytes": 162
+        },
+        {
+          "name": "20260410002353_first_migrate",
+          "hasSql": true,
+          "bytes": 3497
+        }
+      ],
+      "missingSql": []
+    },
+    "env-check.mjs": {
+      "example": null,
+      "env": ".env",
+      "missing": [],
+      "extraCount": 10
+    },
+    "exports.mjs": {
+      "totalExports": 32,
+      "filesWithExports": 22,
+      "topFiles": [
+        {
+          "file": "src\\lib\\http.ts",
+          "exports": 7
+        },
+        {
+          "file": "src\\services\\jobLock.service.ts",
+          "exports": 2
+        },
+        {
+          "file": "src\\services\\publicProductsRead.service.ts",
+          "exports": 2
+        },
+        {
+          "file": "src\\utils\\backoff.ts",
+          "exports": 2
+        },
+        {
+          "file": "src\\utils\\errors.ts",
+          "exports": 2
+        },
+        {
+          "file": "src\\app.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\db.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\env.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\integrations\\omie\\OmieClient.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\integrations\\omie\\OmieStockCache.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\jobs\\omieProductSync.job.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\jobs\\stockRefresh.job.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\routes\\index.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\routes\\omie.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\routes\\plans.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\routes\\product-sector.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\routes\\products.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\routes\\sectors.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\services\\omieProductRead.service.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\services\\omieProductSync.service.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\services\\omieStock.service.ts",
+          "exports": 1
+        },
+        {
+          "file": "src\\services\\stockRefresh.service.ts",
+          "exports": 1
+        }
+      ]
+    }
+  }
+}
