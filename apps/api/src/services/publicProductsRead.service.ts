@@ -29,8 +29,8 @@ export async function listPublicProducts(
 ): Promise<{ data: PublicProduct[]; meta: PublicProductsMeta }> {
   const page = Number.isFinite(params.page as number) ? Math.max(1, Number(params.page)) : 1;
   const pageSizeRaw = Number.isFinite(params.pageSize as number) ? Number(params.pageSize) : 50;
-  const pageSize = Math.min(Math.max(1, pageSizeRaw), 5000);
-  const activeOnly = Boolean(params.activeOnly);
+  const pageSize = Math.min(Math.max(1, pageSizeRaw), 200);
+  const activeOnly = params.activeOnly === false ? false : true;
 
   const normalizedQ = params.q?.trim() ? params.q.trim() : null;
   const offset = (page - 1) * pageSize;
@@ -173,4 +173,3 @@ export async function getPublicProductByCode(omieCode: string): Promise<PublicPr
     stockUpdatedAt: row.stockUpdatedAt ? row.stockUpdatedAt.toISOString() : null,
   };
 }
-

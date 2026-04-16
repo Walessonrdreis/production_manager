@@ -36,15 +36,14 @@ async function productsRoutes(app) {
         const querySchema = zod_1.z.object({
             q: zod_1.z.string().optional(),
             page: zod_1.z.coerce.number().min(1).default(1),
-            pageSize: zod_1.z.coerce.number().min(1).max(5000).default(50),
-            activeOnly: zod_1.z.coerce.boolean().optional().default(false),
+            pageSize: zod_1.z.coerce.number().min(1).max(200).default(50),
         });
-        const { q, page, pageSize, activeOnly } = querySchema.parse(request.query);
+        const { q, page, pageSize } = querySchema.parse(request.query);
         const { data, meta } = await (0, publicProductsRead_service_1.listPublicProducts)({
             q,
             page,
             pageSize,
-            activeOnly,
+            activeOnly: true,
         });
         return reply.send((0, http_1.paginated)(data, meta));
     };

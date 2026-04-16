@@ -37,16 +37,15 @@ export async function productsRoutes(app: FastifyInstance) {
     const querySchema = z.object({
       q: z.string().optional(),
       page: z.coerce.number().min(1).default(1),
-      pageSize: z.coerce.number().min(1).max(5000).default(50),
-      activeOnly: z.coerce.boolean().optional().default(false),
+      pageSize: z.coerce.number().min(1).max(200).default(50),
     });
 
-    const { q, page, pageSize, activeOnly } = querySchema.parse(request.query);
+    const { q, page, pageSize } = querySchema.parse(request.query);
     const { data, meta } = await listPublicProducts({
       q,
       page,
       pageSize,
-      activeOnly,
+      activeOnly: true,
     });
 
     return reply.send(
