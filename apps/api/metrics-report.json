@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-16T17:37:27.214Z",
+  "generatedAt": "2026-04-16T18:57:25.524Z",
   "cwd": "C:\\Users\\Dell\\OneDrive\\projects_git\\production_manager\\apps\\api",
   "results": {
     "tree.mjs": {
@@ -298,8 +298,8 @@
       ]
     },
     "sizes.mjs": {
-      "totalBytes": 166446,
-      "totalBytesHuman": "162.54 KB",
+      "totalBytes": 172833,
+      "totalBytesHuman": "168.78 KB",
       "byFolder": {
         "src\\routes": {
           "bytes": 61309,
@@ -312,9 +312,9 @@
           "bytesHuman": "29.94 KB"
         },
         "scripts\\metrics": {
-          "bytes": 21865,
-          "files": 11,
-          "bytesHuman": "21.35 KB"
+          "bytes": 28252,
+          "files": 13,
+          "bytesHuman": "27.59 KB"
         },
         "src\\core": {
           "bytes": 9942,
@@ -449,6 +449,11 @@
           "bytesHuman": "4.66 KB"
         },
         {
+          "file": "scripts\\metrics\\render-api-contract.mjs",
+          "bytes": 4447,
+          "bytesHuman": "4.34 KB"
+        },
+        {
           "file": "src\\app.ts",
           "bytes": 3869,
           "bytesHuman": "3.78 KB"
@@ -509,6 +514,11 @@
           "bytesHuman": "2.09 KB"
         },
         {
+          "file": "scripts\\metrics\\render-readme.mjs",
+          "bytes": 1940,
+          "bytesHuman": "1.89 KB"
+        },
+        {
           "file": "scripts\\metrics\\sizes.mjs",
           "bytes": 1763,
           "bytesHuman": "1.72 KB"
@@ -537,16 +547,6 @@
           "file": "scripts\\metrics\\endpoints.mjs",
           "bytes": 1294,
           "bytesHuman": "1.26 KB"
-        },
-        {
-          "file": "scripts\\metrics\\exports.mjs",
-          "bytes": 1230,
-          "bytesHuman": "1.20 KB"
-        },
-        {
-          "file": "src\\utils\\domainErrors.ts",
-          "bytes": 1229,
-          "bytesHuman": "1.20 KB"
         }
       ]
     },

@@ -26,7 +26,8 @@
     "metrics:migrations": "node scripts/metrics/migrations.mjs",
     "metrics:env": "node scripts/metrics/env-check.mjs",
     "metrics:exports": "node scripts/metrics/exports.mjs",
-  
+    "metrics:readme": "node scripts/metrics/render-readme.mjs",
+    "docs:contract": "node scripts/metrics/render-api-contract.mjs",
     "docs:status": "node scripts/metrics/render-md.mjs",
     "docs:status:history": "node scripts/metrics/render-md.mjs --history",
     "metrics:update-docs": "pnpm metrics:all && pnpm docs:status"
