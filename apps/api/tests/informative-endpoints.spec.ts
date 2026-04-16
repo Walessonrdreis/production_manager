@@ -68,6 +68,9 @@ describe('Informative Endpoints', () => {
     
     expect(body).toHaveProperty('data');
     expect(Array.isArray(body.data.routes)).toBe(true);
+    expect(Array.isArray(body.data.publicEndpoints)).toBe(true);
+    expect(Array.isArray(body.data.adminEndpoints)).toBe(true);
+    expect(Array.isArray(body.data.deprecatedEndpoints)).toBe(true);
     
     const firstRoute = body.data.routes[0];
     expect(firstRoute).toHaveProperty('method');

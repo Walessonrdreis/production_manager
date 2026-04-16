@@ -47,12 +47,22 @@ export async function appRoutes(app: FastifyInstance) {
   });
 
   app.get('/v1', async () => {
-    const publicRoutes = [
-      { method: 'GET', path: '/v1/products', description: '[Public] Catálogo + estoque atual + estoque mínimo (chave: omieCode). Ex: curl \"/v1/products?q=cor&page=1&pageSize=20\"' },
-      { method: 'GET', path: '/v1/products/:omieCode', description: '[Public] Detalhe por omieCode. Ex: curl \"/v1/products/12345\"' },
+    const publicEndpoints = [
+      {
+        method: 'GET',
+        path: '/v1/products',
+        description: '[Public][BizChat] Catálogo + estoque atual + estoque mínimo (chave: omieCode).',
+        example: 'curl "http://localhost:3000/v1/products?q=cor&page=1&pageSize=50"',
+      },
+      {
+        method: 'GET',
+        path: '/v1/products/:omieCode',
+        description: '[Public][BizChat] Detalhe por omieCode.',
+        example: 'curl "http://localhost:3000/v1/products/12345"',
+      },
     ];
 
-    const adminRoutes = [
+    const adminEndpoints = [
       { method: 'GET', path: '/v1/admin/omie/categories', description: '[Admin][Omie] Lista categorias/famílias (únicas e ordenadas).' },
       { method: 'GET', path: '/v1/admin/omie/products/search', description: '[Admin][Omie] Busca (autocomplete) no catálogo.' },
       { method: 'GET', path: '/v1/admin/omie/products/:id', description: '[Admin][Omie] Detalhe do produto Omie por UUID.' },
@@ -85,32 +95,32 @@ export async function appRoutes(app: FastifyInstance) {
       { method: 'GET', path: '/v1/admin/plans/:id/export.csv', description: '[Admin] Exporta o plano em CSV.' },
     ];
 
-    const deprecatedAliases = [
-      { method: 'GET', path: '/v1/products/stock', description: '[Deprecated] Alias de /v1/products (responde com header Deprecation: true).' },
-      { method: 'GET', path: '/v1/products/managed', description: '[Deprecated] Use /v1/admin/managed-products.' },
-      { method: 'POST', path: '/v1/products', description: '[Deprecated] Use /v1/admin/managed-products.' },
-      { method: 'POST', path: '/v1/products/bulk', description: '[Deprecated] Use /v1/admin/managed-products/bulk.' },
-      { method: 'GET', path: '/v1/products/:id', description: '[Deprecated] Use /v1/admin/managed-products/:id.' },
-      { method: 'PATCH', path: '/v1/products/:id', description: '[Deprecated] Use /v1/admin/managed-products/:id.' },
-      { method: 'GET', path: '/v1/products/:id/stock', description: '[Deprecated] Use /v1/admin/managed-products/:id/stock.' },
-      { method: 'GET', path: '/v1/products/:id/stock/history', description: '[Deprecated] Use /v1/admin/managed-products/:id/stock/history.' },
-      { method: 'DELETE', path: '/v1/products/:id', description: '[Deprecated] Use /v1/admin/managed-products/:id.' },
-      { method: 'GET', path: '/v1/admin/products*', description: '[Deprecated] Use /v1/admin/managed-products*.' },
-      { method: 'GET', path: '/v1/omie/*', description: '[Deprecated] Use /v1/admin/omie/*.' },
-      { method: 'ANY', path: '/v1/sectors*', description: '[Deprecated] Use /v1/admin/sectors*.' },
-      { method: 'ANY', path: '/v1/plans*', description: '[Deprecated] Use /v1/admin/plans*.' },
+    const deprecatedEndpoints = [
+      { method: 'GET', path: '/v1/products/stock', replacement: '/v1/products', description: '[Deprecated] Alias do catálogo público.' },
+      { method: 'GET', path: '/v1/products/managed', replacement: '/v1/admin/managed-products', description: '[Deprecated] Lista gerenciados.' },
+      { method: 'POST', path: '/v1/products', replacement: '/v1/admin/managed-products', description: '[Deprecated] Cria gerenciado.' },
+      { method: 'POST', path: '/v1/products/bulk', replacement: '/v1/admin/managed-products/bulk', description: '[Deprecated] Cria gerenciados em lote.' },
+      { method: 'GET', path: '/v1/products/:id', replacement: '/v1/admin/managed-products/:id', description: '[Deprecated] Detalhe gerenciado.' },
+      { method: 'PATCH', path: '/v1/products/:id', replacement: '/v1/admin/managed-products/:id', description: '[Deprecated] Atualiza gerenciado.' },
+      { method: 'GET', path: '/v1/products/:id/stock', replacement: '/v1/admin/managed-products/:id/stock', description: '[Deprecated] Estoque do gerenciado.' },
+      { method: 'GET', path: '/v1/products/:id/stock/history', replacement: '/v1/admin/managed-products/:id/stock/history', description: '[Deprecated] Histórico de estoque do gerenciado.' },
+      { method: 'DELETE', path: '/v1/products/:id', replacement: '/v1/admin/managed-products/:id', description: '[Deprecated] Remove gerenciado.' },
+      { method: 'ANY', path: '/v1/admin/products*', replacement: '/v1/admin/managed-products*', description: '[Deprecated] Padronização interna.' },
+      { method: 'ANY', path: '/v1/omie/*', replacement: '/v1/admin/omie/*', description: '[Deprecated] Padronização interna.' },
+      { method: 'ANY', path: '/v1/sectors*', replacement: '/v1/admin/sectors*', description: '[Deprecated] Padronização interna.' },
+      { method: 'ANY', path: '/v1/plans*', replacement: '/v1/admin/plans*', description: '[Deprecated] Padronização interna.' },
     ];
 
     return ok(
       {
-      public: publicRoutes,
-      admin: adminRoutes,
-      deprecated: deprecatedAliases,
+      publicEndpoints,
+      adminEndpoints,
+      deprecatedEndpoints,
       routes: [
         { method: 'GET', path: '/v1', description: 'Índice de rotas v1' },
-        ...publicRoutes,
-        ...adminRoutes,
-        ...deprecatedAliases,
+        ...publicEndpoints,
+        ...adminEndpoints,
+        ...deprecatedEndpoints,
       ],
       },
       {}
