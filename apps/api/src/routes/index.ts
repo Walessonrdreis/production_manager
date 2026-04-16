@@ -1,6 +1,5 @@
-import { FastifyInstance } from 'fastify';
-import packageJson from '../../package.json';
-import { ok } from '../lib/http';
+import type { FastifyInstance } from 'fastify';
+import { sendOk } from '../lib/http';
 import { omieRoutes } from './omie';
 import { sectorRoutes } from './sectors';
 import { productsRoutes } from './products';
@@ -8,83 +7,92 @@ import { productSectorRoutes } from './product-sector';
 import { plansRoutes } from './plans';
 
 export async function appRoutes(app: FastifyInstance) {
-  app.get('/', async (request) => {
+  app.get('/', async (request, reply) => {
     const protocol = request.protocol;
     const hostname = request.hostname;
     const baseUrl = `${protocol}://${hostname}`;
 
-    return ok(
+    return sendOk(
+      request,
+      reply,
       {
-      name: 'Production Manager API',
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      versions: {
-        v1: `${baseUrl}/v1`,
-      },
-      
-      endpoints: {
-        health: `${baseUrl}/health`,
-        indexV1: `${baseUrl}/v1`,
-        docs: `${baseUrl}/docs`,
-      },
-        
-      resources: {
-        publicProducts: `${baseUrl}/v1/products`,
-        adminOmie: `${baseUrl}/v1/admin/omie`,
-        adminProducts: `${baseUrl}/v1/admin/managed-products`,
-        adminSectors: `${baseUrl}/v1/admin/sectors`,
-        adminPlans: `${baseUrl}/v1/admin/plans`,
-      },
-      
-      contracts: {
-            public: {
-              products: {
-                endpoint: `${baseUrl}/v1/products`,
-                description:
-                  'Catálogo público (BizChat): produto + estoque atual + estoque mínimo.',
-                fields: {
-                  omieCode: 'string',
-                  description: 'string',
-                  sku: 'string | null',
-                  stockQuantity: 'string (decimal)',
-                  minimumStock: 'string (decimal)',
-                  stockUpdatedAt: 'ISO string | null',
-                },
-                discover: {
-                  query: '?describe=true',
-                  header: 'X-Describe: true',
-                },
+        name: 'Production Manager API',
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        versions: {
+          v1: `${baseUrl}/v1`,
+        },
+
+        endpoints: {
+          health: `${baseUrl}/health`,
+          indexV1: `${baseUrl}/v1`,
+          docs: `${baseUrl}/docs`,
+        },
+
+        resources: {
+          publicProducts: `${baseUrl}/v1/products`,
+          adminOmie: `${baseUrl}/v1/admin/omie`,
+          adminProducts: `${baseUrl}/v1/admin/managed-products`,
+          adminSectors: `${baseUrl}/v1/admin/sectors`,
+          adminPlans: `${baseUrl}/v1/admin/plans`,
+        },
+
+        contracts: {
+          public: {
+            products: {
+              endpoint: `${baseUrl}/v1/products`,
+              description:
+                'Catálogo público (BizChat): produto + estoque atual + estoque mínimo.',
+              fields: {
+                omieCode: 'string',
+                description: 'string',
+                sku: 'string | null',
+                stockQuantity: 'string (decimal)',
+                minimumStock: 'string (decimal)',
+                stockUpdatedAt: 'ISO string | null',
               },
+              discover: {
+                query: '?describe=true',
+                header: 'X-Describe: true',
+                pretty: '?pretty=true',
+              },
+              notes: [
+                'Este é o único endpoint público que retorna produtos e estoque',
+                'Nenhum outro endpoint é necessário para consumo externo',
+              ],
             },
           },
+        },
 
-      
-      tips: [
-        'sync é POST',
-        'listas são GET',
-      ],
+        tips: [
+          'Para catálogo e estoque use sempre GET /v1/products',
+          'Endpoints admin não fazem parte do contrato público',
+          'sync é POST, listas são GET',
+          'Para resposta mais legível use ?pretty=true',
+        ],
       },
       {}
     );
   });
 
-  app.get('/health', async () => {
-    return ok({ ok: true }, {});
+  app.get('/health', async (request, reply) => {
+    return sendOk(request, reply, { ok: true }, {});
   });
 
-  app.get('/v1', async () => {
+  app.get('/v1', async (request, reply) => {
     const publicEndpoints = [
       {
         method: 'GET',
         path: '/v1/products',
-        description: '[Public][BizChat] Catálogo + estoque atual + estoque mínimo (chave: omieCode).',
-        example: 'curl "http://localhost:3000/v1/products?q=cor&page=1&pageSize=50"',
+        description:
+          '[Public][BizChat] Catálogo + estoque atual + estoque mínimo (chave: omieCode).',
+        example: 'curl "/v1/products?q=cor&page=1&pageSize=50&pretty=true"',
       },
       {
         method: 'GET',
         path: '/v1/products/:omieCode',
         description: '[Public][BizChat] Detalhe por omieCode.',
-        example: 'curl "http://localhost:3000/v1/products/12345"',
+        example: 'curl "/v1/products/12345?pretty=true"',
       },
     ];
 
@@ -99,6 +107,7 @@ export async function appRoutes(app: FastifyInstance) {
       { method: 'POST', path: '/v1/admin/omie/products/sync', description: '[Admin][Omie] Sincronização manual do catálogo (envelope {data}).' },
       { method: 'POST', path: '/v1/admin/omie/products/stock/refresh', description: '[Admin][Omie] Atualiza e persiste o estoque atual (ProductStock) por omieCode.' },
       { method: 'GET', path: '/v1/admin/omie/products', description: '[Admin][Omie] Lista produtos sincronizados do Omie (filtros e paginação via querystring).' },
+
       { method: 'POST', path: '/v1/admin/managed-products', description: '[Admin] Seleciona um produto Omie para ser gerenciado.' },
       { method: 'POST', path: '/v1/admin/managed-products/bulk', description: '[Admin] Seleciona vários produtos Omie em lote.' },
       { method: 'GET', path: '/v1/admin/managed-products', description: '[Admin] Lista produtos gerenciados.' },
@@ -109,10 +118,12 @@ export async function appRoutes(app: FastifyInstance) {
       { method: 'DELETE', path: '/v1/admin/managed-products/:id', description: '[Admin] Remove um produto do gerenciador.' },
       { method: 'PUT', path: '/v1/admin/managed-products/:productId/sector', description: '[Admin] Define setor padrão de um produto.' },
       { method: 'GET', path: '/v1/admin/managed-products/:productId/sector', description: '[Admin] Obtém setor padrão de um produto.' },
+
       { method: 'POST', path: '/v1/admin/sectors', description: '[Admin] Cria um setor.' },
       { method: 'GET', path: '/v1/admin/sectors', description: '[Admin] Lista setores (use includeInactive=true para incluir inativos).' },
       { method: 'PATCH', path: '/v1/admin/sectors/:id', description: '[Admin] Atualiza um setor.' },
       { method: 'DELETE', path: '/v1/admin/sectors/:id', description: '[Admin] Desativa um setor (soft delete).' },
+
       { method: 'POST', path: '/v1/admin/plans', description: '[Admin] Cria um plano de produção.' },
       { method: 'GET', path: '/v1/admin/plans', description: '[Admin] Lista planos de produção.' },
       { method: 'GET', path: '/v1/admin/plans/:id', description: '[Admin] Detalha um plano (com itens).' },
@@ -137,17 +148,19 @@ export async function appRoutes(app: FastifyInstance) {
       { method: 'ANY', path: '/v1/plans*', replacement: '/v1/admin/plans*', description: '[Deprecated] Padronização interna.' },
     ];
 
-    return ok(
+    return sendOk(
+      request,
+      reply,
       {
-      publicEndpoints,
-      adminEndpoints,
-      deprecatedEndpoints,
-      routes: [
-        { method: 'GET', path: '/v1', description: 'Índice de rotas v1' },
-        ...publicEndpoints,
-        ...adminEndpoints,
-        ...deprecatedEndpoints,
-      ],
+        publicEndpoints,
+        adminEndpoints,
+        deprecatedEndpoints,
+        routes: [
+          { method: 'GET', path: '/v1', description: 'Índice de rotas v1' },
+          ...publicEndpoints,
+          ...adminEndpoints,
+          ...deprecatedEndpoints,
+        ],
       },
       {}
     );
@@ -168,3 +181,4 @@ export async function appRoutes(app: FastifyInstance) {
   // Registro das rotas de Planos de Produção
   app.register(plansRoutes);
 }
+``

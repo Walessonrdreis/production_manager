@@ -77,3 +77,65 @@ export function markDeprecated(
     `deprecated endpoint used: ${legacyPath}`
   );
 }
+
+/**
+ * Pretty-print helpers (opt-in)
+ * - Query: ?pretty=true
+ * - Header: X-Pretty: true
+ */
+export function wantsPrettyResponse(request: FastifyRequest): boolean {
+  const q = (request.query as any)?.pretty;
+  if (String(q ?? '').trim().toLowerCase() === 'true') return true;
+
+  const headerValue = request.headers['x-pretty'];
+  const normalized =
+    typeof headerValue === 'string'
+      ? headerValue
+      : Array.isArray(headerValue)
+        ? headerValue[0]
+        : undefined;
+
+  return normalized?.trim().toLowerCase() === 'true';
+}
+
+/**
+ * Send ok() response, optionally pretty-printed.
+ * Use this in endpoints where human readability matters (/, /v1, etc).
+ */
+export function sendOk<T>(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  data: T,
+  meta?: Record<string, unknown>,
+  links?: HttpLinks
+) {
+  const payload = ok(data, meta, links);
+
+  if (wantsPrettyResponse(request)) {
+    reply.type('application/json; charset=utf-8');
+    return reply.send(JSON.stringify(payload, null, 2));
+  }
+
+  return reply.send(payload);
+}
+
+/**
+ * Send paginated() response, optionally pretty-printed.
+ */
+export function sendPaginated<T>(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  data: T[],
+  meta: PaginationMeta,
+  links?: HttpLinks
+) {
+  const payload = paginated(data, meta, links);
+
+  if (wantsPrettyResponse(request)) {
+    reply.type('application/json; charset=utf-8');
+    return reply.send(JSON.stringify(payload, null, 2));
+  }
+
+  return reply.send(payload);
+}
+``
