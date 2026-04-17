@@ -7,6 +7,8 @@ import { appRoutes } from './routes';
 import { AppError } from './core/errors/AppError';
 import { startStockRefreshJob } from './jobs/stockRefresh.job';
 import { startOmieProductSyncJob } from './jobs/omieProductSync.job';
+import { startOmieOrdersStage20SyncJob } from './jobs/omieOrdersStage20.job';
+
 
 // Extende a tipagem do Request do Fastify para aceitar a nova propriedade "requestId"
 declare module 'fastify' {
@@ -134,6 +136,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   startStockRefreshJob(app);
   startOmieProductSyncJob(app);
+  startOmieOrdersStage20SyncJob(app);
 
   return app;
 }
