@@ -618,11 +618,19 @@ app.get('/v1/admin/orders', async (request, reply) => {
 
 
   
-  app.post('/v1/admin/omie/orders/stage20/sync', async () => {
-    const service = new SyncOmieStage20OrdersService()
-    const result = await service.run()
-    return ok(result)
-  });
+  
+
+app.post('/v1/admin/omie/orders/stage20/sync', async (request, reply) => {
+  const service = new SyncOmieStage20OrdersService()
+  const result = await service.run()
+  return sendOk(request, reply, result, {})
+})
+
+
+app.get('/v1/admin/omie/orders/stage20/ping', async (request, reply) => {
+  return sendOk(request, reply, { ok: true }, {})
+})
+
   
  
   app.get('/v1/admin/orders/stage20', async (req) => {
