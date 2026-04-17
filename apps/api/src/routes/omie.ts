@@ -567,8 +567,6 @@ export async function omieRoutes(app: FastifyInstance) {
     return productStockByCodeHandler(request, reply);
   });
 
-  
-
 app.get('/v1/admin/orders', async (request, reply) => {
   // paginação simples (MVP)
   const page = Math.max(Number((request.query as any)?.page ?? 1), 1)
