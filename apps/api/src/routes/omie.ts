@@ -574,7 +574,7 @@ export async function omieRoutes(app: FastifyInstance) {
   })
   
  
-app.get('/admin/orders/stage20', async (req) => {
+  app.get('/admin/orders/stage20', async (req) => {
     const querySchema = z.object({
       page: z.coerce.number().int().min(1).default(1),
       pageSize: z.coerce.number().int().min(1).max(200).default(50),
@@ -628,6 +628,32 @@ app.get('/admin/orders/stage20', async (req) => {
     )
   })
 
+ app.get('/admin/orders/stage20/totals', async () => {
+  type Row = { description: string; total_quantity: string }
+
+  const rows = await prisma.$queryRaw<Row[]>`
+    SELECT
+      i.description,
+      SUM(i.quantity) AS total_quantity
+    FROM omie_order_item i
+    JOIN omie_order o ON o.id = i."omieOrderId"
+    WHERE
+      o.etapa = '20'
+      AND o.cancelado = 'N'
+      AND o.encerrado = 'N'
+    GROUP BY i.description
+    ORDER BY total_quantity DESC
+  `
+
+  const data = rows.map((r: Row) => ({
+    description: r.description,
+    totalQuantity: Number(r.total_quantity),
+  }))
+
+  return ok(data)
+})
+
 }
+
 
 

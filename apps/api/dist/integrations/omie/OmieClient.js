@@ -12,6 +12,10 @@ class OmieClient {
             app_key: env_1.env.OMIE_APP_KEY,
             app_secret: env_1.env.OMIE_APP_SECRET,
         };
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('[OMIE] URL:', url);
+            console.log('[OMIE] CALL:', body.call);
+        }
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT_MS);
         try {

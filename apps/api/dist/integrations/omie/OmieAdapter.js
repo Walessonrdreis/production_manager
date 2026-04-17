@@ -3,30 +3,28 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.OmieAdapter = void 0;
 class OmieAdapter {
     static hasValue(value) {
-        return value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === '');
+        return (value !== undefined &&
+            value !== null &&
+            !(typeof value === 'string' && value.trim() === ''));
     }
     static stringifyScalar(value) {
-        if (!this.hasValue(value)) {
+        if (!this.hasValue(value))
             return null;
-        }
         return String(value).trim();
     }
     static findNestedValue(raw, keys) {
-        if (!raw || typeof raw !== 'object') {
+        if (!raw || typeof raw !== 'object')
             return null;
-        }
         for (const key of keys) {
             const directValue = this.stringifyScalar(raw[key]);
-            if (directValue !== null) {
+            if (directValue !== null)
                 return directValue;
-            }
         }
         for (const value of Object.values(raw)) {
             if (value && typeof value === 'object' && !Array.isArray(value)) {
                 const nestedValue = this.findNestedValue(value, keys);
-                if (nestedValue !== null) {
+                if (nestedValue !== null)
                     return nestedValue;
-                }
             }
         }
         return null;
@@ -36,7 +34,7 @@ class OmieAdapter {
         return value !== undefined && value !== null ? String(value) : '';
     }
     static extractStockProductCode(raw) {
-        return this.findNestedValue(raw, [
+        return (this.findNestedValue(raw, [
             'cCodigo',
             'codigo',
             'codigo_produto',
@@ -45,7 +43,7 @@ class OmieAdapter {
             'codigo_item',
             'cod_int',
             'cCodInt',
-        ]) ?? '';
+        ]) ?? '');
     }
     static extractStockQuantity(raw) {
         return this.findNestedValue(raw, [
@@ -95,3 +93,4 @@ class OmieAdapter {
     }
 }
 exports.OmieAdapter = OmieAdapter;
+``;

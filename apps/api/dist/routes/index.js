@@ -8,11 +8,11 @@ const products_1 = require("./products");
 const product_sector_1 = require("./product-sector");
 const plans_1 = require("./plans");
 async function appRoutes(app) {
-    app.get('/', async (request) => {
+    app.get('/', async (request, reply) => {
         const protocol = request.protocol;
         const hostname = request.hostname;
         const baseUrl = `${protocol}://${hostname}`;
-        return (0, http_1.ok)({
+        return (0, http_1.sendOk)(request, reply, {
             name: 'Production Manager API',
             status: 'ok',
             timestamp: new Date().toISOString(),
@@ -31,28 +31,55 @@ async function appRoutes(app) {
                 adminSectors: `${baseUrl}/v1/admin/sectors`,
                 adminPlans: `${baseUrl}/v1/admin/plans`,
             },
+            contracts: {
+                public: {
+                    products: {
+                        endpoint: `${baseUrl}/v1/products`,
+                        description: 'Catálogo público (BizChat): produto + estoque atual + estoque mínimo.',
+                        fields: {
+                            omieCode: 'string',
+                            description: 'string',
+                            sku: 'string | null',
+                            stockQuantity: 'string (decimal)',
+                            minimumStock: 'string (decimal)',
+                            stockUpdatedAt: 'ISO string | null',
+                        },
+                        discover: {
+                            query: '?describe=true',
+                            header: 'X-Describe: true',
+                            pretty: '?pretty=true',
+                        },
+                        notes: [
+                            'Este é o único endpoint público que retorna produtos e estoque',
+                            'Nenhum outro endpoint é necessário para consumo externo',
+                        ],
+                    },
+                },
+            },
             tips: [
-                'sync é POST',
-                'listas são GET',
+                'Para catálogo e estoque use sempre GET /v1/products',
+                'Endpoints admin não fazem parte do contrato público',
+                'sync é POST, listas são GET',
+                'Para resposta mais legível use ?pretty=true',
             ],
         }, {});
     });
-    app.get('/health', async () => {
-        return (0, http_1.ok)({ ok: true }, {});
+    app.get('/health', async (request, reply) => {
+        return (0, http_1.sendOk)(request, reply, { ok: true }, {});
     });
-    app.get('/v1', async () => {
+    app.get('/v1', async (request, reply) => {
         const publicEndpoints = [
             {
                 method: 'GET',
                 path: '/v1/products',
                 description: '[Public][BizChat] Catálogo + estoque atual + estoque mínimo (chave: omieCode).',
-                example: 'curl "http://localhost:3000/v1/products?q=cor&page=1&pageSize=50"',
+                example: 'curl "/v1/products?q=cor&page=1&pageSize=50&pretty=true"',
             },
             {
                 method: 'GET',
                 path: '/v1/products/:omieCode',
                 description: '[Public][BizChat] Detalhe por omieCode.',
-                example: 'curl "http://localhost:3000/v1/products/12345"',
+                example: 'curl "/v1/products/12345?pretty=true"',
             },
         ];
         const adminEndpoints = [
@@ -102,7 +129,7 @@ async function appRoutes(app) {
             { method: 'ANY', path: '/v1/sectors*', replacement: '/v1/admin/sectors*', description: '[Deprecated] Padronização interna.' },
             { method: 'ANY', path: '/v1/plans*', replacement: '/v1/admin/plans*', description: '[Deprecated] Padronização interna.' },
         ];
-        return (0, http_1.ok)({
+        return (0, http_1.sendOk)(request, reply, {
             publicEndpoints,
             adminEndpoints,
             deprecatedEndpoints,
@@ -125,3 +152,4 @@ async function appRoutes(app) {
     // Registro das rotas de Planos de Produção
     app.register(plans_1.plansRoutes);
 }
+``;

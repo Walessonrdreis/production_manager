@@ -23,6 +23,7 @@ export class SyncOmieStage20OrdersService {
   // ✅ padrão interno (não depende de env de path/call)
   private readonly OMIE_PATH = OMIE_ENDPOINTS.PEDIDOS_VENDA_PRODUTOS.path
   private readonly OMIE_CALL = OMIE_ENDPOINTS.PEDIDOS_VENDA_PRODUTOS.call
+  private resolvedOmieEndpoint: { path: string; call: string } | null = null
 
   async run() {
     const lock = await this.acquireLock()
@@ -48,13 +49,6 @@ export class SyncOmieStage20OrdersService {
 
         totalPages = Number(resp?.total_de_paginas ?? 1)
         const pedidos: any[] = resp?.pedido_venda_produto ?? []
-
-        // ✅ LOGS DE DEBUG (temporários)
-        console.log('[OMIE] total pedidos recebidos:', pedidos.length)
-        console.log(
-          '[OMIE] etapas (amostra):',
-          pedidos.slice(0, 5).map((p) => p?.cabecalho?.etapa)
-        )
 
         for (const pedido of pedidos) {
           if (!isEligibleStage20(pedido)) {
@@ -101,6 +95,7 @@ export class SyncOmieStage20OrdersService {
         syncedOrders,
         skippedOrders,
         pages: totalPages,
+        ...(this.resolvedOmieEndpoint ? { omieEndpoint: this.resolvedOmieEndpoint } : {}),
       }
     } catch (err: any) {
       if (err instanceof AppError) throw err
@@ -118,12 +113,52 @@ export class SyncOmieStage20OrdersService {
 
   private async listOrdersPage(page: number, pageSize: number) {
     try {
-      const payload = {
-        call: this.OMIE_CALL,
-        param: [{ pagina: page, registros_por_pagina: pageSize }],
+      const candidates: Array<{ path: string; call: string }> = [
+        { path: this.OMIE_PATH, call: this.OMIE_CALL },
+        { path: 'produtos/pedido/', call: 'ListarPedidos' },
+      ]
+
+      for (const candidate of candidates) {
+        const paramCandidates = [
+          { pagina: page, registros_por_pagina: pageSize, etapa: '20' },
+          { pagina: page, registros_por_pagina: pageSize },
+        ]
+
+        for (const param of paramCandidates) {
+          const payload = {
+            call: candidate.call,
+            param: [param],
+          }
+
+          try {
+            const resp = await omieClient.post<OmieListOrdersResponse>(candidate.path, payload)
+            if (!this.resolvedOmieEndpoint) {
+              this.resolvedOmieEndpoint = { path: candidate.path, call: candidate.call }
+            }
+            return resp
+          } catch (err: any) {
+            const isHttpError = err instanceof AppError && err.code === 'OMIE_HTTP_ERROR'
+            const httpStatus = isHttpError ? (err.details as any)?.httpStatus : undefined
+            const body = isHttpError ? String((err.details as any)?.body ?? '') : ''
+            const methodNotExists =
+              body.toLowerCase().includes('not exists') || body.toLowerCase().includes('não existe')
+
+            if (isHttpError && (httpStatus === 404 || methodNotExists)) {
+              break
+            }
+
+            if (isHttpError && httpStatus === 500 && body.toLowerCase().includes('invalid')) {
+              continue
+            }
+
+            throw err
+          }
+        }
       }
 
-      return await omieClient.post<OmieListOrdersResponse>(this.OMIE_PATH, payload)
+      throw new AppError('OMIE_LIST_ORDERS_FAILED', 502, 'Falha ao listar pedidos do Omie', {
+        attempts: candidates.map((c) => ({ path: c.path, call: c.call })),
+      })
     } catch (err: any) {
       if (err instanceof AppError) throw err
 
@@ -180,4 +215,3 @@ export class SyncOmieStage20OrdersService {
     await prisma.jobLock.deleteMany({ where: { key: this.LOCK_KEY } })
   }
 }
-``

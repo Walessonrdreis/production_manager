@@ -9,6 +9,7 @@ const AppError_1 = require("../core/errors/AppError");
 const stockRefresh_service_1 = require("../services/stockRefresh.service");
 const omieProductSync_service_1 = require("../services/omieProductSync.service");
 const omieProductRead_service_1 = require("../services/omieProductRead.service");
+const SyncOmieStage20OrdersService_1 = require("../core/SyncOmieStage20OrdersService");
 async function omieRoutes(app) {
     const toNumber = (value) => {
         if (value == null)
@@ -424,5 +425,55 @@ async function omieRoutes(app) {
     app.get('/v1/omie/products/by-code/:omieCode/stock', async (request, reply) => {
         (0, http_1.markDeprecated)(request, reply, '/v1/omie/products/by-code/:omieCode/stock', '/v1/admin/omie/products/by-code/:omieCode/stock');
         return productStockByCodeHandler(request, reply);
+    });
+    app.post('/admin/omie/orders/stage20/sync', async () => {
+        const service = new SyncOmieStage20OrdersService_1.SyncOmieStage20OrdersService();
+        const result = await service.run();
+        return (0, http_1.ok)(result);
+    });
+    app.get('/admin/orders/stage20', async (req) => {
+        const querySchema = zod_1.z.object({
+            page: zod_1.z.coerce.number().int().min(1).default(1),
+            pageSize: zod_1.z.coerce.number().int().min(1).max(200).default(50),
+            q: zod_1.z.string().trim().optional(),
+        });
+        const { page, pageSize, q } = querySchema.parse(req.query);
+        const where = {
+            etapa: '20',
+            cancelado: 'N',
+            encerrado: 'N',
+            ...(q
+                ? {
+                    items: {
+                        some: {
+                            description: {
+                                contains: q,
+                                mode: 'insensitive',
+                            },
+                        },
+                    },
+                }
+                : {}),
+        };
+        const [total, data] = await Promise.all([
+            db_1.prisma.omieOrder.count({ where }),
+            db_1.prisma.omieOrder.findMany({
+                where,
+                include: {
+                    items: {
+                        select: {
+                            description: true,
+                            quantity: true,
+                        },
+                    },
+                },
+                orderBy: { lastSyncAt: 'desc' },
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+            }),
+        ]);
+        return (0, http_1.paginated)(data, { page, pageSize, total }, {
+            self: `/admin/orders/stage20?page=${page}&pageSize=${pageSize}${q ? `&q=${encodeURIComponent(q)}` : ''}`,
+        });
     });
 }
