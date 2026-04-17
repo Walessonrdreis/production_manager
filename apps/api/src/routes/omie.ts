@@ -570,62 +570,53 @@ export async function omieRoutes(app: FastifyInstance) {
   
 
 app.get('/v1/admin/orders', async (request, reply) => {
-    const querySchema = z.object({
-      page: z.coerce.number().int().min(1).default(1),
-      pageSize: z.coerce.number().int().min(1).max(200).default(50),
+  // paginação simples (MVP)
+  const page = Math.max(Number((request.query as any)?.page ?? 1), 1)
+  const pageSize = Math.min(
+    Math.max(Number((request.query as any)?.pageSize ?? 50), 1),
+    200
+  )
 
-      // filtros opcionais
-      etapa: z.string().trim().optional(),                // ex: "20"
-      onlyOpen: z.coerce.boolean().optional(),            // true => cancelado=N e encerrado=N
-      q: z.string().trim().optional(),                    // busca por descrição (item)
-    })
+  const [total, orders] = await Promise.all([
+    prisma.omieOrder.count(),
+    prisma.omieOrder.findMany({
+      select: {
+        omieCode: true,
+        numeroPedido: true,
+        etapa: true,
+        cancelado: true,
+        encerrado: true,
+        dataPrevisao: true,
+        lastSyncAt: true,
 
-    const { page, pageSize, etapa, onlyOpen, q } = querySchema.parse(request.query)
-
-    const where: any = {
-      ...(etapa ? { etapa } : {}),
-      ...(onlyOpen ? { cancelado: 'N', encerrado: 'N' } : {}),
-      ...(q
-        ? {
-            items: {
-              some: {
-                description: { contains: q, mode: 'insensitive' as const },
-              },
-            },
-          }
-        : {}),
-    }
-
-    const [total, orders] = await Promise.all([
-      prisma.omieOrder.count({ where }),
-      prisma.omieOrder.findMany({
-        where,
-        include: {
-          items: {
-            select: {
-              description: true,
-              quantity: true,
-            },
+        items: {
+          select: {
+            omieItemCode: true,
+            description: true,
+            quantity: true,
+            unit: true,
           },
+          orderBy: { description: 'asc' },
         },
-        orderBy: { lastSyncAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-    ])
-
-    return sendOk(
-      request,
-      reply,
-      {
-        page,
-        pageSize,
-        total,
-        data: orders,
       },
-      {}
-    )
-  })
+      orderBy: { lastSyncAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ])
+
+  return sendOk(
+    request,
+    reply,
+    {
+      page,
+      pageSize,
+      total,
+      orders,
+    },
+    {}
+  )
+})
 
 
   
