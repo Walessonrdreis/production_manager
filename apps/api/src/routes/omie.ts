@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../db';
 import { OmieAdapter } from '../integrations/omie/OmieAdapter';
-import { markDeprecated, ok, paginated, wantsLegacyResponse } from '../lib/http';
+import { markDeprecated, ok, paginated, sendOk, wantsLegacyResponse } from '../lib/http';
 import { AppError } from '../core/errors/AppError';
 import { runStockRefresh } from '../services/stockRefresh.service';
 import { runOmieProductSync } from '../services/omieProductSync.service';
@@ -566,15 +566,30 @@ export async function omieRoutes(app: FastifyInstance) {
     markDeprecated(request, reply, '/v1/omie/products/by-code/:omieCode/stock', '/v1/admin/omie/products/by-code/:omieCode/stock');
     return productStockByCodeHandler(request, reply);
   });
+
   
-  app.post('/admin/omie/orders/stage20/sync', async () => {
+app.get('/v1/admin/orders', async (request, reply) => {
+    return sendOk(
+      request,
+      reply,
+      {
+        resources: {
+          stage20Totals: '/v1/admin/orders/stage20/totals',
+        },
+      },
+      { }
+    )
+  })
+
+  
+  app.post('/v1/admin/omie/orders/stage20/sync', async () => {
     const service = new SyncOmieStage20OrdersService()
     const result = await service.run()
     return ok(result)
-  })
+  });
   
  
-  app.get('/admin/orders/stage20', async (req) => {
+  app.get('/v1/admin/orders/stage20', async (req) => {
     const querySchema = z.object({
       page: z.coerce.number().int().min(1).default(1),
       pageSize: z.coerce.number().int().min(1).max(200).default(50),
@@ -628,7 +643,7 @@ export async function omieRoutes(app: FastifyInstance) {
     )
   })
 
- app.get('/admin/orders/stage20/totals', async () => {
+ app.get('/v1/admin/orders/stage20/totals', async () => {
   type Row = { description: string; total_quantity: string }
 
   const rows = await prisma.$queryRaw<Row[]>`

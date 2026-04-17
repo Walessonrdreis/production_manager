@@ -1,3 +1,4 @@
+
 import type { FastifyInstance } from 'fastify';
 import { sendOk } from '../lib/http';
 import { omieRoutes } from './omie';
