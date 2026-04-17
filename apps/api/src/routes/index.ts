@@ -32,6 +32,7 @@ export async function appRoutes(app: FastifyInstance) {
         resources: {
           publicProducts: `${baseUrl}/v1/products`,
           adminOmie: `${baseUrl}/v1/admin/omie`,
+          adminOrders: `${baseUrl}/v1/admin/orders`,
           adminProducts: `${baseUrl}/v1/admin/managed-products`,
           adminSectors: `${baseUrl}/v1/admin/sectors`,
           adminPlans: `${baseUrl}/v1/admin/plans`,
@@ -107,6 +108,8 @@ export async function appRoutes(app: FastifyInstance) {
       { method: 'POST', path: '/v1/admin/omie/products/sync', description: '[Admin][Omie] Sincronização manual do catálogo (envelope {data}).' },
       { method: 'POST', path: '/v1/admin/omie/products/stock/refresh', description: '[Admin][Omie] Atualiza e persiste o estoque atual (ProductStock) por omieCode.' },
       { method: 'GET', path: '/v1/admin/omie/products', description: '[Admin][Omie] Lista produtos sincronizados do Omie (filtros e paginação via querystring).' },
+      {method: 'POST', path: '/v1/admin/omie/orders/stage20/sync', description: '[Admin][Omie] Sincroniza pedidos de venda do Omie (etapa 20, não cancelados, não encerrados).',},
+      {method: 'GET', path: '/v1/admin/orders/stage20/totals',description: '[Admin] Retorna os totais consolidados por descrição (soma de quantidades dos pedidos etapa 20).',},
 
       { method: 'POST', path: '/v1/admin/managed-products', description: '[Admin] Seleciona um produto Omie para ser gerenciado.' },
       { method: 'POST', path: '/v1/admin/managed-products/bulk', description: '[Admin] Seleciona vários produtos Omie em lote.' },
