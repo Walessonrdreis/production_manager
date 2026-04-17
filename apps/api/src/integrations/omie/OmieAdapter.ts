@@ -1,64 +1,62 @@
 export type OmieProductDTO = {
-  omieId: string;
-  sku?: string | null;
-  description: string;
-  active: boolean;
-  rawPayload: any;
-};
+  omieId: string
+  sku?: string | null
+  description: string
+  active: boolean
+  rawPayload: any
+}
 
 export class OmieAdapter {
   private static hasValue(value: unknown): boolean {
-    return value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === '');
+    return (
+      value !== undefined &&
+      value !== null &&
+      !(typeof value === 'string' && value.trim() === '')
+    )
   }
 
   private static stringifyScalar(value: unknown): string | null {
-    if (!this.hasValue(value)) {
-      return null;
-    }
-
-    return String(value).trim();
+    if (!this.hasValue(value)) return null
+    return String(value).trim()
   }
 
   private static findNestedValue(raw: any, keys: string[]): string | null {
-    if (!raw || typeof raw !== 'object') {
-      return null;
-    }
+    if (!raw || typeof raw !== 'object') return null
 
     for (const key of keys) {
-      const directValue = this.stringifyScalar(raw[key]);
-      if (directValue !== null) {
-        return directValue;
-      }
+      const directValue = this.stringifyScalar(raw[key])
+      if (directValue !== null) return directValue
     }
 
     for (const value of Object.values(raw)) {
       if (value && typeof value === 'object' && !Array.isArray(value)) {
-        const nestedValue = this.findNestedValue(value, keys);
-        if (nestedValue !== null) {
-          return nestedValue;
-        }
+        const nestedValue = this.findNestedValue(value, keys)
+        if (nestedValue !== null) return nestedValue
       }
     }
 
-    return null;
+    return null
   }
 
   static extractProductCode(raw: any): string {
-    const value = raw?.codigo ?? raw?.codigo_produto ?? raw?.id ?? raw?.codigo_item;
-    return value !== undefined && value !== null ? String(value) : '';
+    const value =
+      raw?.codigo ?? raw?.codigo_produto ?? raw?.id ?? raw?.codigo_item
+    return value !== undefined && value !== null ? String(value) : ''
   }
 
   static extractStockProductCode(raw: any): string {
-    return this.findNestedValue(raw, [
-      'cCodigo',
-      'codigo',
-      'codigo_produto',
-      'id_prod',
-      'idProd',
-      'codigo_item',
-      'cod_int',
-      'cCodInt',
-    ]) ?? '';
+    return (
+      this.findNestedValue(raw, [
+        'cCodigo',
+        'codigo',
+        'codigo_produto',
+        'id_prod',
+        'idProd',
+        'codigo_item',
+        'cod_int',
+        'cCodInt',
+      ]) ?? ''
+    )
   }
 
   static extractStockQuantity(raw: any): string | null {
@@ -75,7 +73,7 @@ export class OmieAdapter {
       'saldo',
       'estoque',
       'quantidade',
-    ]);
+    ])
   }
 
   static extractMinimumStock(raw: any): string | null {
@@ -87,7 +85,7 @@ export class OmieAdapter {
       'qtde_minima',
       'minimo',
       'estoqueMinimo',
-    ]);
+    ])
   }
 
   static extractFamilyDescription(raw: any): string | null {
@@ -98,7 +96,7 @@ export class OmieAdapter {
       'nome_familia',
       'desc_familia',
       'cDescricaoFamilia',
-    ]);
+    ])
   }
 
   static toProductDTO(raw: any): OmieProductDTO {
@@ -108,6 +106,7 @@ export class OmieAdapter {
       description: raw.descricao ?? raw.descricao_produto ?? 'Sem descrição',
       active: raw.ativo !== undefined ? Boolean(raw.ativo) : true,
       rawPayload: raw,
-    };
+    }
   }
 }
+``

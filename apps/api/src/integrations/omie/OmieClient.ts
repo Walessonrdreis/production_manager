@@ -12,7 +12,8 @@ export class OmieClient {
       app_key: env.OMIE_APP_KEY,
       app_secret: env.OMIE_APP_SECRET,
     };
-
+    console.log('[OMIE] URL:', url)
+    console.log('[OMIE] CALL:', body.call)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT_MS);
 

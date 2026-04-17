@@ -111,3 +111,92 @@ model ProductStock {
   @@unique([omieCode])
   @@map("product_stock")
 }
+
+model OmieOrder {
+  id            String   @id @default(uuid())
+  /// cabecalho.codigo_pedido
+  omieCode      String   @db.VarChar(64)
+
+  /// cabecalho.numero_pedido (ex: "1305")
+  numeroPedido  String?  @db.VarChar(64)
+
+  /// cabecalho.codigo_cliente / codigo_empresa (vem numérico, mas guardamos como string por consistência)
+  codigoCliente String?  @db.VarChar(64)
+  codigoEmpresa String?  @db.VarChar(64)
+
+  /// cabecalho.etapa
+  etapa         String   @db.VarChar(10)
+
+  /// infoCadastro.cancelado ("S"/"N")
+  cancelado     String   @default("N") @db.Char(1)
+
+  /// cabecalho.encerrado ("S"/"N"/"")
+  encerrado     String   @default("N") @db.Char(1)
+
+  /// cabecalho.data_previsao "dd/mm/yyyy" (armazenar como Date)
+  dataPrevisao  DateTime?
+
+  /// infoCadastro.dCan/hCan
+  dCan          DateTime?
+  hCan          String?  @db.VarChar(16)
+
+  /// infoCadastro.dInc/hInc/uInc
+  dInc          DateTime?
+  hInc          String?  @db.VarChar(16)
+  uInc          String?  @db.VarChar(64)
+
+  /// infoCadastro.dAlt/hAlt/uAlt
+  dAlt          DateTime?
+  hAlt          String?  @db.VarChar(16)
+  uAlt          String?  @db.VarChar(64)
+
+  /// cabecalho.quantidade_itens
+  quantidadeItens Int?
+
+  rawPayload    Json
+  lastSyncAt    DateTime @default(now())
+
+  items         OmieOrderItem[]
+
+  @@unique([omieCode])
+  @@index([etapa])
+  @@index([cancelado, encerrado])
+  @@map("omie_order")
+}
+
+model OmieOrderItem {
+  id           String   @id @default(uuid())
+
+  /// ide.codigo_item
+  omieItemCode String   @db.VarChar(64)
+
+  /// relação com pedido
+  omieOrderId  String
+  order        OmieOrder @relation(fields: [omieOrderId], references: [id], onDelete: Cascade)
+
+  /// produto.codigo_produto / produto.codigo (SKU)
+  omieProductCode String? @db.VarChar(64)
+  sku             String? @db.VarChar(128)
+
+  /// produto.descricao
+  description     String  @db.Text
+
+  /// produto.unidade
+  unit            String? @db.VarChar(16)
+
+  /// produto.quantidade (vem como número; guardamos Decimal)
+  quantity        Decimal @db.Decimal(18, 4)
+
+  /// opcionais úteis
+  unitPrice       Decimal? @db.Decimal(18, 6)
+  totalPrice      Decimal? @db.Decimal(18, 2)
+
+  rawPayload      Json
+  lastSyncAt      DateTime @default(now())
+
+  @@unique([omieItemCode])
+  @@index([omieOrderId])
+  @@index([omieProductCode])
+  @@index([description])
+  @@map("omie_order_item")
+}

@@ -4,6 +4,7 @@ import { OmieAdapter } from '../integrations/omie/OmieAdapter';
 import { env } from '../env';
 import { AppError } from './errors/AppError';
 
+
 const OMIE_PRODUCTS_PATH = "geral/produtos/";
 const OMIE_PRODUCTS_PAGE_SIZE = 100;
 const OMIE_PRODUCTS_MAX_PAGES = 2000;

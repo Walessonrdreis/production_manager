@@ -8,6 +8,9 @@ import { AppError } from '../core/errors/AppError';
 import { runStockRefresh } from '../services/stockRefresh.service';
 import { runOmieProductSync } from '../services/omieProductSync.service';
 import { listOmieProductsWithCurrentStock } from '../services/omieProductRead.service';
+import { SyncOmieStage20OrdersService } from '../core/SyncOmieStage20OrdersService'
+
+
 
 export async function omieRoutes(app: FastifyInstance) {
   const toNumber = (value: any): number | null => {
@@ -563,4 +566,68 @@ export async function omieRoutes(app: FastifyInstance) {
     markDeprecated(request, reply, '/v1/omie/products/by-code/:omieCode/stock', '/v1/admin/omie/products/by-code/:omieCode/stock');
     return productStockByCodeHandler(request, reply);
   });
+  
+  app.post('/admin/omie/orders/stage20/sync', async () => {
+    const service = new SyncOmieStage20OrdersService()
+    const result = await service.run()
+    return ok(result)
+  })
+  
+ 
+app.get('/admin/orders/stage20', async (req) => {
+    const querySchema = z.object({
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().min(1).max(200).default(50),
+      q: z.string().trim().optional(),
+    })
+
+    const { page, pageSize, q } = querySchema.parse(req.query)
+
+    const where = {
+      etapa: '20',
+      cancelado: 'N',
+      encerrado: 'N',
+      ...(q
+        ? {
+            items: {
+              some: {
+                description: {
+                  contains: q,
+                  mode: 'insensitive' as const,
+                },
+              },
+            },
+          }
+        : {}),
+    }
+
+    const [total, data] = await Promise.all([
+      prisma.omieOrder.count({ where }),
+      prisma.omieOrder.findMany({
+        where,
+        include: {
+          items: {
+            select: {
+              description: true,
+              quantity: true,
+            },
+          },
+        },
+        orderBy: { lastSyncAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ])
+
+    return paginated(
+      data,
+      { page, pageSize, total },
+      {
+        self: `/admin/orders/stage20?page=${page}&pageSize=${pageSize}${q ? `&q=${encodeURIComponent(q)}` : ''}`,
+      }
+    )
+  })
+
 }
+
+
