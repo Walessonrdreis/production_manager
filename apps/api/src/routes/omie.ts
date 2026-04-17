@@ -568,18 +568,65 @@ export async function omieRoutes(app: FastifyInstance) {
   });
 
   
+
 app.get('/v1/admin/orders', async (request, reply) => {
+    const querySchema = z.object({
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().min(1).max(200).default(50),
+
+      // filtros opcionais
+      etapa: z.string().trim().optional(),                // ex: "20"
+      onlyOpen: z.coerce.boolean().optional(),            // true => cancelado=N e encerrado=N
+      q: z.string().trim().optional(),                    // busca por descrição (item)
+    })
+
+    const { page, pageSize, etapa, onlyOpen, q } = querySchema.parse(request.query)
+
+    const where: any = {
+      ...(etapa ? { etapa } : {}),
+      ...(onlyOpen ? { cancelado: 'N', encerrado: 'N' } : {}),
+      ...(q
+        ? {
+            items: {
+              some: {
+                description: { contains: q, mode: 'insensitive' as const },
+              },
+            },
+          }
+        : {}),
+    }
+
+    const [total, orders] = await Promise.all([
+      prisma.omieOrder.count({ where }),
+      prisma.omieOrder.findMany({
+        where,
+        include: {
+          items: {
+            select: {
+              description: true,
+              quantity: true,
+            },
+          },
+        },
+        orderBy: { lastSyncAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ])
+
     return sendOk(
       request,
       reply,
       {
-        resources: {
-          stage20Totals: '/v1/admin/orders/stage20/totals',
-        },
+        page,
+        pageSize,
+        total,
+        data: orders,
       },
-      { }
+      {}
     )
   })
+
 
   
   app.post('/v1/admin/omie/orders/stage20/sync', async () => {
