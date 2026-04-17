@@ -89,6 +89,16 @@ export function SyncPage() {
               📅 Planos de Produção
             </Link>
           </li>
+          <li>
+            <Link to="/orders" style={{ textDecoration: 'none', color: '#007bff' }}>
+              🧾 Ordens
+            </Link>
+          </li>
+          <li>
+            <Link to="/omie/admin" style={{ textDecoration: 'none', color: '#007bff' }}>
+              🛠️ OMIE Admin
+            </Link>
+          </li>
         </ul>
       </nav>
     </div>
