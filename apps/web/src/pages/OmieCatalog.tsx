@@ -281,6 +281,7 @@ export function OmieCatalogPage() {
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Título  product Omie */}
         <h1>Catálogo Omie</h1>
         <Link to="/" style={{ textDecoration: 'none', color: '#007bff' }}>
           Voltar para Home
@@ -290,6 +291,7 @@ export function OmieCatalogPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           <div>
+            {/* Buscar  product Omie */}
             <label style={{ display: 'block', marginBottom: '0.25rem' }}>Buscar</label>
             <input
               type="text"
@@ -307,7 +309,9 @@ export function OmieCatalogPage() {
           </div>
 
           <div>
+            {/* Família  product Omie */}
             <label style={{ display: 'block', marginBottom: '0.25rem' }}>Família</label>
+            {/* Seleção de Família  product Omie */}
             <select
               value={family}
               onChange={(e) => setFamily(e.target.value)}
@@ -319,7 +323,9 @@ export function OmieCatalogPage() {
                 border: '1px solid #ccc'
               }}
             >
+              {/* Todas as Famílias  product Omie */}
               <option value="">Todas as famílias</option>
+              {/* Opções de Família  product Omie */}
               {families.map((familyOption) => (
                 <option key={familyOption} value={familyOption}>
                   {familyOption}
@@ -338,6 +344,7 @@ export function OmieCatalogPage() {
                 : 'Ainda não carregado'}
             </strong>
           </div>
+          
           <button
             type="button"
             onClick={() => refreshStockMutation.mutate()}
@@ -358,6 +365,7 @@ export function OmieCatalogPage() {
       </div>
 
       <div style={{ marginBottom: '1.5rem' }}>
+        {/* Última Atualização  product Omie */}
         <input
           type="text"
           readOnly
