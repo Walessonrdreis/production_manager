@@ -38,7 +38,7 @@ export function MyProductsPage() {
           </thead>
           <tbody>
             {products.map((product) => (
-              <tr key={product.id}>
+              <tr key={product.id ?? product.omieProductId}>
                 <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
                   {product.omieProduct?.description}
                 </td>

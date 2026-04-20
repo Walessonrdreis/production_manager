@@ -14,7 +14,7 @@ export function useProducts() {
     queryFn: async () => {
       const response = await apiClient.get<
         { data: Product[]; meta: PaginationMeta } | { items: Product[] }
-      >('/v1/products');
+      >('/v1/admin/managed-products');
 
       if ('data' in response) {
         return {
