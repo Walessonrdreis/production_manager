@@ -1,4 +1,4 @@
-import { startServer } from "@/bootstrap/server";
+import { startServer } from "./bootstrap/server";
 
 startServer().catch((err) => {
   console.error(err);
