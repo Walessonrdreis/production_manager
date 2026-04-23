@@ -9,6 +9,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
+
   "dependencies": {
     "@shared/contracts": "workspace:*",
     "@tanstack/react-query": "^5.29.2",

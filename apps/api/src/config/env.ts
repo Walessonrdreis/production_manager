@@ -1,0 +1,42 @@
+import { z } from "zod";
+
+/**
+ * Schema de validação do ambiente
+ */
+const envSchema = z.object({
+  // Core
+  DATABASE_URL: z.string().min(1),
+  PORT: z.coerce.number().default(3333),
+  CORS_ORIGIN: z.string().default(""),
+
+  // Omie
+  OMIE_APP_KEY: z.string().min(1),
+  OMIE_APP_SECRET: z.string().min(1),
+  OMIE_BASE_URL: z.string().url(),
+
+  // Jobs
+  ENABLE_STOCK_REFRESH_JOB: z.coerce.boolean().default(false),
+  STOCK_REFRESH_CRON: z.string().default("*/5 * * * *"),
+
+  ENABLE_OMIE_PRODUCT_SYNC_JOB: z.coerce.boolean().default(false),
+  OMIE_PRODUCT_SYNC_CRON: z.string().default("*/30 * * * *"),
+
+  OMIE_ORDERS_STAGE_SYNC: z.coerce.boolean().default(false),
+  OMIE_ORDERS_STAGE20_CRON: z.string().default("*/10 * * * *"),
+});
+
+/**
+ * Parse + valida process.env
+ */
+const parsed = envSchema.safeParse(process.env);
+
+if (!parsed.success) {
+  console.error("❌ Invalid environment variables:");
+  console.error(parsed.error.format());
+  throw new Error("Invalid environment configuration");
+}
+
+/**
+ * Ambiente tipado e seguro
+ */
+export const env = parsed.data;
