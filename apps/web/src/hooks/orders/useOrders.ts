@@ -82,7 +82,6 @@ export function useOrders() {
   // Mantém exatamente o comportamento: carrega sempre que mudar page/pageSize/includeRaw
   useEffect(() => {
     void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, includeRaw])
 
   // Mantém exatamente o comportamento: ao mudar pageSize, volta page=1 (pode gerar 2 loads como hoje)

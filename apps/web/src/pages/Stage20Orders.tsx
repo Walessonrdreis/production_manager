@@ -46,7 +46,6 @@ export function Stage20OrdersPage() {
 
   useEffect(() => {
     void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, query])
 
   return (

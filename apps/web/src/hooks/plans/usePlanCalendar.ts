@@ -117,7 +117,6 @@ export function usePlanCalendar({ plan, products, sectors }: UsePlanCalendarPara
   useEffect(() => {
     if (!plan) return;
     setCalendarData((current) => normalizeCalendarData(dateKeys, current));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan?.id, dateKeys.join('|')]);
 
   // ----- maps -----

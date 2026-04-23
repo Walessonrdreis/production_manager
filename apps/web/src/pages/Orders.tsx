@@ -92,7 +92,6 @@ export function OrdersPage() {
 
   useEffect(() => {
     void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, includeRaw])
 
   // Se pageSize mudar, volta para página 1 (evita página inválida)
