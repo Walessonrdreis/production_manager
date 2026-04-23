@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "tsx -r tsconfig-paths/register src/server.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsup",
     "start": "pnpm run db:migrate:prod && node dist/server.js",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -46,6 +46,7 @@
     "@types/node": "^20.12.7",
     "prisma": "5.22.0",
     "tsconfig-paths": "^4.2.0",
+    "tsup": "^8.5.1",
     "tsx": "^4.7.2",
     "typedoc": "^0.28.19",
     "typedoc-plugin-markdown": "^4.11.0",
