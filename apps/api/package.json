@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "tsx -r tsconfig-paths/register src/server.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "start": "pnpm run db:migrate:prod && node dist/server.js",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
