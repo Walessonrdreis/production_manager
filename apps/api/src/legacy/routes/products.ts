@@ -7,7 +7,9 @@ import { markDeprecated, ok, paginated, wantsLegacyResponse } from '../lib/http'
 import { AppError } from '../legacy/core/errors/AppError';
 import { OmieAdapter } from '../legacy/integrations/omie/OmieAdapter';
 import { getPublicProductByCode, listPublicProducts } from '../legacy/services/publicProductsRead.service';
-
+/**
+ * @deprecated
+ */
 export async function productsRoutes(app: FastifyInstance) {
   const toNumber = (value: any): number | null => {
     if (value == null) return null;
@@ -20,6 +22,8 @@ export async function productsRoutes(app: FastifyInstance) {
       const num = value.toNumber();
       return Number.isFinite(num) ? num : null;
     }
+    // Last resort: try to convert to string and parse
+  
     const asString = typeof value?.toString === 'function' ? value.toString() : String(value);
     const parsed = Number(String(asString).trim().replace(',', '.'));
     return Number.isFinite(parsed) ? parsed : null;
