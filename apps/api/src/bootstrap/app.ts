@@ -10,6 +10,9 @@ import { registerRoutes } from "@/bootstrap/routes";
 import { setBaseLogger } from "@/shared/logger";
 import { prisma } from "@/infra/db";
 
+// ✅ IMPORTAR O CLIENT DA OMIE (ajuste o caminho/nome se necessário)
+import { createOmieClient } from "@/shared/integrations/omie/omie.client";
+
 // jobs (nova arquitetura)
 import { startStockRefreshJob } from "@/modules/products/infrastructure/jobs/stock-refresh.job";
 import { startOmieProductSyncJob } from "@/modules/products/infrastructure/jobs/omie-product-sync.job";
@@ -19,6 +22,14 @@ import { startOmieOrdersStage20SyncJob } from "@/modules/omie-orders/infrastruct
 declare module "fastify" {
   interface FastifyRequest {
     requestId: string;
+  }
+
+  // ✅ tipa as decorações do app
+  interface FastifyInstance {
+    prisma: typeof prisma;
+    omieClient: {
+      post: <T>(path: string, payload: any) => Promise<T>;
+    };
   }
 }
 
@@ -42,6 +53,18 @@ export async function buildApp(): Promise<FastifyInstance> {
   // logger e prisma
   setBaseLogger(app.log);
   app.decorate("prisma", prisma);
+
+  // ---------------------------------------------------------------------------
+  // ✅ OMIE CLIENT (OBRIGATÓRIO) - precisa existir antes das rotas/módulos
+  // ---------------------------------------------------------------------------
+  app.decorate(
+  "omieClient",
+  createOmieClient({
+    appKey: env.OMIE_APP_KEY,
+    appSecret: env.OMIE_APP_SECRET,
+    baseUrl: env.OMIE_BASE_URL,
+  })
+);
 
   // ---------------------------------------------------------------------------
   // CORS
@@ -90,9 +113,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     if (error instanceof ZodError) {
       const message = error.issues?.[0]?.message || "Dados inválidos.";
 
-      const details = isDev 
-        ? { ...error.format(), stack: error.stack }
-        : error.format();
+      const details = isDev ? { ...error.format(), stack: error.stack } : error.format();
 
       return reply.status(400).send({
         error: {
@@ -109,9 +130,7 @@ export async function buildApp(): Promise<FastifyInstance> {
         request.log.warn({ requestId }, `[${error.code}] ${error.message}`);
       }
 
-      const details = isDev
-        ? { ...(error.details || {}), stack: error.stack }
-        : error.details;
+      const details = isDev ? { ...(error.details || {}), stack: error.stack } : error.details;
 
       return reply.status(error.statusCode).send({
         error: {
@@ -140,6 +159,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Rotas
   // ---------------------------------------------------------------------------
   await registerRoutes(app);
+
+  // (opcional) manter enquanto você está validando endpoints
   console.log(app.printRoutes());
 
   // ---------------------------------------------------------------------------
@@ -159,3 +180,4 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   return app;
 }
+``
