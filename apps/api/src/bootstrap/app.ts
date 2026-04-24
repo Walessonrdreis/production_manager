@@ -57,14 +57,14 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ---------------------------------------------------------------------------
   // ✅ OMIE CLIENT (OBRIGATÓRIO) - precisa existir antes das rotas/módulos
   // ---------------------------------------------------------------------------
-  app.decorate(
-  "omieClient",
-  createOmieClient({
-    appKey: env.OMIE_APP_KEY,
-    appSecret: env.OMIE_APP_SECRET,
-    baseUrl: env.OMIE_BASE_URL,
-  })
-);
+ app.decorate("omieClient", createOmieClient({
+  baseUrl: env.OMIE_BASE_URL,
+  appKey: env.OMIE_APP_KEY,
+  appSecret: env.OMIE_APP_SECRET,
+  timeoutMs: 20000,
+  retry: { attempts: 3, baseDelayMs: 250, maxDelayMs: 2000 },
+  debug: process.env.NODE_ENV !== "production",
+}));
 
   // ---------------------------------------------------------------------------
   // CORS
