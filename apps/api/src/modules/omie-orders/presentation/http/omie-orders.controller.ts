@@ -12,18 +12,40 @@ export function createOmieOrdersController(useCases: any) {
       return sendOk(request, reply, result, {});
     },
     
-    async syncStage20Info(request: any, reply: any) {
-      return sendOk(
-        request,
-        reply,
-        {
-          ok: true,
-          message: "Endpoint de confirmação. Use POST para executar a sincronização.",
-          methodToRun: "POST",
-          endpointToRun: "/v1/admin/omie/orders/stage20/sync",
-        },
-        {}
-      );
+    async syncStage20Info(_request: any, reply: any) {
+  return reply.send(
+    ok({
+      ok: true,
+      module: "omie-orders",
+      operation: "stage20-sync",
+
+      description: "Sincronização de pedidos Omie da etapa 20 para o banco local.",
+
+      howToRun: {
+        method: "POST",
+        endpoint: "/v1/admin/omie/orders/stage20/sync",
+        idempotent: true,
+        lockStrategy: "exclusive",
+      },
+
+      status: {
+        running: false,        // futuro: pode vir de lockRepo
+        locked: false,
+        lockedUntil: null,
+      },
+
+      lastExecution: {
+        supported: false,
+        note: "Ainda não há persistência de histórico de execução",
+      },
+
+      behavior: {
+        onSuccess: "Pedidos são persistidos/atualizados no banco",
+        onLocked: "Retorna reason=LOCKED sem executar",
+        onError: "Retorna AppError com código específico",
+      },
+    })
+  );
     },
 
     async listOrders(request: any, reply: any) {
