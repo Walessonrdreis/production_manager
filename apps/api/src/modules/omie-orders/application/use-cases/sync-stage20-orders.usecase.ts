@@ -1,4 +1,3 @@
-// src/modules/omie-orders/application/use-cases/sync-stage20-orders.usecase.ts
 import { AppError } from "@/shared/errors/AppError";
 import { isEligibleStage20, mapOrder } from "@/shared/integrations/omie";
 
@@ -59,7 +58,6 @@ export function createSyncStage20OrdersUseCase(deps: {
               syncedOrders++;
             }
 
-            // renova lock por página (mantém semântica do original)
             await renew();
             page++;
           } while (page <= totalPages);

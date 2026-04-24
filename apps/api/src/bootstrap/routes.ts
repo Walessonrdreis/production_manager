@@ -7,7 +7,7 @@ import { registerSectorsModule } from "@/modules/sectors";
 import { registerProductSectorModule } from "@/modules/product-sector";
 import { registerPlansModule } from "@/modules/plans";
 import { createOmieOrdersModule } from "@/modules/omie-orders"; // dependendo de como você exportou
-
+import { registerOmieOrdersModule } from "@/modules/omie-orders/register";
 export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
   // meta routes
@@ -189,6 +189,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await registerSectorsModule(app);
   await registerProductSectorModule(app);
   await registerPlansModule(app);
+  await registerOmieOrdersModule(app);
 
   // omie-orders: dependendo do seu export (registerOmieOrdersModule ou createOmieOrdersModule)
   // Se você tiver registerOmieOrdersModule(app), use o await direto.
