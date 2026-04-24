@@ -24,6 +24,7 @@ export function createProductsController(useCases: {
   getManagedProduct: { execute: (input: any) => Promise<any> };
   patchManagedProduct: { execute: (input: any) => Promise<any> };
   deleteManagedProduct: { execute: (input: any) => Promise<any> };
+  syncOmieProducts: { execute: (input: any) => Promise<any> }
 
   getManagedProductStock: { execute: (input: any) => Promise<any> };
   getManagedProductStockHistory: { execute: (input: any) => Promise<any> };
@@ -136,6 +137,62 @@ export function createProductsController(useCases: {
       const result = await useCases.getManagedProductStockHistory.execute({ id, page, pageSize });
       return reply.send(paginated(result.items, result.meta));
     },
+     
+// ✅ POST /v1/admin/omie/sync/products (compat)
+    async syncOmieProducts(request: any, reply: any) {
+      const query = (request.query ?? {}) as any;
+      const force =
+        String(query.force ?? "").trim().toLowerCase() === "true" ||
+        String(query.force ?? "").trim() === "1";
+
+      const requestId = request.requestId ?? `http-${Date.now()}`;
+      const result = await useCases.syncOmieProducts.execute({ requestId, force });
+
+      return reply.send({ data: result });
+    },
+    async syncOmieProductsInfo(_request: any, reply: any) {
+  return reply.send(
+    ok({
+      ok: true,
+      module: "products",
+      operation: "omie-products-sync",
+      description: "Sincronização do catálogo de produtos da Omie para o banco local.",
+
+      howToRun: {
+        method: "POST",
+        endpoint: "/v1/admin/omie/sync/products",
+        idempotent: true,
+        lockStrategy: "exclusive",
+        queryParams: {
+          force: {
+            type: "boolean",
+            optional: true,
+            description: "Força a sincronização mesmo dentro da janela de throttle."
+          }
+        }
+      },
+
+      status: {
+        running: false,
+        locked: false,
+        lockedUntil: null
+      },
+
+      lastExecution: {
+        supported: false,
+        note: "Ainda não há persistência de histórico de execução para sync de produtos."
+      },
+
+      behavior: {
+        onSuccess: "Produtos Omie são criados ou atualizados no banco local.",
+        onLocked: "Retorna reason=LOCKED sem executar nova sincronização.",
+        onThrottle: "Retorna reason=SYNC_THROTTLED quando executado dentro da janela mínima.",
+        onError: "Retorna AppError com código específico e status HTTP apropriado."
+      }
+    })
+  );
+},
+
 
     // wrappers deprecated (controlador chama os handlers principais)
     async deprecatedPublicStock(request: any, reply: any) {

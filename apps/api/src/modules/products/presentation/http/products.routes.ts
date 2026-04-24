@@ -28,6 +28,9 @@ export async function registerProductsRoutes(app: FastifyInstance, controller: a
 
   // bulk
   app.post("/v1/admin/managed-products/bulk", controller.createManagedProductsBulk);
+  // sync omie products
+app.get("/v1/admin/omie/sync/products", controller.syncOmieProductsInfo);
+app.post("/v1/admin/omie/sync/products", controller.syncOmieProducts);
 
   // deprecated bulk posts
   app.post("/v1/admin/products/bulk", async (request, reply) => {
@@ -151,4 +154,5 @@ export async function registerProductsRoutes(app: FastifyInstance, controller: a
     );
     return controller.getManagedProductStockHistory(request, reply);
   });
+  
 }
