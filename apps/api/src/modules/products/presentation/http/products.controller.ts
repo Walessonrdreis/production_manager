@@ -54,6 +54,7 @@ export function createProductsController(useCases: {
 
       return reply.send(ok(product, {}));
     },
+    
 
     // POST /v1/admin/managed-products
     async createManagedProduct(request: any, reply: any) {
@@ -178,10 +179,17 @@ export function createProductsController(useCases: {
         lockedUntil: null
       },
 
-      lastExecution: {
-        supported: false,
-        note: "Ainda não há persistência de histórico de execução para sync de produtos."
-      },
+     
+      "lastExecution": {
+            "supported": true,
+            "lastFinishedAt": "2026-04-23T14:21:10.000Z",
+            "result": "ERROR",
+            "error": {
+              "code": "OMIE_HTTP_ERROR",
+              "message": "Falha ao acessar API Omie"
+            }
+          },
+
 
       behavior: {
         onSuccess: "Produtos Omie são criados ou atualizados no banco local.",

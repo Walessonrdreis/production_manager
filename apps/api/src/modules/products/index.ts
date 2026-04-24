@@ -10,7 +10,7 @@ import { createPublicProductsRepoPrisma } from "./infrastructure/db/public-produ
 import { createSyncLockLeaseRepoPrisma } from "./infrastructure/db/sync-lock-lease.repo.prisma";
 import { createOmieProductReadRepoPrisma } from "./infrastructure/db/omie-product-read.repo.prisma";
 
-// ✅ lock do sync de produtos (tabela syncLock, key omie_products_sync)
+// lock do sync de produtos (tabela syncLock, key omie_products_sync)
 import { createSyncLockRepoPrisma } from "./infrastructure/db/sync-lock.repo.prisma";
 
 // use cases
@@ -31,31 +31,27 @@ import { createGetPublicProductByOmieCodeUseCase } from "./application/use-cases
 import { createRefreshStockUseCase } from "./application/use-cases/refresh-stock.usecase";
 import { createListOmieProductsWithStockUseCase } from "./application/use-cases/list-omie-products-with-stock.usecase";
 import { createGetStockByRawPayloadUseCase } from "./application/use-cases/get-stock-by-raw-payload.usecase";
+import { createGetOmieProductsUseCase } from "./application/use-cases/get-products.usecase";
 
-// ✅ sync de produtos
+// sync de produtos
 import { createFetchOmieProductsPageUseCase } from "./application/use-cases/fetch-omie-products-page.usecase";
 import { createSyncOmieProductsUseCase } from "./application/use-cases/sync-omie-products.usecase";
 
 // shared
 import { OmieAdapter, createOmieStockCache } from "@/shared/integrations/omie";
 
-// ✅ estado em memória para throttle/lock fallback do sync (persistente no processo)
+// estado em memória para throttle/lock fallback do sync (persistente no processo)
 const omieProductsSyncState = {
   lastGlobalSyncAt: 0,
   inMemoryLockUntil: 0,
 };
 
 export async function registerProductsModule(app: any) {
-  // ---------------------------------------------------------------------------
-  // base dependencies
-  // ---------------------------------------------------------------------------
   const prisma = app.prisma;
   const logger = app.log;
   const omieClient = app.omieClient;
 
-  // ---------------------------------------------------------------------------
   // repositories
-  // ---------------------------------------------------------------------------
   const productRepo = createProductRepoPrisma(prisma);
   const omieProductRepo = createOmieProductRepoPrisma(prisma);
   const productStockRepo = createProductStockRepoPrisma(prisma);
@@ -63,20 +59,20 @@ export async function registerProductsModule(app: any) {
   const syncLockLeaseRepo = createSyncLockLeaseRepoPrisma(prisma);
   const omieProductReadRepo = createOmieProductReadRepoPrisma(prisma);
 
-  // ✅ repo do lock do sync de produtos
+  // repo do lock do sync de produtos
   const syncLockRepo = createSyncLockRepoPrisma(prisma);
 
-  // ---------------------------------------------------------------------------
   // infra compartilhada
-  // ---------------------------------------------------------------------------
   const omieStockCache =
     app.omieStockCache ?? createOmieStockCache(omieClient, { logger });
 
   const omieAdapter = OmieAdapter;
 
-  // ---------------------------------------------------------------------------
   // use cases base
-  // ---------------------------------------------------------------------------
+  const getOmieProducts = createGetOmieProductsUseCase({
+    omieProductReadRepo, 
+  });
+
   const refreshStock = createRefreshStockUseCase({
     omieStockCache,
     syncLockLeaseRepo,
@@ -98,9 +94,7 @@ export async function registerProductsModule(app: any) {
     omieStockCache,
   });
 
-  // ---------------------------------------------------------------------------
   // sync: fetch page + use case
-  // ---------------------------------------------------------------------------
   const fetchOmieProductsPage = createFetchOmieProductsPageUseCase({
     omieClient,
     logger,
@@ -115,9 +109,7 @@ export async function registerProductsModule(app: any) {
     state: omieProductsSyncState,
   });
 
-  // ---------------------------------------------------------------------------
-  // use cases (expostos para controller e jobs)
-  // ---------------------------------------------------------------------------
+  // use cases expostos para controller e jobs
   const useCases = {
     // público
     listPublicProducts: createListPublicProductsUseCase({ publicProductsRepo }),
@@ -146,10 +138,12 @@ export async function registerProductsModule(app: any) {
       prisma,
     }),
 
-    // stock
+    // stock / omie reads
     refreshStock,
     listOmieProductsWithStock,
+    getOmieProducts,
     getStockByRawPayload,
+
     getManagedProductStock: createGetManagedProductStockUseCase({
       resolveOmieCodeFromProduct,
       productStockRepo,
@@ -159,14 +153,12 @@ export async function registerProductsModule(app: any) {
       productStockRepo,
     }),
 
-    // ✅ sync (o job espera isso)
+    // sync (o job espera isso)
     syncOmieProducts,
   };
 
-  // ---------------------------------------------------------------------------
   // http
-  // ---------------------------------------------------------------------------
-  const controller = createProductsController(useCases);
+  const controller = createProductsController(useCases as any);
   await registerProductsRoutes(app, controller);
 
   return { useCases };
