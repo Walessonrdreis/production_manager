@@ -1,4 +1,5 @@
 // src/modules/products/presentation/http/products.controller.ts
+import { z } from "zod";
 import {
   publicListQuerySchema,
   publicGetByOmieCodeParamsSchema,
@@ -11,26 +12,14 @@ import {
 } from "./products.schemas";
 
 import { AppError } from "@/shared/errors/AppError";
-import { ValidationError } from "@/shared/errors/domain-errors"; // ajuste conforme seu arquivo real
+import { ValidationError } from "@/shared/errors/domain-errors";
 import { ok, paginated, markDeprecated, wantsLegacyResponse } from "@/shared/http/response";
 
-export function createProductsController(useCases: {
-  listPublicProducts: { execute: (input: any) => Promise<any> };
-  getPublicProductByOmieCode: { execute: (input: any) => Promise<any> };
-
-  createManagedProduct: { execute: (input: any) => Promise<any> };
-  createManagedProductsBulk: { execute: (input: any) => Promise<any> };
-  listManagedProducts: { execute: () => Promise<any[]> };
-  getManagedProduct: { execute: (input: any) => Promise<any> };
-  patchManagedProduct: { execute: (input: any) => Promise<any> };
-  deleteManagedProduct: { execute: (input: any) => Promise<any> };
-  syncOmieProducts: { execute: (input: any) => Promise<any> }
-
-  getManagedProductStock: { execute: (input: any) => Promise<any> };
-  getManagedProductStockHistory: { execute: (input: any) => Promise<any> };
-}) {
+export function createProductsController(useCases: any) {
   return {
-    // GET /v1/products
+    // -------------------------------------------------------------------------
+    // PUBLIC
+    // -------------------------------------------------------------------------
     async publicList(request: any, reply: any) {
       const { q, page, pageSize } = publicListQuerySchema.parse(request.query);
       const { data, meta } = await useCases.listPublicProducts.execute({
@@ -39,67 +28,49 @@ export function createProductsController(useCases: {
         pageSize,
         activeOnly: true,
       });
-
       return reply.send(paginated(data, meta));
     },
 
-    // GET /v1/products/:omieCode
     async publicGetByOmieCode(request: any, reply: any) {
       const { omieCode } = publicGetByOmieCodeParamsSchema.parse(request.params);
       const product = await useCases.getPublicProductByOmieCode.execute({ omieCode });
 
-      if (!product) {
-        throw new AppError("PRODUCT_NOT_FOUND", 404, "Product not found");
-      }
-
+      if (!product) throw new AppError("PRODUCT_NOT_FOUND", 404, "Product not found");
       return reply.send(ok(product, {}));
     },
-    
 
-    // POST /v1/admin/managed-products
+    // -------------------------------------------------------------------------
+    // MANAGED (ADMIN)
+    // -------------------------------------------------------------------------
     async createManagedProduct(request: any, reply: any) {
       const parsed = createManagedProductBodySchema.safeParse(request.body);
-      if (!parsed.success) {
-        throw new ValidationError("Corpo da requisição inválido", parsed.error.format());
-      }
+      if (!parsed.success) throw new ValidationError("Corpo da requisição inválido", parsed.error.format());
 
       const product = await useCases.createManagedProduct.execute(parsed.data);
       return reply.status(201).send(product);
     },
 
-    // POST /v1/admin/managed-products/bulk
     async createManagedProductsBulk(request: any, reply: any) {
       const parsed = createManagedProductsBulkBodySchema.safeParse(request.body);
-      if (!parsed.success) {
-        throw new ValidationError("Corpo da requisição inválido", parsed.error.format());
-      }
+      if (!parsed.success) throw new ValidationError("Corpo da requisição inválido", parsed.error.format());
 
       const result = await useCases.createManagedProductsBulk.execute(parsed.data);
       return reply.status(201).send(result);
     },
 
-    // GET /v1/admin/managed-products
     async listManagedProducts(request: any, reply: any) {
       const products = await useCases.listManagedProducts.execute();
 
-      if (wantsLegacyResponse(request)) {
-        return reply.send({ items: products });
-      }
+      if (wantsLegacyResponse(request)) return reply.send({ items: products });
 
       return reply.send(
-        paginated(products, {
-          page: 1,
-          pageSize: products.length,
-          total: products.length,
-        })
+        paginated(products, { page: 1, pageSize: products.length, total: products.length })
       );
     },
 
-    // GET /v1/admin/managed-products/:id
     async getManagedProduct(request: any, reply: any) {
       const { id } = managedProductIdParamsSchema.parse(request.params);
 
-      // mantém compatibilidade: se não parece UUID -> 404
       const looksLikeUuid = managedProductIdUuidParamsSchema.safeParse({ id }).success;
       if (!looksLikeUuid) throw new AppError("PRODUCT_NOT_FOUND", 404, "Product not found");
 
@@ -107,7 +78,6 @@ export function createProductsController(useCases: {
       return reply.send(ok(product));
     },
 
-    // PATCH /v1/admin/managed-products/:id
     async patchManagedProduct(request: any, reply: any) {
       const { id } = managedProductIdUuidParamsSchema.parse(request.params);
       const { data } = patchManagedProductBodySchema.parse(request.body);
@@ -116,21 +86,18 @@ export function createProductsController(useCases: {
       return reply.send(ok(updated));
     },
 
-    // DELETE /v1/admin/managed-products/:id
     async deleteManagedProduct(request: any, reply: any) {
       const { id } = request.params as { id: string };
       const result = await useCases.deleteManagedProduct.execute({ id });
       return reply.send(result);
     },
 
-    // GET /v1/admin/managed-products/:id/stock
     async getManagedProductStock(request: any, reply: any) {
       const { id } = managedProductIdUuidParamsSchema.parse(request.params);
       const result = await useCases.getManagedProductStock.execute({ id });
       return reply.send(ok(result));
     },
 
-    // GET /v1/admin/managed-products/:id/stock/history
     async getManagedProductStockHistory(request: any, reply: any) {
       const { id } = managedProductIdUuidParamsSchema.parse(request.params);
       const { page, pageSize } = stockHistoryQuerySchema.parse(request.query);
@@ -138,8 +105,10 @@ export function createProductsController(useCases: {
       const result = await useCases.getManagedProductStockHistory.execute({ id, page, pageSize });
       return reply.send(paginated(result.items, result.meta));
     },
-     
-// ✅ POST /v1/admin/omie/sync/products (compat)
+
+    // -------------------------------------------------------------------------
+    // ADMIN / OMIE - SYNC PRODUCTS (status + execute)
+    // -------------------------------------------------------------------------
     async syncOmieProducts(request: any, reply: any) {
       const query = (request.query ?? {}) as any;
       const force =
@@ -151,58 +120,200 @@ export function createProductsController(useCases: {
 
       return reply.send({ data: result });
     },
+
     async syncOmieProductsInfo(_request: any, reply: any) {
-  return reply.send(
-    ok({
-      ok: true,
-      module: "products",
-      operation: "omie-products-sync",
-      description: "Sincronização do catálogo de produtos da Omie para o banco local.",
-
-      howToRun: {
-        method: "POST",
-        endpoint: "/v1/admin/omie/sync/products",
-        idempotent: true,
-        lockStrategy: "exclusive",
-        queryParams: {
-          force: {
-            type: "boolean",
-            optional: true,
-            description: "Força a sincronização mesmo dentro da janela de throttle."
-          }
-        }
-      },
-
-      status: {
-        running: false,
-        locked: false,
-        lockedUntil: null
-      },
-
-     
-      "lastExecution": {
-            "supported": true,
-            "lastFinishedAt": "2026-04-23T14:21:10.000Z",
-            "result": "ERROR",
-            "error": {
-              "code": "OMIE_HTTP_ERROR",
-              "message": "Falha ao acessar API Omie"
-            }
+      return reply.send(
+        ok({
+          ok: true,
+          module: "products",
+          operation: "omie-products-sync",
+          description: "Sincronização do catálogo de produtos da Omie para o banco local.",
+          howToRun: {
+            method: "POST",
+            endpoint: "/v1/admin/omie/sync/products",
+            idempotent: true,
+            lockStrategy: "exclusive",
+            queryParams: {
+              force: {
+                type: "boolean",
+                optional: true,
+                description: "Força a sincronização mesmo dentro da janela de throttle.",
+              },
+            },
           },
+          status: { running: false, locked: false, lockedUntil: null },
+          lastExecution: {
+            supported: false,
+            note: "Ainda não há persistência de histórico de execução (último sucesso/erro).",
+          },
+          behavior: {
+            onSuccess: "Produtos Omie são criados ou atualizados no banco local.",
+            onLocked: "Retorna reason=LOCKED sem executar nova sincronização.",
+            onThrottle: "Retorna reason=SYNC_THROTTLED quando executado dentro da janela mínima.",
+            onError: "Retorna AppError com código específico e status HTTP apropriado.",
+          },
+        })
+      );
+    },
 
+    // -------------------------------------------------------------------------
+    // ADMIN / OMIE - READ (compat legacy)
+    // -------------------------------------------------------------------------
 
-      behavior: {
-        onSuccess: "Produtos Omie são criados ou atualizados no banco local.",
-        onLocked: "Retorna reason=LOCKED sem executar nova sincronização.",
-        onThrottle: "Retorna reason=SYNC_THROTTLED quando executado dentro da janela mínima.",
-        onError: "Retorna AppError com código específico e status HTTP apropriado."
+    // GET /v1/admin/omie/products
+    async adminOmieProductsList(request: any, reply: any) {
+      const querySchema = z.object({
+        search: z.string().optional(),
+        family: z.string().optional(),
+        page: z.coerce.number().min(1).default(1),
+        pageSize: z.coerce.number().min(1).max(5000).default(50),
+      });
+
+      const { search, family, page, pageSize } = querySchema.parse(request.query);
+
+      const { items, stockUpdatedAt } = await useCases.getOmieProducts.execute();
+
+      const normalizedSearch = search?.trim().toLowerCase();
+      const normalizedFamily = family?.trim().toLowerCase();
+
+      const filteredItems = items.filter((item: any) => {
+        const matchesSearch = normalizedSearch
+          ? [item.description, item.sku, item.code, item.omieId, item.familyDescription]
+              .filter(Boolean)
+              .some((v) => String(v).toLowerCase().includes(normalizedSearch))
+          : true;
+
+        const matchesFamily = normalizedFamily
+          ? String(item.familyDescription ?? "").toLowerCase().includes(normalizedFamily)
+          : true;
+
+        return matchesSearch && matchesFamily;
+      });
+
+    const familySet = new Set<string>();
+
+for (const item of items) {
+  const v = typeof item.familyDescription === "string" ? item.familyDescription.trim() : "";
+  if (v) familySet.add(v);
+}
+
+const families = Array.from(familySet).sort((a, b) => a.localeCompare(b));
+
+      const pagedItems = family
+        ? filteredItems
+        : filteredItems.slice((page - 1) * pageSize, page * pageSize);
+
+      const pageUsed = family ? 1 : page;
+      const pageSizeUsed = family ? pagedItems.length : pageSize;
+
+      if (wantsLegacyResponse(request)) {
+        return reply.send({
+          items: pagedItems,
+          total: filteredItems.length,
+          families,
+          stockCacheUpdatedAt: stockUpdatedAt,
+        });
       }
-    })
-  );
-},
 
+      return reply.send(
+        paginated(pagedItems, {
+          page: pageUsed,
+          pageSize: pageSizeUsed,
+          total: filteredItems.length,
+          families,
+          stockCacheUpdatedAt: stockUpdatedAt,
+        } as any)
+      );
+    },
 
-    // wrappers deprecated (controlador chama os handlers principais)
+    // GET /v1/admin/omie/categories
+    async adminOmieCategories(request: any, reply: any) {
+      const querySchema = z.object({ q: z.string().optional() });
+      const { q } = querySchema.parse(request.query);
+
+      const result = await useCases.listOmieCategories.execute({ q });
+      return reply.send(ok(result.families, { total: result.families.length }));
+    },
+
+    // GET /v1/admin/omie/products/search
+    async adminOmieProductsSearch(request: any, reply: any) {
+      const querySchema = z.object({
+        q: z.string().trim().min(1, "q is required"),
+        page: z.coerce.number().min(1).default(1),
+        pageSize: z.coerce.number().min(1).default(20),
+      });
+
+      const { q, page, pageSize } = querySchema.parse(request.query);
+      const result = await useCases.searchOmieProducts.execute({ q, page, pageSize });
+
+      return reply.send(
+        paginated(result.items, { page: result.page, pageSize: result.pageSize, total: result.total })
+      );
+    },
+
+    // GET /v1/admin/omie/products/:id
+    async adminOmieProductById(request: any, reply: any) {
+      const paramsSchema = z.object({ id: z.string().uuid() });
+      const querySchema = z.object({ includeRaw: z.coerce.boolean().optional().default(false) });
+
+      const { id } = paramsSchema.parse(request.params);
+      const { includeRaw } = querySchema.parse(request.query);
+
+      const result = await useCases.getOmieProductById.execute({ id, includeRaw });
+      return reply.send(ok(result.data));
+    },
+
+    // GET /v1/admin/omie/products/by-code/:omieCode
+    async adminOmieProductByCode(request: any, reply: any) {
+      const paramsSchema = z.object({ omieCode: z.string().min(1) });
+      const querySchema = z.object({ includeRaw: z.coerce.boolean().optional().default(false) });
+
+      const { omieCode } = paramsSchema.parse(request.params);
+      const { includeRaw } = querySchema.parse(request.query);
+
+      const result = await useCases.getOmieProductByCode.execute({ omieCode, includeRaw });
+      return reply.send(ok(result.data));
+    },
+
+    // GET /v1/admin/omie/products/:id/stock
+    async adminOmieProductStockById(request: any, reply: any) {
+      const paramsSchema = z.object({ id: z.string().uuid() });
+      const { id } = paramsSchema.parse(request.params);
+
+      const result = await useCases.getOmieProductStock.byOmieProductId({ id });
+      return reply.send(ok(result));
+    },
+
+    // GET /v1/admin/omie/products/by-code/:omieCode/stock
+    async adminOmieProductStockByCode(request: any, reply: any) {
+      const paramsSchema = z.object({ omieCode: z.string().min(1) });
+      const { omieCode } = paramsSchema.parse(request.params);
+
+      const result = await useCases.getOmieProductStock.byOmieCode({ omieCode });
+      return reply.send(ok(result));
+    },
+
+    // GET /v1/admin/omie/stock
+    async adminOmieStockInfo(_request: any, reply: any) {
+      const data = await useCases.getOmieStockInfo.execute();
+      return reply.send(ok(data));
+    },
+
+    // POST /v1/admin/omie/products/stock/refresh
+    async adminOmieStockRefresh(request: any, reply: any) {
+      const querySchema = z.object({ dryRun: z.string().optional() });
+      const { dryRun } = querySchema.parse(request.query);
+
+      const isDryRun = dryRun?.trim() === "1" || dryRun?.trim().toLowerCase() === "true";
+      const capturedAt = new Date().toISOString();
+
+      const result = await useCases.refreshStock.execute({ dryRun: isDryRun });
+      return reply.send(ok({ insertedCount: result.insertedCount, capturedAt }, result.meta));
+    },
+
+    // -------------------------------------------------------------------------
+    // wrappers deprecated
+    // -------------------------------------------------------------------------
     async deprecatedPublicStock(request: any, reply: any) {
       markDeprecated(request, reply, "/v1/products/stock", "/v1/products");
       return this.publicList(request, reply);

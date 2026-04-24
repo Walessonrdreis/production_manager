@@ -140,6 +140,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Rotas
   // ---------------------------------------------------------------------------
   await registerRoutes(app);
+  console.log(app.printRoutes());
 
   // ---------------------------------------------------------------------------
   // Jobs (✅ UMA VEZ, ✅ DEPOIS DAS ROTAS)

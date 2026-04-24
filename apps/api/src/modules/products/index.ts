@@ -10,10 +10,10 @@ import { createPublicProductsRepoPrisma } from "./infrastructure/db/public-produ
 import { createSyncLockLeaseRepoPrisma } from "./infrastructure/db/sync-lock-lease.repo.prisma";
 import { createOmieProductReadRepoPrisma } from "./infrastructure/db/omie-product-read.repo.prisma";
 
-// lock do sync de produtos (tabela syncLock, key omie_products_sync)
+// lock do sync de produtos
 import { createSyncLockRepoPrisma } from "./infrastructure/db/sync-lock.repo.prisma";
 
-// use cases
+// use cases base
 import { createResolveOmieCodeFromProductUseCase } from "./application/use-cases/resolve-omie-code-from-product.usecase";
 import { createGetManagedProductStockUseCase } from "./application/use-cases/get-managed-product-stock.usecase";
 import { createGetManagedProductStockHistoryUseCase } from "./application/use-cases/get-managed-product-stock-history.usecase";
@@ -33,6 +33,14 @@ import { createListOmieProductsWithStockUseCase } from "./application/use-cases/
 import { createGetStockByRawPayloadUseCase } from "./application/use-cases/get-stock-by-raw-payload.usecase";
 import { createGetOmieProductsUseCase } from "./application/use-cases/get-products.usecase";
 
+// ✅ use cases admin/omie (leitura)
+import { createListOmieCategoriesUseCase } from "./application/use-cases/admin-omie/list-omie-categories.usecase";
+import { createSearchOmieProductsUseCase } from "./application/use-cases/admin-omie/search-omie-products.usecase";
+import { createGetOmieProductByIdUseCase } from "./application/use-cases/admin-omie/get-omie-product-by-id.usecase";
+import { createGetOmieProductByCodeUseCase } from "./application/use-cases/admin-omie/get-omie-product-by-code.usecase";
+import { createGetOmieStockInfoUseCase } from "./application/use-cases/admin-omie/get-omie-stock-info.usecase";
+import { createGetOmieProductStockUseCase } from "./application/use-cases/admin-omie/get-omie-product-stock.usecase";
+
 // sync de produtos
 import { createFetchOmieProductsPageUseCase } from "./application/use-cases/fetch-omie-products-page.usecase";
 import { createSyncOmieProductsUseCase } from "./application/use-cases/sync-omie-products.usecase";
@@ -40,7 +48,7 @@ import { createSyncOmieProductsUseCase } from "./application/use-cases/sync-omie
 // shared
 import { OmieAdapter, createOmieStockCache } from "@/shared/integrations/omie";
 
-// estado em memória para throttle/lock fallback do sync (persistente no processo)
+// estado em memória para throttle/lock fallback do sync
 const omieProductsSyncState = {
   lastGlobalSyncAt: 0,
   inMemoryLockUntil: 0,
@@ -59,18 +67,19 @@ export async function registerProductsModule(app: any) {
   const syncLockLeaseRepo = createSyncLockLeaseRepoPrisma(prisma);
   const omieProductReadRepo = createOmieProductReadRepoPrisma(prisma);
 
-  // repo do lock do sync de produtos
   const syncLockRepo = createSyncLockRepoPrisma(prisma);
 
-  // infra compartilhada
+  // infra
   const omieStockCache =
     app.omieStockCache ?? createOmieStockCache(omieClient, { logger });
 
   const omieAdapter = OmieAdapter;
 
+  // ======================
   // use cases base
+  // ======================
   const getOmieProducts = createGetOmieProductsUseCase({
-    omieProductReadRepo, 
+    omieProductReadRepo,
   });
 
   const refreshStock = createRefreshStockUseCase({
@@ -94,7 +103,9 @@ export async function registerProductsModule(app: any) {
     omieStockCache,
   });
 
-  // sync: fetch page + use case
+  // ======================
+  // sync de produtos
+  // ======================
   const fetchOmieProductsPage = createFetchOmieProductsPageUseCase({
     omieClient,
     logger,
@@ -109,7 +120,19 @@ export async function registerProductsModule(app: any) {
     state: omieProductsSyncState,
   });
 
-  // use cases expostos para controller e jobs
+  // ======================
+  // admin / omie (leitura)
+  // ======================
+  const listOmieCategories = createListOmieCategoriesUseCase({ prisma });
+  const searchOmieProducts = createSearchOmieProductsUseCase({ prisma });
+  const getOmieProductById = createGetOmieProductByIdUseCase({ prisma });
+  const getOmieProductByCode = createGetOmieProductByCodeUseCase({ prisma });
+  const getOmieStockInfo = createGetOmieStockInfoUseCase({ prisma });
+  const getOmieProductStock = createGetOmieProductStockUseCase({ prisma });
+
+  // ======================
+  // use cases expostos
+  // ======================
   const useCases = {
     // público
     listPublicProducts: createListPublicProductsUseCase({ publicProductsRepo }),
@@ -138,7 +161,7 @@ export async function registerProductsModule(app: any) {
       prisma,
     }),
 
-    // stock / omie reads
+    // stock
     refreshStock,
     listOmieProductsWithStock,
     getOmieProducts,
@@ -153,7 +176,15 @@ export async function registerProductsModule(app: any) {
       productStockRepo,
     }),
 
-    // sync (o job espera isso)
+    // admin / omie
+    listOmieCategories,
+    searchOmieProducts,
+    getOmieProductById,
+    getOmieProductByCode,
+    getOmieStockInfo,
+    getOmieProductStock,
+
+    // sync
     syncOmieProducts,
   };
 
