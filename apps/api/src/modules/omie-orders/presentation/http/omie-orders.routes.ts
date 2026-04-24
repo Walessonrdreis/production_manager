@@ -10,5 +10,6 @@ export async function registerOmieOrdersRoutes(app: FastifyInstance, controller:
 
   // omie stage20 controls
   app.post("/v1/admin/omie/orders/stage20/sync", controller.syncStage20);
+  app.get("/v1/admin/omie/orders/stage20/sync", controller.syncStage20Info);
   app.get("/v1/admin/omie/orders/stage20/ping", controller.ping);
 }

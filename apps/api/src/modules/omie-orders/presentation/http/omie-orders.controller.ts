@@ -11,6 +11,20 @@ export function createOmieOrdersController(useCases: any) {
       const result = await useCases.syncStage20Orders.execute();
       return sendOk(request, reply, result, {});
     },
+    
+    async syncStage20Info(request: any, reply: any) {
+      return sendOk(
+        request,
+        reply,
+        {
+          ok: true,
+          message: "Endpoint de confirmação. Use POST para executar a sincronização.",
+          methodToRun: "POST",
+          endpointToRun: "/v1/admin/omie/orders/stage20/sync",
+        },
+        {}
+      );
+    },
 
     async listOrders(request: any, reply: any) {
       const q = z.object({

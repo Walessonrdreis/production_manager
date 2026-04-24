@@ -189,6 +189,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await registerSectorsModule(app);
   await registerProductSectorModule(app);
   await registerPlansModule(app);
+    // omie-orders
   await registerOmieOrdersModule(app);
 
   // omie-orders: dependendo do seu export (registerOmieOrdersModule ou createOmieOrdersModule)
