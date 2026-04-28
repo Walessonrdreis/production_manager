@@ -39,7 +39,7 @@ export function startOmieOrdersStage20SyncJob(
 
   // ✅ flag de ativação
   const enabledValue = String(
-    process.env.ENABLE_OMIE_ORDERS_STAGE20_SYNC ?? ""
+    process.env.OMIE_ORDERS_STAGE_SYNC ?? ""
   )
     .trim()
     .toLowerCase();
