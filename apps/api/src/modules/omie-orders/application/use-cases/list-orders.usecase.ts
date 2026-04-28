@@ -10,9 +10,16 @@ export function createListOrdersUseCase(deps: { prisma: any }) {
       const page = Math.max(Number(input?.page ?? 1), 1);
       const pageSize = Math.min(Math.max(Number(input?.pageSize ?? 50), 1), 200);
 
+      const where = {
+        etapa: "20",
+        cancelado: "N",
+        encerrado: "N",
+      };
+
       const [total, orders] = await Promise.all([
-        deps.prisma.omieOrder.count(),
+        deps.prisma.omieOrder.count({ where }),
         deps.prisma.omieOrder.findMany({
+          where,
           select: {
             omieCode: true,
             numeroPedido: true,
