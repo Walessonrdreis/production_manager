@@ -15,7 +15,10 @@ export function createSyncStage20OrdersUseCase(deps: {
       resolvedOmieEndpoint: { path: string; call: string };
     }>;
   };
-  omieOrdersRepo: { upsertOrderWithItems: (order: any, items: any[]) => Promise<void> };
+  omieOrdersRepo: {
+    upsertOrderWithItems: (order: any, items: any[]) => Promise<void>;
+    reconcileMissingStage20Orders: (activeOmieCodes: string[]) => Promise<number>;
+  };
 }) {
   const LOCK_KEY = "omie:orders:stage20:sync";
   const LOCK_TTL_MS = 5 * 60 * 1000;
@@ -29,6 +32,7 @@ export function createSyncStage20OrdersUseCase(deps: {
         let syncedOrders = 0;
         let skippedOrders = 0;
         let resolvedOmieEndpoint: { path: string; call: string } | null = null;
+        const activeStage20OmieCodes = new Set<string>();
 
         try {
           do {
@@ -49,6 +53,7 @@ export function createSyncStage20OrdersUseCase(deps: {
               }
 
               const { order, items } = mapOrder(pedido);
+              activeStage20OmieCodes.add(String(order.omieCode));
 
               const validItems = items.filter(
                 (i: any) => i?.omieItemCode && i?.description && String(i.description).trim().length > 0
@@ -61,6 +66,8 @@ export function createSyncStage20OrdersUseCase(deps: {
             await renew();
             page++;
           } while (page <= totalPages);
+
+          await deps.omieOrdersRepo.reconcileMissingStage20Orders([...activeStage20OmieCodes]);
 
           return {
             ok: true,

@@ -21,5 +21,36 @@ export function createOmieOrdersRepoPrisma(prisma: any) {
         }
       });
     },
+
+    async reconcileMissingStage20Orders(activeOmieCodes: string[]) {
+      const normalizedCodes = Array.from(
+        new Set((activeOmieCodes ?? []).map((c) => String(c ?? "").trim()).filter(Boolean))
+      );
+
+      const whereBase = {
+        etapa: "20",
+        cancelado: "N",
+        encerrado: "N",
+      };
+
+      const where =
+        normalizedCodes.length > 0
+          ? {
+              ...whereBase,
+              omieCode: { notIn: normalizedCodes },
+            }
+          : whereBase;
+
+      const result = await prisma.omieOrder.updateMany({
+        where,
+        data: {
+          // Sai da etapa 20 no espelho local quando não aparece mais no snapshot atual.
+          etapa: "OUT20",
+          lastSyncAt: new Date(),
+        },
+      });
+
+      return result.count ?? 0;
+    },
   };
 }
