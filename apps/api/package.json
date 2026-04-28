@@ -31,7 +31,8 @@
     "docs:reference": "node scripts/metrics/render-reference.mjs",
     "docs:typedoc": "typedoc",
     "docs:status:history": "node scripts/metrics/render-md.mjs --history",
-    "metrics:update-docs": "pnpm metrics:all && pnpm docs:status"
+    "metrics:update-docs": "pnpm metrics:all && pnpm docs:status",
+    "gen:module": "ts-node scripts/generate-module.ts"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

@@ -6,9 +6,13 @@
     "dev": "pnpm -r run dev",
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
-    "lint": "pnpm -r run lint"
+    "lint": "pnpm -r run lint",
+    "gen:module": "ts-node scripts/generate-module.ts"
   },
   "devDependencies": {
-    "tsconfig-paths": "^4.2.0"
+    "@types/node": "^25.6.0",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^6.0.3"
   }
 }
