@@ -2,13 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const IGNORE = new Set(['node_modules', '.git', '.pnpm', '.cache'])
-const IGNORE_EXACT = new Set(['ESTRUTURA_PROJETO.md'])
-
-function padEnd(str, len) {
-  if (str.length >= len) return str
-  return str + ' '.repeat(len - str.length)
-}
+const IGNORE_DIRS = new Set(['node_modules', '.git', '.pnpm', '.cache'])
 
 function formatTimestamp(date = new Date()) {
   const yyyy = String(date.getFullYear())
@@ -20,178 +14,88 @@ function formatTimestamp(date = new Date()) {
   return `${yyyy}${mm}${dd}-${hh}${mi}${ss}`
 }
 
-function parseTemplateTree(blockLines) {
-  const root = {
-    name: 'apps/api/',
-    isDir: true,
-    desc: null,
-    hasDesc: false,
-    children: new Map(),
-    order: [],
-    expanded: true,
-    childDescWidth: 0,
-  }
-
-  const stack = [root]
-
-  for (const line of blockLines) {
-    const trimmed = line.trimEnd()
-    if (!trimmed) continue
-    if (trimmed === root.name) continue
-
-    const match = trimmed.match(
-      /^(?<indent>(?:│  |   )*)(?<branch>├─|└─)\s(?<name>[^#]+?)(?<spacer>\s*)(?:#\s*(?<desc>.*))?$/
-    )
-    if (!match?.groups) continue
-
-    const indent = match.groups.indent ?? ''
-    const groups = Math.floor(indent.length / 3)
-    const nameRaw = (match.groups.name ?? '').trimEnd()
-    const spacer = match.groups.spacer ?? ''
-    const desc = match.groups.desc ?? null
-    const hasDesc = desc != null
-    const isDir = nameRaw.endsWith('/')
-    const name = nameRaw
-    const width = name.length + spacer.length
-    const depth = groups + 1
-
-    while (stack.length > depth) stack.pop()
-    const parent = stack[stack.length - 1]
-    const node = {
-      name,
-      isDir,
-      desc: hasDesc ? desc : null,
-      hasDesc,
-      children: new Map(),
-      order: [],
-      expanded: false,
-      childDescWidth: 0,
-    }
-    parent.children.set(name, node)
-    parent.order.push(name)
-    if (hasDesc && spacer.length >= 2 && width > (parent.childDescWidth ?? 0)) {
-      parent.childDescWidth = width
-    }
-    if (parent.isDir) parent.expanded = true
-    stack.push(node)
-  }
-
-  return { root }
+function shouldIgnoreFile(name) {
+  if (name.startsWith('ESTRUTURA_PROJETO.md.bak-')) return true
+  return false
 }
 
-function getDirEntries(absDir) {
+function listDir(absDir) {
   const entries = fs.readdirSync(absDir, { withFileTypes: true })
-  const visible = entries.filter((e) => {
-    if (IGNORE.has(e.name)) return false
-    if (IGNORE_EXACT.has(e.name)) return false
-    if (e.name.startsWith('.')) return false
-    if (e.name.startsWith('ESTRUTURA_PROJETO.md.bak-')) return false
-    return true
-  })
   const dirs = []
   const files = []
-  for (const e of visible) {
-    if (e.isDirectory()) dirs.push(e.name)
-    else files.push(e.name)
+
+  for (const e of entries) {
+    if (e.isDirectory()) {
+      if (IGNORE_DIRS.has(e.name)) continue
+      dirs.push(e.name)
+      continue
+    }
+
+    if (shouldIgnoreFile(e.name)) continue
+    files.push(e.name)
   }
+
   dirs.sort((a, b) => a.localeCompare(b))
   files.sort((a, b) => a.localeCompare(b))
-  return { dirs, files, all: visible }
+  return { dirs, files }
 }
 
-function buildRuntimeTree(templateNode, absDir) {
-  const runtimeNode = {
-    name: templateNode.name,
-    isDir: templateNode.isDir,
-    desc: templateNode.desc ?? null,
-    hasDesc: templateNode.hasDesc ?? false,
-    children: [],
-    expanded: templateNode.isDir && Boolean(templateNode.expanded),
-    childDescWidth: templateNode.childDescWidth ?? 0,
-  }
+function renderFullTree(apiRootAbs) {
+  const lines = ['```text', 'apps/api/']
 
-  if (!runtimeNode.isDir || !runtimeNode.expanded) return runtimeNode
+  const distAbs = path.join(apiRootAbs, 'dist')
+  const prismaAbs = path.join(apiRootAbs, 'prisma')
+  const legacyAbs = path.join(apiRootAbs, 'src', 'legacy')
+  const srcAbs = path.join(apiRootAbs, 'src')
 
-  if (!fs.existsSync(absDir) || !fs.statSync(absDir).isDirectory()) return runtimeNode
+  function walk(absDir, relDir, prefixParts, includeFiles) {
+    const { dirs, files } = listDir(absDir)
 
-  const { dirs, files } = getDirEntries(absDir)
-  const actualSet = new Map()
-  for (const d of dirs) actualSet.set(`${d}/`, { name: `${d}/`, isDir: true })
-  for (const f of files) actualSet.set(f, { name: f, isDir: false })
+    const items = [
+      ...dirs.map((name) => ({ type: 'dir', name })),
+      ...(includeFiles ? files.map((name) => ({ type: 'file', name })) : []),
+    ]
 
-  const used = new Set()
-  for (const key of templateNode.order ?? []) {
-    const tChild = templateNode.children.get(key)
-    const aChild = actualSet.get(key)
-    if (!tChild || !aChild) continue
-    if (Boolean(aChild.isDir) !== Boolean(tChild.isDir)) continue
-    used.add(key)
-    const childAbs = path.join(absDir, aChild.isDir ? key.slice(0, -1) : key)
-    runtimeNode.children.push(buildRuntimeTree(tChild, childAbs))
-  }
-
-  const extraDirs = []
-  const extraFiles = []
-  for (const key of actualSet.keys()) {
-    if (used.has(key)) continue
-    if (key.endsWith('/')) extraDirs.push(key)
-    else extraFiles.push(key)
-  }
-  extraDirs.sort((a, b) => a.localeCompare(b))
-  extraFiles.sort((a, b) => a.localeCompare(b))
-
-  for (const key of [...extraDirs, ...extraFiles]) {
-    const aChild = actualSet.get(key)
-    const childAbs = path.join(absDir, aChild.isDir ? key.slice(0, -1) : key)
-    runtimeNode.children.push(
-      buildRuntimeTree(
-        {
-          name: key,
-          isDir: aChild.isDir,
-          desc: null,
-          hasDesc: false,
-          children: new Map(),
-          order: [],
-          expanded: false,
-        },
-        childAbs
-      )
-    )
-  }
-
-  return runtimeNode
-}
-
-function renderTree(rootNode) {
-  const lines = ['```text', rootNode.name]
-
-  function renderChildren(parent, prefixParts) {
-    const children = parent.children
-    for (let i = 0; i < children.length; i += 1) {
-      const child = children[i]
-      const isLast = i === children.length - 1
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i]
+      const isLast = i === items.length - 1
       const branch = isLast ? '└─' : '├─'
-
       const prefix = prefixParts.join('')
-      const head = `${prefix}${branch} ${child.name}`
 
-      if (child.hasDesc && child.desc) {
-        const width = parent.childDescWidth ?? child.name.length
-        const paddedName = padEnd(child.name, width)
-        lines.push(`${prefix}${branch} ${paddedName} # ${child.desc}`)
-      } else {
-        lines.push(head)
-      }
+      if (item.type === 'dir') {
+        const childRel = path.join(relDir, item.name)
+        const childAbs = path.join(absDir, item.name)
 
-      if (child.isDir && child.expanded && child.children.length > 0) {
+        if (childAbs === distAbs) {
+          lines.push(`${prefix}${branch} ${item.name}/ # Build compilado (gerado)`)
+          continue
+        }
+
+        if (childAbs === legacyAbs) {
+          lines.push(`${prefix}${branch} ${item.name}/ # Projeto legado (não expandido)`)
+          continue
+        }
+
+        if (absDir === prismaAbs) {
+          lines.push(`${prefix}${branch} ${item.name}/`)
+          continue
+        }
+
+        lines.push(`${prefix}${branch} ${item.name}/`)
+
         const nextPrefixParts = prefixParts.slice()
         nextPrefixParts.push(isLast ? '   ' : '│  ')
-        renderChildren(child, nextPrefixParts)
+        const childIncludeFiles = includeFiles || childAbs === srcAbs || childAbs.startsWith(`${srcAbs}${path.sep}`)
+        walk(childAbs, childRel, nextPrefixParts, childIncludeFiles)
+        continue
       }
+
+      lines.push(`${prefix}${branch} ${item.name}`)
     }
   }
 
-  renderChildren(rootNode, [])
+  walk(apiRootAbs, '', [], false)
+
   lines.push('```')
   lines.push('')
   return lines.join('\n')
@@ -231,10 +135,12 @@ function main() {
   }
 
   const templateLines = splitBlockLines(block.inside)
-  const { root: templateRoot } = parseTemplateTree(templateLines)
+  if (templateLines.length === 0) {
+    console.error('Bloco ```text vazio em ESTRUTURA_PROJETO.md')
+    process.exit(1)
+  }
 
-  const runtimeRoot = buildRuntimeTree(templateRoot, apiRoot)
-  const nextBlock = renderTree(runtimeRoot)
+  const nextBlock = renderFullTree(apiRoot)
 
   const updated = `${block.before}${nextBlock}${block.after.replace(/^\r?\n/, '')}`
 

@@ -101,6 +101,17 @@ apps/api/
 │           └─ variables/
 ├─ prisma/
 │  └─ migrations/
+│     ├─ 20260410002353_first_migrate/
+│     ├─ 20260410005913_add_sync_lock/
+│     ├─ 20260414125500_add_omie_code_and_family_description/
+│     ├─ 20260414131000_add_product_stock/
+│     ├─ 20260415100605_expand_product_stock_omie_code_64/
+│     ├─ 20260415124006_add_job_lock_table/
+│     ├─ 20260415170012_widen_omie_product_fields/
+│     ├─ 20260415183012_omie_code_identity/
+│     ├─ 20260415190742_unique_product_stock_by_code/
+│     ├─ 20260415190836_/
+│     └─ 20260417014146_/
 ├─ scripts/
 │  └─ metrics/
 ├─ src/
