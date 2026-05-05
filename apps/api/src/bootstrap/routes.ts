@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { sendOk } from "@/shared/http/response";
 
 // módulos
+import { registerClientModule } from '../modules/client/register'; // <-- novo
 import { registerProductsModule } from "@/modules/products";
 import { registerSectorsModule } from "@/modules/sectors";
 import { registerProductSectorModule } from "@/modules/product-sector";
@@ -185,6 +186,8 @@ export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
   // register modules (new architecture)
   // ---------------------------------------------------------------------------
+  await registerClientModule(app);
+
   await registerProductsModule(app);
   await registerSectorsModule(app);
   await registerProductSectorModule(app);

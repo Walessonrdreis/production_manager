@@ -7,7 +7,8 @@
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
     "lint": "pnpm -r run lint",
-    "gen:module": "ts-node scripts/generate-module.ts"
+    "gen:module": "ts-node scripts/generate-module.ts",
+    "postinstall": "node -e \"const fs=require('fs'); const path=require('path'); const candidates=[path.join(process.cwd(),'apps','api','node_modules','@prisma','client'), path.join(process.cwd(),'node_modules','@prisma','client')]; const files=['index.d.ts','default.d.ts']; for (const dir of candidates){ for (const f of files){ const p=path.join(dir,f); if(!fs.existsSync(p)) continue; const src=fs.readFileSync(p,'utf8'); if(!src.includes('@prisma/client/default')) continue; const next=src.split('@prisma/client/default').join('.prisma/client/default'); if(next!==src) fs.writeFileSync(p,next); } }\""
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

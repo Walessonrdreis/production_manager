@@ -1,8 +1,10 @@
-import { FastifyInstance } from 'fastify'
-import { clientRoutes } from './presentation/http/routes'
+// File: apps/api/src/modules/client/index.ts
+
+import { FastifyInstance } from 'fastify';
+import { registerClientModule } from './register';
+import { clientRoutes } from './presentation/http/client.routes';
 
 export async function clientModule(app: FastifyInstance) {
-  // composição de dependências do módulo client
-
-  app.register(clientRoutes, { prefix: '/client' })
+  await registerClientModule(app);
+  await app.register(clientRoutes);
 }
