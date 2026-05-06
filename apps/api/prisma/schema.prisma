@@ -200,3 +200,36 @@ model OmieOrderItem {
   @@index([description])
   @@map("omie_order_item")
 }
+model Client {
+  id String @id @default(uuid())
+
+  omieClientCode BigInt @unique @map("codigo_cliente_omie")
+
+  legalName  String  @map("razao_social")
+  tradeName  String? @map("nome_fantasia")
+  document   String  @map("documento")
+
+  personType PersonType @map("tipo_pessoa")
+
+  email String?
+  phone String? @map("telefone")
+
+  isActive         Boolean @default(true)
+  isBlocked        Boolean @default(false)
+  isBillingBlocked Boolean @default(false)
+
+  createdAtOmie DateTime?
+  updatedAtOmie DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("clientes")
+}
+enum PersonType {
+  INDIVIDUAL @map("FISICA")
+  COMPANY    @map("JURIDICA")
+
+  // Se o tipo enum no Postgres já se chama "TipoPessoa", mantenha:
+  @@map("TipoPessoa")
+}

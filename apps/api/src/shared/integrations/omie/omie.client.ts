@@ -71,6 +71,11 @@ function isRetryableAppError(err: any): boolean {
   // HTTP error vindo do Omie: retry apenas para 5xx e 429
   if (err.code === "OMIE_HTTP_ERROR") {
     const httpStatus = Number((err.details as any)?.httpStatus ?? 0);
+    const sample = String((err.details as any)?.sample ?? "");
+    const sampleLower = sample.toLowerCase();
+    if (sampleLower.includes("redundant") || sampleLower.includes("consumo redundante")) {
+      return false;
+    }
     return httpStatus >= 500 || httpStatus === 429;
   }
 

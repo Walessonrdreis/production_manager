@@ -42,6 +42,15 @@ export async function registerClientModule(app: FastifyInstance) {
     getClientByOmieClientCodeUseCase
   );
 
+  
+  // ✅ sync state (lock + cooldown)
+  app.decorate('clientSyncState', {
+    running: false,
+    lastStartedAt: null as Date | null,
+    lastFinishedAt: null as Date | null,
+  });
+
+
   // ✅ REGISTRO DAS ROTAS (NO PADRÃO DO PROJETO)
   await app.register(clientRoutes, { prefix: '/v1' });
 await app.register(clientAdminRoutes, { prefix: "/v1" });

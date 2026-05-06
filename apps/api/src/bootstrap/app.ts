@@ -17,7 +17,7 @@ import { createOmieClient } from "@/shared/integrations/omie/omie.client";
 import { startStockRefreshJob } from "@/modules/products/infrastructure/jobs/stock-refresh.job";
 import { startOmieProductSyncJob } from "@/modules/products/infrastructure/jobs/omie-product-sync.job";
 import { startOmieOrdersStage20SyncJob } from "@/modules/omie-orders/infrastructure/jobs/omie-orders-stage20.job";
-
+import { startOmieClientSyncJob } from "@/modules/client/infrastructure/jobs/sync-omie-clients.job"; 
 // Extende tipagem do request para requestId
 declare module "fastify" {
   interface FastifyRequest {
@@ -29,6 +29,11 @@ declare module "fastify" {
     prisma: typeof prisma;
     omieClient: {
       post: <T>(path: string, payload: any) => Promise<T>;
+    };
+    clientSyncState: {
+      running: boolean;
+      lastStartedAt: Date | null;
+      lastFinishedAt: Date | null;
     };
   }
 }
@@ -177,6 +182,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   if (env.OMIE_ORDERS_STAGE_SYNC) {
     startOmieOrdersStage20SyncJob(app);
   }
+
+  if (env.ENABLE_OMIE_CLIENT_SYNC_JOB) {
+  startOmieClientSyncJob(app);
+}
 
   return app;
 }
