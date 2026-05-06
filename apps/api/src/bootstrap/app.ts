@@ -20,7 +20,7 @@ import { startOmieOrdersStage20SyncJob } from "@/modules/omie-orders/infrastruct
 import { startOmieClientSyncJob } from "@/modules/client/infrastructure/jobs/sync-omie-clients.job"; 
 
 import type { ListClientsUseCase } from "@/modules/client/application/use-cases/list-clients.usecase";
-
+import type { ListStage20OrdersEnrichedUseCase } from "@/modules/orders-enriched/application/use-cases/list-stage20-orders-enriched.usecase";
 // Extende tipagem do request para requestId
 declare module "fastify" {
   interface FastifyRequest {
@@ -39,6 +39,7 @@ declare module "fastify" {
       lastFinishedAt: Date | null;
     };
     listClientsUseCase: ListClientsUseCase;
+    listStage20OrdersEnrichedUseCase: ListStage20OrdersEnrichedUseCase;
   }
 }
 

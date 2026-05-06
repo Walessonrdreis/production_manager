@@ -32,7 +32,9 @@
     "docs:typedoc": "typedoc",
     "docs:status:history": "node scripts/metrics/render-md.mjs --history",
     "metrics:update-docs": "pnpm metrics:all && pnpm docs:status",
-    "gen:module": "ts-node scripts/scaffold/index.ts"
+    "gen:module": "ts-node scripts/scaffold/index.ts",
+    "generate:module": "pnpm run gen:module",
+    "create:file": "ts-node scripts/create-file-interactive.ts"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

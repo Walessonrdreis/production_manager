@@ -9,6 +9,7 @@ import { registerProductSectorModule } from "@/modules/product-sector";
 import { registerPlansModule } from "@/modules/plans";
 import { createOmieOrdersModule } from "@/modules/omie-orders"; // dependendo de como você exportou
 import { registerOmieOrdersModule } from "@/modules/omie-orders/register";
+import { registerOrdersEnrichedModule } from "@/modules/orders-enriched/register";
 export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
   // meta routes
@@ -186,8 +187,8 @@ export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
   // register modules (new architecture)
   // ---------------------------------------------------------------------------
-  await registerClientModule(app);
-
+  await registerOrdersEnrichedModule(app);
+  
   await registerProductsModule(app);
   await registerSectorsModule(app);
   await registerProductSectorModule(app);
