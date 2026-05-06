@@ -113,45 +113,25 @@ model ProductStock {
 }
 
 model OmieOrder {
-  id            String   @id @default(uuid())
-  /// cabecalho.codigo_pedido
-  omieCode      String   @db.VarChar(64)
+  id           String  @id @default(uuid())
 
-  /// cabecalho.numero_pedido (ex: "1305")
-  numeroPedido  String?  @db.VarChar(64)
+/// cabecalho.codigo_pedido
+omieCode     String  @db.VarChar(64)
 
-  /// cabecalho.codigo_cliente / codigo_empresa (vem numérico, mas guardamos como string por consistência)
+/// cabecalho.numero_pedido (ex: "1305")
+numeroPedido String? @db.VarChar(64)
+
+
+  /// cabecalho.codigo_cliente
   codigoCliente String?  @db.VarChar(64)
-  codigoEmpresa String?  @db.VarChar(64)
 
-  /// cabecalho.etapa
+  codigoEmpresa String?  @db.VarChar(64)
   etapa         String   @db.VarChar(10)
 
-  /// infoCadastro.cancelado ("S"/"N")
   cancelado     String   @default("N") @db.Char(1)
-
-  /// cabecalho.encerrado ("S"/"N"/"")
   encerrado     String   @default("N") @db.Char(1)
 
-  /// cabecalho.data_previsao "dd/mm/yyyy" (armazenar como Date)
   dataPrevisao  DateTime?
-
-  /// infoCadastro.dCan/hCan
-  dCan          DateTime?
-  hCan          String?  @db.VarChar(16)
-
-  /// infoCadastro.dInc/hInc/uInc
-  dInc          DateTime?
-  hInc          String?  @db.VarChar(16)
-  uInc          String?  @db.VarChar(64)
-
-  /// infoCadastro.dAlt/hAlt/uAlt
-  dAlt          DateTime?
-  hAlt          String?  @db.VarChar(16)
-  uAlt          String?  @db.VarChar(64)
-
-  /// cabecalho.quantidade_itens
-  quantidadeItens Int?
 
   rawPayload    Json
   lastSyncAt    DateTime @default(now())
@@ -161,8 +141,11 @@ model OmieOrder {
   @@unique([omieCode])
   @@index([etapa])
   @@index([cancelado, encerrado])
+  @@index([codigoCliente])
   @@map("omie_order")
 }
+
+
 
 model OmieOrderItem {
   id           String   @id @default(uuid())
@@ -223,6 +206,9 @@ model Client {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // relacionamento lógico apenas (sem FK)
+  // orders OmieOrder[]
 
   @@map("clientes")
 }
