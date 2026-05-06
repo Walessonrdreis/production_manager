@@ -10,7 +10,8 @@ import { SyncOmieClientsUseCase } from './application/use-cases/sync-omie-client
 import { GetClientByOmieClientCodeUseCase } from './application/use-cases/get-client-by-omie-client-code.usecase';
 
 import { clientRoutes } from './presentation/http/client.routes';
-
+import { ListClientsUseCase } from "./application/use-cases/list-clients.usecase";
+import { clientListRoutes } from "./presentation/http/client-list.routes";
 // shared Omie client
 import { OmieClient } from '../../shared/integrations/omie/omie.client';
 
@@ -20,7 +21,8 @@ export async function registerClientModule(app: FastifyInstance) {
 
   // repository
   const clientRepository = new ClientPrismaRepository(prisma);
-
+  const listClientsUseCase = new ListClientsUseCase(clientRepository);
+  
   // gateway
   const omieClientGateway = new OmieClientGatewayImpl(omieClient);
 
@@ -35,6 +37,7 @@ export async function registerClientModule(app: FastifyInstance) {
 
   // dependency injection
   app.decorate('clientRepository', clientRepository);
+  app.decorate("listClientsUseCase", listClientsUseCase);
   app.decorate('omieClientGateway', omieClientGateway);
   app.decorate('syncOmieClientsUseCase', syncOmieClientsUseCase);
   app.decorate(
@@ -54,4 +57,5 @@ export async function registerClientModule(app: FastifyInstance) {
   // ✅ REGISTRO DAS ROTAS (NO PADRÃO DO PROJETO)
   await app.register(clientRoutes, { prefix: '/v1' });
 await app.register(clientAdminRoutes, { prefix: "/v1" });
+await app.register(clientListRoutes, { prefix: "/v1" });
 }

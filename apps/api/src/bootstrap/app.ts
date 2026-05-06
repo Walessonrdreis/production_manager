@@ -18,6 +18,9 @@ import { startStockRefreshJob } from "@/modules/products/infrastructure/jobs/sto
 import { startOmieProductSyncJob } from "@/modules/products/infrastructure/jobs/omie-product-sync.job";
 import { startOmieOrdersStage20SyncJob } from "@/modules/omie-orders/infrastructure/jobs/omie-orders-stage20.job";
 import { startOmieClientSyncJob } from "@/modules/client/infrastructure/jobs/sync-omie-clients.job"; 
+
+import type { ListClientsUseCase } from "@/modules/client/application/use-cases/list-clients.usecase";
+
 // Extende tipagem do request para requestId
 declare module "fastify" {
   interface FastifyRequest {
@@ -35,6 +38,7 @@ declare module "fastify" {
       lastStartedAt: Date | null;
       lastFinishedAt: Date | null;
     };
+    listClientsUseCase: ListClientsUseCase;
   }
 }
 
