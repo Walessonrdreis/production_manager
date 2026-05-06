@@ -10,6 +10,7 @@ import { registerPlansModule } from "@/modules/plans";
 import { createOmieOrdersModule } from "@/modules/omie-orders"; // dependendo de como você exportou
 import { registerOmieOrdersModule } from "@/modules/omie-orders/register";
 import { registerOrdersEnrichedModule } from "@/modules/orders-enriched/register";
+
 export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
   // meta routes
@@ -133,11 +134,20 @@ export async function registerRoutes(app: FastifyInstance) {
       // pedidos (omie-orders)
       { method: "GET", path: "/v1/admin/orders", description: "[Admin] Lista ordens persistidas (paginado)." },
       { method: "GET", path: "/v1/admin/orders/stage20", description: "[Admin] Lista pedidos etapa 20 (paginado e filtro q)." },
+
+      // ✅ ACRÉSCIMO — ENDPOINT ENRIQUECIDO (NÃO ALTERA O LEGADO)
+      {
+        method: "GET",
+        path: "/v1/admin/orders/stage20/enriched",
+        description:
+          "[Admin] ✅ Lista pedidos etapa 20 ENRIQUECIDOS com dados do cliente (nome, documento). Endpoint recomendado para consumo.",
+      },
+
       { method: "GET", path: "/v1/admin/orders/stage20/totals", description: "[Admin] Totais consolidados por descrição (stage 20)." },
       { method: "POST", path: "/v1/admin/omie/orders/stage20/sync", description: "[Admin][Omie] Sincroniza pedidos etapa 20." },
       { method: "GET", path: "/v1/admin/omie/orders/stage20/ping", description: "[Admin][Omie] Ping do módulo de pedidos." },
 
-      // Omie admin de produtos/estoque/sync (se você manteve endpoints admin)
+      // Omie admin de produtos/estoque/sync
       { method: "POST", path: "/v1/admin/omie/sync/products", description: "[Admin][Omie] Sincroniza produtos do Omie." },
       { method: "POST", path: "/v1/admin/omie/products/stock/refresh", description: "[Admin][Omie] Atualiza e persiste o estoque atual (ProductStock)." },
       { method: "GET", path: "/v1/admin/omie/stock", description: "[Admin][Omie] Info do estoque (fonte: database)." },
@@ -188,21 +198,14 @@ export async function registerRoutes(app: FastifyInstance) {
   // register modules (new architecture)
   // ---------------------------------------------------------------------------
   await registerOrdersEnrichedModule(app);
-  
+
   await registerProductsModule(app);
   await registerSectorsModule(app);
   await registerProductSectorModule(app);
   await registerPlansModule(app);
-    // omie-orders
-  await registerOmieOrdersModule(app);
 
-  // omie-orders: dependendo do seu export (registerOmieOrdersModule ou createOmieOrdersModule)
-  // Se você tiver registerOmieOrdersModule(app), use o await direto.
-  // Se você tiver createOmieOrdersModule(app) que retorna useCases, você também precisa registrar rotas do módulo.
-  // Como a gente ainda não criou routes do omie-orders aqui no chat, deixo a linha abaixo como a forma simples:
+  // omie-orders
+  await registerOmieOrdersModule(app);
   const omieOrders = createOmieOrdersModule(app);
-  // Se você já criou registerOmieOrdersRoutes dentro do módulo, troque para:
-  // await registerOmieOrdersModule(app);
-  // (mantendo consistência com os outros)
-  void omieOrders; // evita lint caso ainda não use
+  void omieOrders;
 }
