@@ -88,19 +88,49 @@ export async function registerRoutes(app: FastifyInstance) {
 
   app.get("/v1", async (request, reply) => {
     const publicEndpoints = [
-      {
+      
+    {
+      method: "GET",
+      path: "/v1/clients",
+      description:
+        "[Admin] Lista clientes sincronizados da Omie (banco local).",
+      example: 'curl "/v1/clients?page=1&pageSize=20&q=instituto"',
+    },
+    {
+      method: "GET",
+      path: "/v1/clients/:omieClientCode",
+      description:
+        "[Admin] Detalhe do cliente por código Omie (banco local).",
+      example: 'curl "/v1/clients/9181474497"',
+    },
+    {
+      method: "POST",
+      path: "/v1/admin/omie/clients/sync",
+      description:
+        "[Admin][Omie] Força sincronização de clientes da Omie para o banco local.",
+      example: 'curl -X POST "/v1/admin/omie/clients/sync"',
+    },
+    {
         method: "GET",
         path: "/v1/products",
         description:
           "[Public][BizChat] Catálogo + estoque atual + estoque mínimo (chave: omieCode).",
         example: 'curl "/v1/products?q=cor&page=1&pageSize=50&pretty=true"',
-      },
-      {
+    },
+    {
         method: "GET",
         path: "/v1/products/:omieCode",
         description: "[Public][BizChat] Detalhe por omieCode.",
         example: 'curl "/v1/products/12345?pretty=true"',
-      },
+    },
+      
+    {
+        method: "GET",
+        path: "/v1/orders",
+        description:
+          "[Public] Lista pedidos etapa 20 com itens e cliente (payload organizado para consumo).",
+        example: 'curl "/v1/orders?page=1&pageSize=20"',
+    }, 
     ];
 
     const adminEndpoints = [
