@@ -10,6 +10,7 @@ import { registerPlansModule } from "@/modules/plans";
 import { createOmieOrdersModule } from "@/modules/omie-orders"; // dependendo de como você exportou
 import { registerOmieOrdersModule } from "@/modules/omie-orders/register";
 import { registerOrdersEnrichedModule } from "@/modules/orders-enriched/register";
+import { registerOrdersViewModule } from "@/modules/orders-view/register";
 
 export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
@@ -207,5 +208,6 @@ export async function registerRoutes(app: FastifyInstance) {
   // omie-orders
   await registerOmieOrdersModule(app);
   const omieOrders = createOmieOrdersModule(app);
+  await registerOrdersViewModule(app);
   void omieOrders;
 }
