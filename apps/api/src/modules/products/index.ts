@@ -54,7 +54,7 @@ const omieProductsSyncState = {
   inMemoryLockUntil: 0,
 };
 
-export async function registerProductsModule(app: any) {
+export function createProductsModule(app: any) {
   const prisma = app.prisma;
   const logger = app.log;
   const omieClient = app.omieClient;
@@ -188,7 +188,12 @@ export async function registerProductsModule(app: any) {
     syncOmieProducts,
   };
 
-  // http
+  return { useCases };
+}
+
+export async function registerProductsModule(app: any) {
+  const { useCases } = createProductsModule(app);
+
   const controller = createProductsController(useCases as any);
   await registerProductsRoutes(app, controller);
 
