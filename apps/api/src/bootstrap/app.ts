@@ -22,6 +22,7 @@ import { startOmieClientSyncJob } from "@/modules/client/infrastructure/jobs/syn
 import { ListOrdersViewUseCase } from "@/modules/orders-view/application/list-orders-view.usecase";
 import type { ListClientsUseCase } from "@/modules/client/application/use-cases/list-clients.usecase";
 import type { ListStage20OrdersEnrichedUseCase } from "@/modules/orders-enriched/application/use-cases/list-stage20-orders-enriched.usecase";
+
 // Extende tipagem do request para requestId
 declare module "fastify" {
   interface FastifyRequest {
@@ -193,7 +194,24 @@ export async function buildApp(): Promise<FastifyInstance> {
   if (env.ENABLE_OMIE_CLIENT_SYNC_JOB) {
   startOmieClientSyncJob(app);
 }
+// ✅ opcional: sync on startup (sem depender de use cases no bootstrap)
+if (process.env.OMIE_ORDERS_STAGE_SYNC_ON_STARTUP === "true") {
+  setImmediate(async () => {
+    try {
+      const res = await app.inject({
+        method: "POST",
+        url: "/v1/admin/omie/orders/stage20/sync",
+      });
+
+      app.log.info(
+        { statusCode: res.statusCode, body: res.body },
+        "[Startup] Stage20 orders sync triggered"
+      );
+    } catch (err) {
+      app.log.error({ err }, "[Startup] Stage20 orders sync failed");
+    }
+  });
+}
 
   return app;
 }
-``
