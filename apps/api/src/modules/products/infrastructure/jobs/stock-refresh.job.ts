@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import cron from "node-cron";
-import { createProductsModule } from "@/modules/products";
+import { registerProductsModule } from "@/modules/products";
 
 type LoggerLike = {
   info: (obj: any, msg?: string) => void;
@@ -92,7 +92,7 @@ export function startStockRefreshJob(
         );
       }
 
-      const { useCases } = createProductsModule(app);
+      const { useCases } = await registerProductsModule(app);
 
       const result = await useCases.refreshStock.execute();
 
