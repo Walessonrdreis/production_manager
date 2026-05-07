@@ -230,6 +230,7 @@ export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
   await registerOrdersEnrichedModule(app);
 
+  await registerClientModule(app);
   await registerProductsModule(app);
   await registerSectorsModule(app);
   await registerProductSectorModule(app);
