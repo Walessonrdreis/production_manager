@@ -212,6 +212,94 @@ model Client {
 
   @@map("clientes")
 }
+
+model OmieProductionOrder {
+  id           String  @id @default(uuid())
+
+  /// identificacao.nCodOP
+  omieCode     String  @db.VarChar(64)
+
+  /// identificacao.cCodIntOP
+  internalCode String? @db.VarChar(64)
+
+  /// identificacao.nCodProduto
+  productCode  String? @db.VarChar(64)
+
+  /// identificacao.cCodIntProd
+  productIntegrationCode String? @db.VarChar(128)
+
+  /// identificacao.nQtde
+  quantity     String  @db.VarChar(32)
+
+  /// identificacao.dDtPrevisao
+  forecastDate DateTime?
+
+  /// infAdicionais.dDtInicio
+  startDate    DateTime?
+
+  /// infAdicionais.dDtConclusao
+  completionDate DateTime?
+
+  /// infAdicionais.cEtapa
+  stage        String? @db.VarChar(10)
+
+  /// infAdicionais.nCodProjeto
+  projectCode  String? @db.VarChar(64)
+
+  /// outrasInf.cConcluida
+  completed    Boolean @default(false)
+
+  /// Flag para controle de reconciliação
+  active       Boolean @default(true)
+
+  rawPayload   Json
+  lastSyncAt   DateTime @default(now())
+
+  items        OmieProductionOrderItem[]
+
+  @@unique([omieCode])
+  @@index([productCode])
+  @@index([productIntegrationCode])
+  @@index([completed])
+  @@index([forecastDate])
+  @@index([completionDate])
+  @@map("omie_production_order")
+}
+
+model OmieProductionOrderItem {
+  id           String   @id @default(uuid())
+
+  /// Código único do item (gerado internamente)
+  omieItemCode String   @db.VarChar(128)
+
+  /// relação com ordem de produção
+  omieProductionOrderId  String
+  productionOrder        OmieProductionOrder @relation(fields: [omieProductionOrderId], references: [id], onDelete: Cascade)
+
+  /// nIdProdutoMalha
+  productMeshId BigInt?
+
+  /// cUtilizarDoEstoque
+  useFromStock  String? @db.Char(1)
+
+  /// nQtde (itensDetalhes)
+  quantity      String? @db.VarChar(32)
+
+  /// codigo_local_estoque
+  stockLocationCode BigInt?
+
+  /// cObs
+  observation   String? @db.Text
+
+  rawPayload    Json
+  lastSyncAt    DateTime @default(now())
+
+  @@unique([omieItemCode])
+  @@index([omieProductionOrderId])
+  @@index([productMeshId])
+  @@map("omie_production_order_item")
+}
+
 enum PersonType {
   INDIVIDUAL @map("FISICA")
   COMPANY    @map("JURIDICA")

@@ -11,10 +11,24 @@ import { createSyncOmieProductsUseCase } from "./application/use-cases/sync-omie
 import { createOmieProductRepoPrisma } from "./infrastructure/db/omie-product.repo.prisma";
 import { createSyncLockRepoPrisma } from "./infrastructure/db/sync-lock.repo.prisma";
 
+// sync production orders
+import { createListProductionOrdersPageUseCase } from "./application/use-cases/list-production-orders-page.usecase";
+import { createSyncProductionOrdersUseCase } from "./application/use-cases/sync-production-orders.usecase";
+import { createOmieProductionOrdersRepoPrisma } from "./infrastructure/db/omie-production-orders.repo.prisma";
+
 // leitura (HTTP / admin)
 import { createListOrdersUseCase } from "./application/use-cases/list-orders.usecase";
 import { createListStage20OrdersUseCase } from "./application/use-cases/list-stage20-orders.usecase";
 import { createGetStage20TotalsUseCase } from "./application/use-cases/get-stage20-totals.usecase";
+
+// leitura de ordens de produção
+import { createListProductionOrdersUseCase } from "./application/use-cases/list-production-orders.usecase";
+import { createGetProductionOrderByCodeUseCase } from "./application/use-cases/get-production-order-by-code.usecase";
+import { createGetProductionOrdersByProductCodeUseCase } from "./application/use-cases/get-production-orders-by-product-code.usecase";
+import { createGetProductionOrdersByProductIntegrationCodeUseCase } from "./application/use-cases/get-production-orders-by-product-integration-code.usecase";
+import { createGetProductionOrdersStatsUseCase } from "./application/use-cases/get-production-orders-stats.usecase";
+import { createGetActiveProductionOrdersCountUseCase } from "./application/use-cases/get-active-production-orders-count.usecase";
+import { createGetCompletedProductionOrdersCountUseCase } from "./application/use-cases/get-completed-production-orders-count.usecase";
 
 // estado em memória para sync de produtos
 const state = {
@@ -65,11 +79,39 @@ export function createOmieOrdersModule(app: any) {
   });
 
   // ---------------------------------------------------------------------------
+  // sync de ordens de produção
+  // ---------------------------------------------------------------------------
+  const productionOrdersRepo = createOmieProductionOrdersRepoPrisma(prisma);
+
+  const listProductionOrdersPage = createListProductionOrdersPageUseCase({
+    omieClient,
+    logger,
+  });
+
+  const syncProductionOrders = createSyncProductionOrdersUseCase({
+    jobLock,
+    listProductionOrdersPage,
+    productionOrdersRepo,
+    logger,
+  });
+
+  // ---------------------------------------------------------------------------
   // leitura (HTTP / admin)
   // ---------------------------------------------------------------------------
   const listOrders = createListOrdersUseCase({ prisma });
   const listStage20Orders = createListStage20OrdersUseCase({ prisma });
   const getStage20Totals = createGetStage20TotalsUseCase({ prisma });
+
+  // ---------------------------------------------------------------------------
+  // leitura de ordens de produção
+  // ---------------------------------------------------------------------------
+  const listProductionOrders = createListProductionOrdersUseCase({ productionOrdersRepo });
+  const getProductionOrderByCode = createGetProductionOrderByCodeUseCase({ productionOrdersRepo });
+  const getProductionOrdersByProductCode = createGetProductionOrdersByProductCodeUseCase({ productionOrdersRepo });
+  const getProductionOrdersByProductIntegrationCode = createGetProductionOrdersByProductIntegrationCodeUseCase({ productionOrdersRepo });
+  const getProductionOrdersStats = createGetProductionOrdersStatsUseCase({ productionOrdersRepo });
+  const getActiveProductionOrdersCount = createGetActiveProductionOrdersCountUseCase({ productionOrdersRepo });
+  const getCompletedProductionOrdersCount = createGetCompletedProductionOrdersCountUseCase({ productionOrdersRepo });
 
   // ---------------------------------------------------------------------------
   // expose use cases (SEM REMOVER NADA)
@@ -79,11 +121,21 @@ export function createOmieOrdersModule(app: any) {
       // sync
       syncStage20Orders,
       syncOmieProducts,
+      syncProductionOrders,
 
       // leitura (controller depende disso)
       listOrders,
       listStage20Orders,
       getStage20Totals,
+      
+      // leitura de ordens de produção
+      listProductionOrders,
+      getProductionOrderByCode,
+      getProductionOrdersByProductCode,
+      getProductionOrdersByProductIntegrationCode,
+      getProductionOrdersStats,
+      getActiveProductionOrdersCount,
+      getCompletedProductionOrdersCount,
     },
   };
 }

@@ -5,4 +5,8 @@ export const OMIE_ENDPOINTS = {
     path: "produtos/pedido/",
     call: "ListarPedidos",
   },
+  PRODUCTION_ORDERS: {
+    path: "produtos/op/",
+    call: "ListarOrdemProducao",
+  },
 } as const;
