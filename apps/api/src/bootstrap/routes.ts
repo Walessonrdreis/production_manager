@@ -3,7 +3,7 @@ import { sendOk } from "@/shared/http/response";
 
 // módulos
 import { registerClientModule } from '../modules/client/register'; // <-- novo
-import { registerProductsModule } from "@/modules/products";
+import { createProductsModule } from "@/modules/products";
 import { registerSectorsModule } from "@/modules/sectors";
 import { registerProductSectorModule } from "@/modules/product-sector";
 import { registerPlansModule } from "@/modules/plans";
@@ -230,7 +230,7 @@ export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
   await registerOrdersEnrichedModule(app);
 
-  await registerProductsModule(app);
+  await createProductsModule(app);
   await registerSectorsModule(app);
   await registerProductSectorModule(app);
   await registerPlansModule(app);

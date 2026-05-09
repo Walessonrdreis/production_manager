@@ -54,7 +54,7 @@ const omieProductsSyncState = {
   inMemoryLockUntil: 0,
 };
 
-export async function registerProductsModule(app: any) {
+export async function createProductsModule(app: any) {
   const prisma = app.prisma;
   const logger = app.log;
   const omieClient = app.omieClient;

@@ -407,7 +407,25 @@ function createProductsController(useCases) {
       const query = request.query ?? {};
       const force = String(query.force ?? "").trim().toLowerCase() === "true" || String(query.force ?? "").trim() === "1";
       const requestId = request.requestId ?? `http-${Date.now()}`;
+      request.log?.info?.(
+        { requestId, force, route: "/v1/admin/omie/sync/products" },
+        "omie products sync triggered"
+      );
+      const startedAt = Date.now();
       const result = await useCases.syncOmieProducts.execute({ requestId, force });
+      const durationMs = Date.now() - startedAt;
+      const skipped = result?.skipped === true;
+      if (skipped) {
+        request.log?.warn?.(
+          { requestId, durationMs, result },
+          "omie products sync finished (skipped)"
+        );
+      } else {
+        request.log?.info?.(
+          { requestId, durationMs, result },
+          "omie products sync finished"
+        );
+      }
       return reply.send({ data: result });
     },
     async syncOmieProductsInfo(_request, reply) {
@@ -2342,7 +2360,7 @@ var omieProductsSyncState = {
   lastGlobalSyncAt: 0,
   inMemoryLockUntil: 0
 };
-async function registerProductsModule(app) {
+async function createProductsModule(app) {
   const prisma2 = app.prisma;
   const logger = app.log;
   const omieClient = app.omieClient;
@@ -3192,25 +3210,87 @@ function createSyncStage20OrdersUseCase(deps) {
 }
 
 // src/modules/omie-orders/infrastructure/db/omie-orders.repo.prisma.ts
+function sanitizeOrderForPrisma(order) {
+  return {
+    omieCode: String(order?.omieCode),
+    numeroPedido: order?.numeroPedido != null ? String(order.numeroPedido) : null,
+    codigoCliente: order?.codigoCliente != null ? String(order.codigoCliente) : null,
+    codigoEmpresa: order?.codigoEmpresa != null ? String(order.codigoEmpresa) : null,
+    etapa: order?.etapa != null ? String(order.etapa) : "20",
+    cancelado: order?.cancelado != null ? String(order.cancelado) : "N",
+    encerrado: order?.encerrado != null ? String(order.encerrado) : "N",
+    dataPrevisao: order?.dataPrevisao ?? null,
+    // ✅ TODOS os dados Omie (incluindo quantidade_itens)
+    // ficam APENAS no rawPayload
+    rawPayload: order?.rawPayload ?? {},
+    lastSyncAt: /* @__PURE__ */ new Date()
+  };
+}
+function sanitizeItemForPrisma(it, omieOrderId) {
+  return {
+    omieItemCode: String(it?.omieItemCode),
+    omieOrderId,
+    omieProductCode: it?.omieProductCode != null ? String(it.omieProductCode) : null,
+    sku: it?.sku != null ? String(it.sku) : null,
+    description: String(it?.description ?? ""),
+    unit: it?.unit != null ? String(it.unit) : null,
+    // Decimal compatível com Prisma
+    quantity: it?.quantity,
+    unitPrice: it?.unitPrice ?? null,
+    totalPrice: it?.totalPrice ?? null,
+    rawPayload: it?.rawPayload ?? {},
+    lastSyncAt: /* @__PURE__ */ new Date()
+  };
+}
 function createOmieOrdersRepoPrisma(prisma2) {
   return {
+    /**
+     * Upsert de pedido + itens (idempotente)
+     */
     async upsertOrderWithItems(order, items) {
       await prisma2.$transaction(async (tx) => {
+        const safeOrder = sanitizeOrderForPrisma(order);
         const savedOrder = await tx.omieOrder.upsert({
-          where: { omieCode: order.omieCode },
-          create: order,
-          update: order,
+          where: { omieCode: safeOrder.omieCode },
+          create: safeOrder,
+          update: {
+            numeroPedido: safeOrder.numeroPedido,
+            codigoCliente: safeOrder.codigoCliente,
+            codigoEmpresa: safeOrder.codigoEmpresa,
+            etapa: safeOrder.etapa,
+            cancelado: safeOrder.cancelado,
+            encerrado: safeOrder.encerrado,
+            dataPrevisao: safeOrder.dataPrevisao,
+            rawPayload: safeOrder.rawPayload,
+            lastSyncAt: safeOrder.lastSyncAt
+          },
           select: { id: true }
         });
         for (const it of items) {
+          if (!it?.omieItemCode) continue;
+          const safeItem = sanitizeItemForPrisma(it, savedOrder.id);
           await tx.omieOrderItem.upsert({
-            where: { omieItemCode: it.omieItemCode },
-            create: { ...it, omieOrderId: savedOrder.id },
-            update: { ...it, omieOrderId: savedOrder.id }
+            where: { omieItemCode: safeItem.omieItemCode },
+            create: safeItem,
+            update: {
+              omieOrderId: savedOrder.id,
+              omieProductCode: safeItem.omieProductCode,
+              sku: safeItem.sku,
+              description: safeItem.description,
+              unit: safeItem.unit,
+              quantity: safeItem.quantity,
+              unitPrice: safeItem.unitPrice,
+              totalPrice: safeItem.totalPrice,
+              rawPayload: safeItem.rawPayload,
+              lastSyncAt: safeItem.lastSyncAt
+            }
           });
         }
       });
     },
+    /**
+     * Remove pedidos que saíram da etapa 20 no snapshot atual
+     */
     async reconcileMissingStage20Orders(activeOmieCodes) {
       const normalizedCodes = Array.from(
         new Set((activeOmieCodes ?? []).map((c) => String(c ?? "").trim()).filter(Boolean))
@@ -3220,14 +3300,10 @@ function createOmieOrdersRepoPrisma(prisma2) {
         cancelado: "N",
         encerrado: "N"
       };
-      const where = normalizedCodes.length > 0 ? {
-        ...whereBase,
-        omieCode: { notIn: normalizedCodes }
-      } : whereBase;
+      const where = normalizedCodes.length > 0 ? { ...whereBase, omieCode: { notIn: normalizedCodes } } : whereBase;
       const result = await prisma2.omieOrder.updateMany({
         where,
         data: {
-          // Sai da etapa 20 no espelho local quando não aparece mais no snapshot atual.
           etapa: "OUT20",
           lastSyncAt: /* @__PURE__ */ new Date()
         }
@@ -4886,7 +4962,7 @@ async function registerRoutes(app) {
     );
   });
   await registerOrdersEnrichedModule(app);
-  await registerProductsModule(app);
+  await createProductsModule(app);
   await registerSectorsModule(app);
   await registerProductSectorModule(app);
   await registerPlansModule(app);
@@ -4954,7 +5030,7 @@ function startStockRefreshJob(appOrLogger) {
           "Fastify instance is required to run stock refresh job"
         );
       }
-      const { useCases } = await registerProductsModule(app);
+      const { useCases } = await createProductsModule(app);
       const result = await useCases.refreshStock.execute();
       if (result?.meta?.skippedLocked) {
         log.warn(
@@ -5043,7 +5119,7 @@ function startOmieProductSyncJob(appOrLogger) {
           "Fastify instance is required to run Omie Product Sync job"
         );
       }
-      const { useCases } = await registerProductsModule(app);
+      const { useCases } = createProductsModule(app);
       const requestId = `job-${Date.now()}`;
       const result = await useCases.syncOmieProducts.execute({
         requestId,
@@ -5373,6 +5449,22 @@ async function buildApp() {
   }
   if (env.ENABLE_OMIE_CLIENT_SYNC_JOB) {
     startOmieClientSyncJob(app);
+  }
+  if (process.env.OMIE_ORDERS_STAGE_SYNC_ON_STARTUP === "true") {
+    setImmediate(async () => {
+      try {
+        const res = await app.inject({
+          method: "POST",
+          url: "/v1/admin/omie/orders/stage20/sync"
+        });
+        app.log.info(
+          { statusCode: res.statusCode, body: res.body },
+          "[Startup] Stage20 orders sync triggered"
+        );
+      } catch (err) {
+        app.log.error({ err }, "[Startup] Stage20 orders sync failed");
+      }
+    });
   }
   return app;
 }
