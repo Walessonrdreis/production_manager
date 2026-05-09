@@ -8,10 +8,11 @@
   "scripts": {
     "dev": "tsx -r tsconfig-paths/register src/server.ts",
     "build": "tsup",
-    "start": "pnpm run db:migrate:prod && node dist/server.js",
+    "start": "pnpm run db:migrate:resilient && node dist/server.js",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:prod": "prisma migrate deploy",
+    "db:migrate:resilient": "node scripts/resilient-migrate.js",
     "db:studio": "prisma studio",
     "test": "vitest run",
     "backfill:omie-code": "tsx scripts/backfill-omie-code.ts",
@@ -34,7 +35,8 @@
     "metrics:update-docs": "pnpm metrics:all && pnpm docs:status",
     "gen:module": "ts-node scripts/scaffold/index.ts",
     "generate:module": "pnpm run gen:module",
-    "create:file": "ts-node scripts/create-file-interactive.ts"
+    "create:file": "ts-node scripts/create-file-interactive.ts",
+    "db:fix:failed": "node scripts/fix-failed-migration.js"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",
