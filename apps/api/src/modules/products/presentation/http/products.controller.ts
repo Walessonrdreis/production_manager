@@ -116,7 +116,28 @@ export function createProductsController(useCases: any) {
         String(query.force ?? "").trim() === "1";
 
       const requestId = request.requestId ?? `http-${Date.now()}`;
+      request.log?.info?.(
+        { requestId, force, route: "/v1/admin/omie/sync/products" },
+        "omie products sync triggered"
+      );
+
+      const startedAt = Date.now();
       const result = await useCases.syncOmieProducts.execute({ requestId, force });
+
+      const durationMs = Date.now() - startedAt;
+      const skipped = (result as any)?.skipped === true;
+
+      if (skipped) {
+        request.log?.warn?.(
+          { requestId, durationMs, result },
+          "omie products sync finished (skipped)"
+        );
+      } else {
+        request.log?.info?.(
+          { requestId, durationMs, result },
+          "omie products sync finished"
+        );
+      }
 
       return reply.send({ data: result });
     },

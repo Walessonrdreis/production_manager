@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import cron from "node-cron";
 import { AppError } from "@/shared/errors/AppError";
-import { registerProductsModule } from "@/modules/products";
+import { createProductsModule } from "@/modules/products";
 
 type LoggerLike = {
   info: (obj: any, msg?: string) => void;
@@ -105,7 +105,7 @@ export function startOmieProductSyncJob(
       }
 
       // ✅ monta módulo e executa use case
-      const { useCases } = await registerProductsModule(app);
+      const { useCases } = createProductsModule(app);
 
       const requestId = `job-${Date.now()}`;
       const result = await useCases.syncOmieProducts.execute({
