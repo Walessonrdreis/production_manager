@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import cron from "node-cron";
 import { AppError } from "@/shared/errors/AppError";
-import { createOmieOrdersModule } from "@/modules/omie-orders";
+import { createOmieProductionOrdersModule } from "@/modules/omie-production-orders";
 
 type LoggerLike = {
   info: (obj: any, msg?: string) => void;
@@ -21,54 +21,54 @@ function resolveLogger(input: FastifyInstance | LoggerLike): LoggerLike {
 }
 
 /**
- * Job: sincroniza pedidos Omie etapa 20
- * - cron configurável por env
- * - flag de enable
- * - evita concorrência local (inFlight)
- * - concorrência global garantida pelo JobLock no use case
+ * Job: synchronizes Omie production orders
+ * - configurable cron via env
+ * - enable flag
+ * - avoids local concurrency (inFlight)
+ * - global concurrency guaranteed by JobLock in use case
  */
-export function startOmieOrdersStage20SyncJob(
+export function startOmieProductionOrdersSyncJob(
   appOrLogger: FastifyInstance | LoggerLike
 ) {
   const log = resolveLogger(appOrLogger);
 
-  // ✅ nunca roda em testes
+  // ✅ never runs in tests
   if (process.env.NODE_ENV === "test") {
     return;
   }
 
-  // ✅ flag de ativação
+  // ✅ activation flag
   const enabledValue = String(
-    process.env.OMIE_ORDERS_STAGE_SYNC ?? ""
+    process.env.OMIE_PRODUCTION_ORDERS_SYNC ?? ""
   )
     .trim()
     .toLowerCase();
 
   const enabled = enabledValue === "true" || enabledValue === "1";
   if (!enabled) {
-    log.info({}, "omie orders stage20 sync job disabled");
+    log.info({}, "omie production orders sync job disabled");
     return;
   }
 
-  // ✅ cron configurável
+  // ✅ configurable cron
   const cronExpr =
-    String(process.env.OMIE_ORDERS_STAGE20_CRON ?? "").trim() ||
-    "*/10 * * * *";
+    String(process.env.OMIE_PRODUCTION_ORDERS_CRON ?? "").trim() ||
+    "*/15 * * * *";
 
   const effectiveCronExpr = cron.validate(cronExpr)
     ? cronExpr
-    : "*/10 * * * *";
+    : "*/15 * * * *";
 
   if (effectiveCronExpr !== cronExpr) {
     log.warn(
       { cronExpr },
-      "omie orders stage20 sync job: invalid cron expr, falling back to */10 * * * *"
+      "omie production orders sync job: invalid cron expr, falling back to */15 * * * *"
     );
   }
 
   log.info(
     { cronExpr: effectiveCronExpr },
-    "omie orders stage20 sync job scheduled"
+    "omie production orders sync job scheduled"
   );
 
   let inFlight = false;
@@ -77,7 +77,7 @@ export function startOmieOrdersStage20SyncJob(
     if (inFlight) {
       log.warn(
         {},
-        "omie orders stage20 sync skipped (previous run still in progress)"
+        "omie production orders sync skipped (previous run still in progress)"
       );
       return;
     }
@@ -88,11 +88,11 @@ export function startOmieOrdersStage20SyncJob(
 
     log.info(
       { startedAt: startedAtIso },
-      "omie orders stage20 sync started"
+      "omie production orders sync started"
     );
 
     try {
-      // ✅ cria módulo e chama use case
+      // ✅ creates module and calls use case
       const app =
         "decorate" in (appOrLogger as any)
           ? (appOrLogger as FastifyInstance)
@@ -100,13 +100,13 @@ export function startOmieOrdersStage20SyncJob(
 
       if (!app) {
         throw new Error(
-          "Fastify instance is required to run Omie Orders Stage20 job"
+          "Fastify instance is required to run Omie Production Orders job"
         );
       }
 
-      const { useCases } = createOmieOrdersModule(app);
+      const { useCases } = createOmieProductionOrdersModule(app);
 
-      const result = await useCases.syncStage20Orders.execute();
+      const result = await useCases.syncProductionOrders.execute();
 
       log.info(
         {
@@ -115,30 +115,33 @@ export function startOmieOrdersStage20SyncJob(
           durationMs: Date.now() - startedAt,
           ...result,
         },
-        "omie orders stage20 sync finished"
+        "omie production orders sync finished"
       );
     } catch (err: any) {
       if (err instanceof AppError && err.code === "SYNC_IN_PROGRESS") {
         log.warn(
           { startedAt: startedAtIso, code: err.code },
-          "omie orders stage20 sync skipped: already running"
+          "omie production orders sync skipped: already running"
         );
         return;
       }
 
       log.error(
-        { err, stack: err?.stack, startedAt: startedAtIso },
-        "omie orders stage20 sync failed"
+        {
+          startedAt: startedAtIso,
+          error: err.message,
+          stack: err.stack,
+        },
+        "omie production orders sync failed"
       );
     } finally {
       inFlight = false;
     }
   };
 
-  const task = cron.schedule(effectiveCronExpr, () => {
-    void tick();
+  // ✅ schedule the job
+  cron.schedule(effectiveCronExpr, tick, {
+    scheduled: true,
+    timezone: "America/Sao_Paulo",
   });
-
-  // ✅ permite parar o job (ex.: shutdown)
-  return () => task.stop();
 }

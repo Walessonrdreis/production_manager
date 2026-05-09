@@ -16,7 +16,8 @@ import { createOmieClient } from "@/shared/integrations/omie/omie.client";
 // jobs (nova arquitetura)
 import { startStockRefreshJob } from "@/modules/products/infrastructure/jobs/stock-refresh.job";
 import { startOmieProductSyncJob } from "@/modules/products/infrastructure/jobs/omie-product-sync.job";
-import { startOmieOrdersStage20SyncJob } from "@/modules/omie-orders/infrastructure/jobs/omie-orders-stage20.job";
+import { startOmieOrdersStage20SyncJob } from "@/modules/omie-sales-orders/infrastructure/jobs/omie-orders-stage20.job";
+import { startOmieProductionOrdersSyncJob } from "@/modules/omie-production-orders/infrastructure/jobs/omie-production-orders-sync.job";
 import { startOmieClientSyncJob } from "@/modules/client/infrastructure/jobs/sync-omie-clients.job"; 
 
 import { ListOrdersViewUseCase } from "@/modules/orders-view/application/list-orders-view.usecase";
@@ -189,6 +190,10 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   if (env.OMIE_ORDERS_STAGE_SYNC) {
     startOmieOrdersStage20SyncJob(app);
+  }
+
+  if (env.OMIE_PRODUCTION_ORDERS_SYNC) {
+    startOmieProductionOrdersSyncJob(app);
   }
 
   if (env.ENABLE_OMIE_CLIENT_SYNC_JOB) {

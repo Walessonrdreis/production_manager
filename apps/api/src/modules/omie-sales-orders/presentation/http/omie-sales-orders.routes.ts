@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 
-export async function registerOmieOrdersRoutes(app: FastifyInstance, controller: any) {
+export async function registerOmieSalesOrdersRoutes(app: FastifyInstance, controller: any) {
   // lista geral
   app.get("/v1/admin/orders", controller.listOrders);
 

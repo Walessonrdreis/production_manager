@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { paginated, sendOk, ok } from "@/shared/http/response";
 
-export function createOmieOrdersController(useCases: any) {
+export function createOmieSalesOrdersController(useCases: any) {
   return {
     async ping(request: any, reply: any) {
       return sendOk(request, reply, { ok: true }, {});
@@ -16,7 +16,7 @@ export function createOmieOrdersController(useCases: any) {
   return reply.send(
     ok({
       ok: true,
-      module: "omie-orders",
+      module: "omie-sales-orders",
       operation: "stage20-sync",
 
       description: "Sincronização de pedidos Omie da etapa 20 para o banco local.",

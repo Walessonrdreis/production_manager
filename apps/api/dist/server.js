@@ -33,6 +33,8 @@ var envSchema = zod.z.object({
   OMIE_PRODUCT_SYNC_CRON: zod.z.string().default("*/30 * * * *"),
   OMIE_ORDERS_STAGE_SYNC: zod.z.coerce.boolean().default(false),
   OMIE_ORDERS_STAGE20_CRON: zod.z.string().default("*/10 * * * *"),
+  OMIE_PRODUCTION_ORDERS_SYNC: zod.z.coerce.boolean().default(false),
+  OMIE_PRODUCTION_ORDERS_CRON: zod.z.string().default("*/15 * * * *"),
   ENABLE_OMIE_CLIENT_SYNC_JOB: zod.z.coerce.boolean().default(false),
   OMIE_CLIENT_SYNC_CRON: zod.z.string().default("*/10 * * * *")
 });
@@ -3087,7 +3089,7 @@ function createJobLock(prisma2) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/list-omie-orders-page.usecase.ts
+// src/modules/omie-sales-orders/application/use-cases/list-omie-orders-page.usecase.ts
 function createListOmieOrdersPageUseCase(deps) {
   return {
     async execute(input) {
@@ -3139,7 +3141,7 @@ function createListOmieOrdersPageUseCase(deps) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/sync-stage20-orders.usecase.ts
+// src/modules/omie-sales-orders/application/use-cases/sync-stage20-orders.usecase.ts
 function createSyncStage20OrdersUseCase(deps) {
   const LOCK_KEY = "omie:orders:stage20:sync";
   const LOCK_TTL_MS = 5 * 60 * 1e3;
@@ -3209,7 +3211,7 @@ function createSyncStage20OrdersUseCase(deps) {
   };
 }
 
-// src/modules/omie-orders/infrastructure/db/omie-orders.repo.prisma.ts
+// src/modules/omie-sales-orders/infrastructure/db/omie-orders.repo.prisma.ts
 function sanitizeOrderForPrisma(order) {
   return {
     omieCode: String(order?.omieCode),
@@ -3313,7 +3315,7 @@ function createOmieOrdersRepoPrisma(prisma2) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/fetch-omie-products-page.usecase.ts
+// src/modules/omie-sales-orders/application/use-cases/fetch-omie-products-page.usecase.ts
 var OMIE_PRODUCTS_PATH2 = "geral/produtos/";
 var OMIE_PRODUCTS_PAGE_SIZE2 = 100;
 function sleep3(ms) {
@@ -3381,7 +3383,7 @@ function createFetchOmieProductsPageUseCase2(deps) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/sync-omie-products.usecase.ts
+// src/modules/omie-sales-orders/application/use-cases/sync-omie-products.usecase.ts
 var OMIE_PRODUCTS_MAX_PAGES2 = 2e3;
 function createSyncOmieProductsUseCase2(deps) {
   const log = deps.logger ?? {};
@@ -3511,7 +3513,7 @@ function createSyncOmieProductsUseCase2(deps) {
   };
 }
 
-// src/modules/omie-orders/infrastructure/db/omie-product.repo.prisma.ts
+// src/modules/omie-sales-orders/infrastructure/db/omie-product.repo.prisma.ts
 function createOmieProductRepoPrisma2(prisma2) {
   return {
     async upsertFromOmieItem(item) {
@@ -3551,7 +3553,7 @@ function createOmieProductRepoPrisma2(prisma2) {
   };
 }
 
-// src/modules/omie-orders/infrastructure/db/sync-lock.repo.prisma.ts
+// src/modules/omie-sales-orders/infrastructure/db/sync-lock.repo.prisma.ts
 var SYNC_LOCK_KEY2 = "omie_products_sync";
 function createSyncLockRepoPrisma2(prisma2) {
   function isSyncLockTableUnavailable(error) {
@@ -3600,7 +3602,269 @@ function createSyncLockRepoPrisma2(prisma2) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/list-production-orders-page.usecase.ts
+// src/modules/omie-sales-orders/application/use-cases/list-orders.usecase.ts
+function createListOrdersUseCase(deps) {
+  return {
+    /**
+     * Replica a lógica legacy:
+     * - paginação simples (page, pageSize)
+     * - retorna orders com campos resumidos + items mínimos
+     * - ordena por lastSyncAt desc
+     */
+    async execute(input) {
+      const page = Math.max(Number(input?.page ?? 1), 1);
+      const pageSize = Math.min(Math.max(Number(input?.pageSize ?? 50), 1), 200);
+      const where = {
+        etapa: "20",
+        cancelado: "N",
+        encerrado: "N"
+      };
+      const [total, orders] = await Promise.all([
+        deps.prisma.omieOrder.count({ where }),
+        deps.prisma.omieOrder.findMany({
+          where,
+          select: {
+            omieCode: true,
+            numeroPedido: true,
+            etapa: true,
+            cancelado: true,
+            encerrado: true,
+            dataPrevisao: true,
+            lastSyncAt: true,
+            items: {
+              select: {
+                omieItemCode: true,
+                description: true,
+                quantity: true,
+                unit: true
+              },
+              orderBy: { description: "asc" }
+            }
+          },
+          orderBy: { lastSyncAt: "desc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize
+        })
+      ]);
+      return { page, pageSize, total, orders };
+    }
+  };
+}
+
+// src/modules/omie-sales-orders/application/use-cases/list-stage20-orders.usecase.ts
+function createListStage20OrdersUseCase(deps) {
+  return {
+    /**
+     * Replica a lógica legacy:
+     * - page, pageSize (1..200)
+     * - filtro opcional q (busca por descrição nos itens)
+     * - apenas etapa 20, não cancelado, não encerrado
+     * - orderBy lastSyncAt desc
+     * - retorna { data, meta }
+     */
+    async execute(input) {
+      const page = Math.max(Number(input?.page ?? 1), 1);
+      const pageSize = Math.min(Math.max(Number(input?.pageSize ?? 50), 1), 200);
+      const q = input?.q?.trim();
+      const where = {
+        etapa: "20",
+        cancelado: "N",
+        encerrado: "N",
+        ...q ? {
+          items: {
+            some: {
+              description: {
+                contains: q,
+                mode: "insensitive"
+              }
+            }
+          }
+        } : {}
+      };
+      const [total, data] = await Promise.all([
+        deps.prisma.omieOrder.count({ where }),
+        deps.prisma.omieOrder.findMany({
+          where,
+          include: {
+            items: {
+              select: {
+                description: true,
+                quantity: true
+              }
+            }
+          },
+          orderBy: { lastSyncAt: "desc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize
+        })
+      ]);
+      return { data, meta: { page, pageSize, total } };
+    }
+  };
+}
+
+// src/modules/omie-sales-orders/application/use-cases/get-stage20-totals.usecase.ts
+function createGetStage20TotalsUseCase(deps) {
+  return {
+    async execute() {
+      const rows = await deps.prisma.$queryRaw`
+        SELECT
+          i.description,
+          SUM(i.quantity) AS total_quantity
+        FROM omie_order_item i
+        JOIN omie_order o ON o.id = i."omieOrderId"
+        WHERE
+          o.etapa = '20'
+          AND o.cancelado = 'N'
+          AND o.encerrado = 'N'
+        GROUP BY i.description
+        ORDER BY total_quantity DESC
+      `;
+      return rows.map((r) => ({
+        description: r.description,
+        totalQuantity: Number(r.total_quantity)
+      }));
+    }
+  };
+}
+
+// src/modules/omie-sales-orders/index.ts
+var state = {
+  lastGlobalSyncAt: 0,
+  inMemoryLockUntil: 0
+};
+function createOmieSalesOrdersModule(app) {
+  const prisma2 = app.prisma;
+  const omieClient = app.omieClient;
+  const logger = app.log;
+  const jobLock = createJobLock(prisma2);
+  const omieOrdersRepo = createOmieOrdersRepoPrisma(prisma2);
+  const listOmieOrdersPage = createListOmieOrdersPageUseCase({ omieClient });
+  const syncStage20Orders = createSyncStage20OrdersUseCase({
+    jobLock,
+    listOmieOrdersPage,
+    omieOrdersRepo
+  });
+  const syncLockRepo = createSyncLockRepoPrisma2(prisma2);
+  const omieProductRepo = createOmieProductRepoPrisma2(prisma2);
+  const fetchOmieProductsPage = createFetchOmieProductsPageUseCase2({
+    omieClient,
+    logger
+  });
+  const syncOmieProducts = createSyncOmieProductsUseCase2({
+    prisma: prisma2,
+    syncLockRepo,
+    fetchOmieProductsPage,
+    omieProductRepo,
+    logger,
+    state
+  });
+  const listOrders = createListOrdersUseCase({ prisma: prisma2 });
+  const listStage20Orders = createListStage20OrdersUseCase({ prisma: prisma2 });
+  const getStage20Totals = createGetStage20TotalsUseCase({ prisma: prisma2 });
+  return {
+    useCases: {
+      // sync
+      syncStage20Orders,
+      syncOmieProducts,
+      // leitura (controller depende disso)
+      listOrders,
+      listStage20Orders,
+      getStage20Totals
+    }
+  };
+}
+function createOmieSalesOrdersController(useCases) {
+  return {
+    async ping(request, reply) {
+      return sendOk(request, reply, { ok: true }, {});
+    },
+    async syncStage20(request, reply) {
+      const result = await useCases.syncStage20Orders.execute();
+      return sendOk(request, reply, result, {});
+    },
+    async syncStage20Info(_request, reply) {
+      return reply.send(
+        ok({
+          ok: true,
+          module: "omie-sales-orders",
+          operation: "stage20-sync",
+          description: "Sincroniza\xE7\xE3o de pedidos Omie da etapa 20 para o banco local.",
+          howToRun: {
+            method: "POST",
+            endpoint: "/v1/admin/omie/orders/stage20/sync",
+            idempotent: true,
+            lockStrategy: "exclusive"
+          },
+          status: {
+            running: false,
+            // futuro: pode vir de lockRepo
+            locked: false,
+            lockedUntil: null
+          },
+          lastExecution: {
+            supported: false,
+            note: "Ainda n\xE3o h\xE1 persist\xEAncia de hist\xF3rico de execu\xE7\xE3o"
+          },
+          behavior: {
+            onSuccess: "Pedidos s\xE3o persistidos/atualizados no banco",
+            onLocked: "Retorna reason=LOCKED sem executar",
+            onError: "Retorna AppError com c\xF3digo espec\xEDfico"
+          }
+        })
+      );
+    },
+    async listOrders(request, reply) {
+      const q = zod.z.object({
+        page: zod.z.coerce.number().min(1).default(1),
+        pageSize: zod.z.coerce.number().min(1).max(200).default(50)
+      }).parse(request.query);
+      const result = await useCases.listOrders.execute(q);
+      return sendOk(request, reply, result, {});
+    },
+    async listStage20(request, reply) {
+      const q = zod.z.object({
+        page: zod.z.coerce.number().int().min(1).default(1),
+        pageSize: zod.z.coerce.number().int().min(1).max(200).default(50),
+        q: zod.z.string().trim().optional()
+      }).parse(request.query);
+      const result = await useCases.listStage20Orders.execute(q);
+      return reply.send(
+        paginated(
+          result.data,
+          result.meta,
+          {
+            self: `/v1/admin/orders/stage20?page=${result.meta.page}&pageSize=${result.meta.pageSize}${q.q ? `&q=${encodeURIComponent(q.q)}` : ""}`
+          }
+        )
+      );
+    },
+    async getStage20Totals(_request, reply) {
+      const data = await useCases.getStage20Totals.execute();
+      return reply.send(ok(data));
+    }
+  };
+}
+
+// src/modules/omie-sales-orders/presentation/http/omie-sales-orders.routes.ts
+async function registerOmieSalesOrdersRoutes(app, controller) {
+  app.get("/v1/admin/orders", controller.listOrders);
+  app.get("/v1/admin/orders/stage20", controller.listStage20);
+  app.get("/v1/admin/orders/stage20/totals", controller.getStage20Totals);
+  app.post("/v1/admin/omie/orders/stage20/sync", controller.syncStage20);
+  app.get("/v1/admin/omie/orders/stage20/sync", controller.syncStage20Info);
+  app.get("/v1/admin/omie/orders/stage20/ping", controller.ping);
+}
+
+// src/modules/omie-sales-orders/register.ts
+async function registerOmieSalesOrdersModule(app) {
+  const { useCases } = createOmieSalesOrdersModule(app);
+  const salesOrdersController = createOmieSalesOrdersController(useCases);
+  await registerOmieSalesOrdersRoutes(app, salesOrdersController);
+  return { useCases };
+}
+
+// src/modules/omie-production-orders/application/use-cases/list-production-orders-page.usecase.ts
 function createListProductionOrdersPageUseCase(deps) {
   return {
     async execute(input) {
@@ -3697,7 +3961,7 @@ function mapProductionOrder(order) {
   return { order: mappedOrder, items };
 }
 
-// src/modules/omie-orders/application/use-cases/sync-production-orders.usecase.ts
+// src/modules/omie-production-orders/application/use-cases/sync-production-orders.usecase.ts
 function createSyncProductionOrdersUseCase(deps) {
   const LOCK_KEY = "omie:production-orders:sync";
   const LOCK_TTL_MS = 5 * 60 * 1e3;
@@ -3769,7 +4033,7 @@ function createSyncProductionOrdersUseCase(deps) {
   };
 }
 
-// src/modules/omie-orders/infrastructure/db/omie-production-orders.repo.prisma.ts
+// src/modules/omie-production-orders/infrastructure/db/omie-production-orders.repo.prisma.ts
 function createOmieProductionOrdersRepoPrisma(prisma2) {
   return {
     async upsertOrderWithItems(order, items) {
@@ -3898,133 +4162,7 @@ function createOmieProductionOrdersRepoPrisma(prisma2) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/list-orders.usecase.ts
-function createListOrdersUseCase(deps) {
-  return {
-    /**
-     * Replica a lógica legacy:
-     * - paginação simples (page, pageSize)
-     * - retorna orders com campos resumidos + items mínimos
-     * - ordena por lastSyncAt desc
-     */
-    async execute(input) {
-      const page = Math.max(Number(input?.page ?? 1), 1);
-      const pageSize = Math.min(Math.max(Number(input?.pageSize ?? 50), 1), 200);
-      const where = {
-        etapa: "20",
-        cancelado: "N",
-        encerrado: "N"
-      };
-      const [total, orders] = await Promise.all([
-        deps.prisma.omieOrder.count({ where }),
-        deps.prisma.omieOrder.findMany({
-          where,
-          select: {
-            omieCode: true,
-            numeroPedido: true,
-            etapa: true,
-            cancelado: true,
-            encerrado: true,
-            dataPrevisao: true,
-            lastSyncAt: true,
-            items: {
-              select: {
-                omieItemCode: true,
-                description: true,
-                quantity: true,
-                unit: true
-              },
-              orderBy: { description: "asc" }
-            }
-          },
-          orderBy: { lastSyncAt: "desc" },
-          skip: (page - 1) * pageSize,
-          take: pageSize
-        })
-      ]);
-      return { page, pageSize, total, orders };
-    }
-  };
-}
-
-// src/modules/omie-orders/application/use-cases/list-stage20-orders.usecase.ts
-function createListStage20OrdersUseCase(deps) {
-  return {
-    /**
-     * Replica a lógica legacy:
-     * - page, pageSize (1..200)
-     * - filtro opcional q (busca por descrição nos itens)
-     * - apenas etapa 20, não cancelado, não encerrado
-     * - orderBy lastSyncAt desc
-     * - retorna { data, meta }
-     */
-    async execute(input) {
-      const page = Math.max(Number(input?.page ?? 1), 1);
-      const pageSize = Math.min(Math.max(Number(input?.pageSize ?? 50), 1), 200);
-      const q = input?.q?.trim();
-      const where = {
-        etapa: "20",
-        cancelado: "N",
-        encerrado: "N",
-        ...q ? {
-          items: {
-            some: {
-              description: {
-                contains: q,
-                mode: "insensitive"
-              }
-            }
-          }
-        } : {}
-      };
-      const [total, data] = await Promise.all([
-        deps.prisma.omieOrder.count({ where }),
-        deps.prisma.omieOrder.findMany({
-          where,
-          include: {
-            items: {
-              select: {
-                description: true,
-                quantity: true
-              }
-            }
-          },
-          orderBy: { lastSyncAt: "desc" },
-          skip: (page - 1) * pageSize,
-          take: pageSize
-        })
-      ]);
-      return { data, meta: { page, pageSize, total } };
-    }
-  };
-}
-
-// src/modules/omie-orders/application/use-cases/get-stage20-totals.usecase.ts
-function createGetStage20TotalsUseCase(deps) {
-  return {
-    async execute() {
-      const rows = await deps.prisma.$queryRaw`
-        SELECT
-          i.description,
-          SUM(i.quantity) AS total_quantity
-        FROM omie_order_item i
-        JOIN omie_order o ON o.id = i."omieOrderId"
-        WHERE
-          o.etapa = '20'
-          AND o.cancelado = 'N'
-          AND o.encerrado = 'N'
-        GROUP BY i.description
-        ORDER BY total_quantity DESC
-      `;
-      return rows.map((r) => ({
-        description: r.description,
-        totalQuantity: Number(r.total_quantity)
-      }));
-    }
-  };
-}
-
-// src/modules/omie-orders/application/use-cases/list-production-orders.usecase.ts
+// src/modules/omie-production-orders/application/use-cases/list-production-orders.usecase.ts
 function createListProductionOrdersUseCase(deps) {
   return {
     async execute(input) {
@@ -4047,7 +4185,7 @@ function createListProductionOrdersUseCase(deps) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/get-production-order-by-code.usecase.ts
+// src/modules/omie-production-orders/application/use-cases/get-production-order-by-code.usecase.ts
 function createGetProductionOrderByCodeUseCase(deps) {
   return {
     async execute(input) {
@@ -4057,7 +4195,7 @@ function createGetProductionOrderByCodeUseCase(deps) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/get-production-orders-by-product-code.usecase.ts
+// src/modules/omie-production-orders/application/use-cases/get-production-orders-by-product-code.usecase.ts
 function createGetProductionOrdersByProductCodeUseCase(deps) {
   return {
     async execute(input) {
@@ -4079,7 +4217,7 @@ function createGetProductionOrdersByProductCodeUseCase(deps) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/get-production-orders-by-product-integration-code.usecase.ts
+// src/modules/omie-production-orders/application/use-cases/get-production-orders-by-product-integration-code.usecase.ts
 function createGetProductionOrdersByProductIntegrationCodeUseCase(deps) {
   return {
     async execute(input) {
@@ -4101,7 +4239,7 @@ function createGetProductionOrdersByProductIntegrationCodeUseCase(deps) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/get-production-orders-stats.usecase.ts
+// src/modules/omie-production-orders/application/use-cases/get-production-orders-stats.usecase.ts
 function createGetProductionOrdersStatsUseCase(deps) {
   return {
     async execute() {
@@ -4118,7 +4256,7 @@ function createGetProductionOrdersStatsUseCase(deps) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/get-active-production-orders-count.usecase.ts
+// src/modules/omie-production-orders/application/use-cases/get-active-production-orders-count.usecase.ts
 function createGetActiveProductionOrdersCountUseCase(deps) {
   return {
     async execute() {
@@ -4127,7 +4265,7 @@ function createGetActiveProductionOrdersCountUseCase(deps) {
   };
 }
 
-// src/modules/omie-orders/application/use-cases/get-completed-production-orders-count.usecase.ts
+// src/modules/omie-production-orders/application/use-cases/get-completed-production-orders-count.usecase.ts
 function createGetCompletedProductionOrdersCountUseCase(deps) {
   return {
     async execute(input) {
@@ -4137,37 +4275,12 @@ function createGetCompletedProductionOrdersCountUseCase(deps) {
   };
 }
 
-// src/modules/omie-orders/index.ts
-var state = {
-  lastGlobalSyncAt: 0,
-  inMemoryLockUntil: 0
-};
-function createOmieOrdersModule(app) {
+// src/modules/omie-production-orders/index.ts
+function createOmieProductionOrdersModule(app) {
   const prisma2 = app.prisma;
   const omieClient = app.omieClient;
   const logger = app.log;
   const jobLock = createJobLock(prisma2);
-  const omieOrdersRepo = createOmieOrdersRepoPrisma(prisma2);
-  const listOmieOrdersPage = createListOmieOrdersPageUseCase({ omieClient });
-  const syncStage20Orders = createSyncStage20OrdersUseCase({
-    jobLock,
-    listOmieOrdersPage,
-    omieOrdersRepo
-  });
-  const syncLockRepo = createSyncLockRepoPrisma2(prisma2);
-  const omieProductRepo = createOmieProductRepoPrisma2(prisma2);
-  const fetchOmieProductsPage = createFetchOmieProductsPageUseCase2({
-    omieClient,
-    logger
-  });
-  const syncOmieProducts = createSyncOmieProductsUseCase2({
-    prisma: prisma2,
-    syncLockRepo,
-    fetchOmieProductsPage,
-    omieProductRepo,
-    logger,
-    state
-  });
   const productionOrdersRepo = createOmieProductionOrdersRepoPrisma(prisma2);
   const listProductionOrdersPage = createListProductionOrdersPageUseCase({
     omieClient,
@@ -4179,9 +4292,6 @@ function createOmieOrdersModule(app) {
     productionOrdersRepo,
     logger
   });
-  const listOrders = createListOrdersUseCase({ prisma: prisma2 });
-  const listStage20Orders = createListStage20OrdersUseCase({ prisma: prisma2 });
-  const getStage20Totals = createGetStage20TotalsUseCase({ prisma: prisma2 });
   const listProductionOrders = createListProductionOrdersUseCase({ productionOrdersRepo });
   const getProductionOrderByCode = createGetProductionOrderByCodeUseCase({ productionOrdersRepo });
   const getProductionOrdersByProductCode = createGetProductionOrdersByProductCodeUseCase({ productionOrdersRepo });
@@ -4192,14 +4302,8 @@ function createOmieOrdersModule(app) {
   return {
     useCases: {
       // sync
-      syncStage20Orders,
-      syncOmieProducts,
       syncProductionOrders,
-      // leitura (controller depende disso)
-      listOrders,
-      listStage20Orders,
-      getStage20Totals,
-      // leitura de ordens de produção
+      // reading (controller depends on this)
       listProductionOrders,
       getProductionOrderByCode,
       getProductionOrdersByProductCode,
@@ -4209,87 +4313,6 @@ function createOmieOrdersModule(app) {
       getCompletedProductionOrdersCount
     }
   };
-}
-function createOmieOrdersController(useCases) {
-  return {
-    async ping(request, reply) {
-      return sendOk(request, reply, { ok: true }, {});
-    },
-    async syncStage20(request, reply) {
-      const result = await useCases.syncStage20Orders.execute();
-      return sendOk(request, reply, result, {});
-    },
-    async syncStage20Info(_request, reply) {
-      return reply.send(
-        ok({
-          ok: true,
-          module: "omie-orders",
-          operation: "stage20-sync",
-          description: "Sincroniza\xE7\xE3o de pedidos Omie da etapa 20 para o banco local.",
-          howToRun: {
-            method: "POST",
-            endpoint: "/v1/admin/omie/orders/stage20/sync",
-            idempotent: true,
-            lockStrategy: "exclusive"
-          },
-          status: {
-            running: false,
-            // futuro: pode vir de lockRepo
-            locked: false,
-            lockedUntil: null
-          },
-          lastExecution: {
-            supported: false,
-            note: "Ainda n\xE3o h\xE1 persist\xEAncia de hist\xF3rico de execu\xE7\xE3o"
-          },
-          behavior: {
-            onSuccess: "Pedidos s\xE3o persistidos/atualizados no banco",
-            onLocked: "Retorna reason=LOCKED sem executar",
-            onError: "Retorna AppError com c\xF3digo espec\xEDfico"
-          }
-        })
-      );
-    },
-    async listOrders(request, reply) {
-      const q = zod.z.object({
-        page: zod.z.coerce.number().min(1).default(1),
-        pageSize: zod.z.coerce.number().min(1).max(200).default(50)
-      }).parse(request.query);
-      const result = await useCases.listOrders.execute(q);
-      return sendOk(request, reply, result, {});
-    },
-    async listStage20(request, reply) {
-      const q = zod.z.object({
-        page: zod.z.coerce.number().int().min(1).default(1),
-        pageSize: zod.z.coerce.number().int().min(1).max(200).default(50),
-        q: zod.z.string().trim().optional()
-      }).parse(request.query);
-      const result = await useCases.listStage20Orders.execute(q);
-      return reply.send(
-        paginated(
-          result.data,
-          result.meta,
-          {
-            self: `/v1/admin/orders/stage20?page=${result.meta.page}&pageSize=${result.meta.pageSize}${q.q ? `&q=${encodeURIComponent(q.q)}` : ""}`
-          }
-        )
-      );
-    },
-    async getStage20Totals(_request, reply) {
-      const data = await useCases.getStage20Totals.execute();
-      return reply.send(ok(data));
-    }
-  };
-}
-
-// src/modules/omie-orders/presentation/http/omie-orders.routes.ts
-async function registerOmieOrdersRoutes(app, controller) {
-  app.get("/v1/admin/orders", controller.listOrders);
-  app.get("/v1/admin/orders/stage20", controller.listStage20);
-  app.get("/v1/admin/orders/stage20/totals", controller.getStage20Totals);
-  app.post("/v1/admin/omie/orders/stage20/sync", controller.syncStage20);
-  app.get("/v1/admin/omie/orders/stage20/sync", controller.syncStage20Info);
-  app.get("/v1/admin/omie/orders/stage20/ping", controller.ping);
 }
 function createOmieProductionOrdersController(useCases) {
   return {
@@ -4439,7 +4462,7 @@ function createOmieProductionOrdersController(useCases) {
   };
 }
 
-// src/modules/omie-orders/presentation/http/omie-production-orders.routes.ts
+// src/modules/omie-production-orders/presentation/http/omie-production-orders.routes.ts
 async function registerOmieProductionOrdersRoutes(app, controller) {
   app.get("/v1/admin/omie/production-orders", controller.listProductionOrders);
   app.get("/v1/admin/omie/production-orders/:omieCode", controller.getProductionOrderByCode);
@@ -4453,11 +4476,9 @@ async function registerOmieProductionOrdersRoutes(app, controller) {
   app.get("/v1/admin/omie/production-orders/ping", controller.ping);
 }
 
-// src/modules/omie-orders/register.ts
-async function registerOmieOrdersModule(app) {
-  const { useCases } = createOmieOrdersModule(app);
-  const ordersController = createOmieOrdersController(useCases);
-  await registerOmieOrdersRoutes(app, ordersController);
+// src/modules/omie-production-orders/register.ts
+async function registerOmieProductionOrdersModule(app) {
+  const { useCases } = createOmieProductionOrdersModule(app);
   const productionOrdersController = createOmieProductionOrdersController(useCases);
   await registerOmieProductionOrdersRoutes(app, productionOrdersController);
   return { useCases };
@@ -4966,8 +4987,10 @@ async function registerRoutes(app) {
   await registerSectorsModule(app);
   await registerProductSectorModule(app);
   await registerPlansModule(app);
-  await registerOmieOrdersModule(app);
-  createOmieOrdersModule(app);
+  await registerOmieSalesOrdersModule(app);
+  createOmieSalesOrdersModule(app);
+  await registerOmieProductionOrdersModule(app);
+  createOmieProductionOrdersModule(app);
   await registerOrdersViewModule(app);
 }
 function setBaseLogger(logger) {
@@ -5211,7 +5234,7 @@ function startOmieOrdersStage20SyncJob(appOrLogger) {
           "Fastify instance is required to run Omie Orders Stage20 job"
         );
       }
-      const { useCases } = createOmieOrdersModule(app);
+      const { useCases } = createOmieSalesOrdersModule(app);
       const result = await useCases.syncStage20Orders.execute();
       log.info(
         {
@@ -5251,12 +5274,104 @@ function resolveLogger4(input) {
   }
   return maybeLogger;
 }
+function startOmieProductionOrdersSyncJob(appOrLogger) {
+  const log = resolveLogger4(appOrLogger);
+  if (process.env.NODE_ENV === "test") {
+    return;
+  }
+  const enabledValue = String(
+    process.env.OMIE_PRODUCTION_ORDERS_SYNC ?? ""
+  ).trim().toLowerCase();
+  const enabled = enabledValue === "true" || enabledValue === "1";
+  if (!enabled) {
+    log.info({}, "omie production orders sync job disabled");
+    return;
+  }
+  const cronExpr = String(process.env.OMIE_PRODUCTION_ORDERS_CRON ?? "").trim() || "*/15 * * * *";
+  const effectiveCronExpr = cron__default.default.validate(cronExpr) ? cronExpr : "*/15 * * * *";
+  if (effectiveCronExpr !== cronExpr) {
+    log.warn(
+      { cronExpr },
+      "omie production orders sync job: invalid cron expr, falling back to */15 * * * *"
+    );
+  }
+  log.info(
+    { cronExpr: effectiveCronExpr },
+    "omie production orders sync job scheduled"
+  );
+  let inFlight = false;
+  const tick = async () => {
+    if (inFlight) {
+      log.warn(
+        {},
+        "omie production orders sync skipped (previous run still in progress)"
+      );
+      return;
+    }
+    inFlight = true;
+    const startedAt = Date.now();
+    const startedAtIso = new Date(startedAt).toISOString();
+    log.info(
+      { startedAt: startedAtIso },
+      "omie production orders sync started"
+    );
+    try {
+      const app = "decorate" in appOrLogger ? appOrLogger : null;
+      if (!app) {
+        throw new Error(
+          "Fastify instance is required to run Omie Production Orders job"
+        );
+      }
+      const { useCases } = createOmieProductionOrdersModule(app);
+      const result = await useCases.syncProductionOrders.execute();
+      log.info(
+        {
+          startedAt: startedAtIso,
+          finishedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          durationMs: Date.now() - startedAt,
+          ...result
+        },
+        "omie production orders sync finished"
+      );
+    } catch (err) {
+      if (err instanceof AppError && err.code === "SYNC_IN_PROGRESS") {
+        log.warn(
+          { startedAt: startedAtIso, code: err.code },
+          "omie production orders sync skipped: already running"
+        );
+        return;
+      }
+      log.error(
+        {
+          startedAt: startedAtIso,
+          error: err.message,
+          stack: err.stack
+        },
+        "omie production orders sync failed"
+      );
+    } finally {
+      inFlight = false;
+    }
+  };
+  cron__default.default.schedule(effectiveCronExpr, tick, {
+    scheduled: true,
+    timezone: "America/Sao_Paulo"
+  });
+}
+function resolveLogger5(input) {
+  const maybeFastify = input;
+  const maybeLogger = input;
+  if (maybeFastify && typeof maybeFastify.log?.info === "function") {
+    return maybeFastify.log;
+  }
+  return maybeLogger;
+}
 function isOmieRedundantSample(sample) {
   if (typeof sample !== "string") return false;
   return sample.includes("REDUNDANT") || sample.includes("Consumo redundante");
 }
 function startOmieClientSyncJob(appOrLogger) {
-  const log = resolveLogger4(appOrLogger);
+  const log = resolveLogger5(appOrLogger);
   if (process.env.NODE_ENV === "test") {
     return;
   }
@@ -5446,6 +5561,9 @@ async function buildApp() {
   }
   if (env.OMIE_ORDERS_STAGE_SYNC) {
     startOmieOrdersStage20SyncJob(app);
+  }
+  if (env.OMIE_PRODUCTION_ORDERS_SYNC) {
+    startOmieProductionOrdersSyncJob(app);
   }
   if (env.ENABLE_OMIE_CLIENT_SYNC_JOB) {
     startOmieClientSyncJob(app);

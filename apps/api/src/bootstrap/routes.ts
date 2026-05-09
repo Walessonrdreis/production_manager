@@ -7,8 +7,10 @@ import { createProductsModule } from "@/modules/products";
 import { registerSectorsModule } from "@/modules/sectors";
 import { registerProductSectorModule } from "@/modules/product-sector";
 import { registerPlansModule } from "@/modules/plans";
-import { createOmieOrdersModule } from "@/modules/omie-orders"; // dependendo de como você exportou
-import { registerOmieOrdersModule } from "@/modules/omie-orders/register";
+import { createOmieSalesOrdersModule } from "@/modules/omie-sales-orders"; // dependendo de como você exportou
+import { registerOmieSalesOrdersModule } from "@/modules/omie-sales-orders/register";
+import { createOmieProductionOrdersModule } from "@/modules/omie-production-orders";
+import { registerOmieProductionOrdersModule } from "@/modules/omie-production-orders/register";
 import { registerOrdersEnrichedModule } from "@/modules/orders-enriched/register";
 import { registerOrdersViewModule } from "@/modules/orders-view/register";
 
@@ -235,9 +237,15 @@ export async function registerRoutes(app: FastifyInstance) {
   await registerProductSectorModule(app);
   await registerPlansModule(app);
 
-  // omie-orders
-  await registerOmieOrdersModule(app);
-  const omieOrders = createOmieOrdersModule(app);
+  // omie sales orders
+  await registerOmieSalesOrdersModule(app);
+  const omieSalesOrders = createOmieSalesOrdersModule(app);
+  
+  // omie production orders
+  await registerOmieProductionOrdersModule(app);
+  const omieProductionOrders = createOmieProductionOrdersModule(app);
+  
   await registerOrdersViewModule(app);
-  void omieOrders;
+  void omieSalesOrders;
+  void omieProductionOrders;
 }

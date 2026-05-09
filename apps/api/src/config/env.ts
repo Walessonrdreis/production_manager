@@ -24,6 +24,9 @@ const envSchema = z.object({
   OMIE_ORDERS_STAGE_SYNC: z.coerce.boolean().default(false),
   OMIE_ORDERS_STAGE20_CRON: z.string().default("*/10 * * * *"),
 
+  OMIE_PRODUCTION_ORDERS_SYNC: z.coerce.boolean().default(false),
+  OMIE_PRODUCTION_ORDERS_CRON: z.string().default("*/15 * * * *"),
+
   ENABLE_OMIE_CLIENT_SYNC_JOB: z.coerce.boolean().default(false),
   OMIE_CLIENT_SYNC_CRON: z.string().default("*/10 * * * *"),
 });
