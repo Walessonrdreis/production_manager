@@ -1,7 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import cron from "node-cron";
-import { AppError } from "@/shared/errors/AppError";
+import { AppError } from "@/shared/errors";
 import { createOmieSalesOrdersModule } from "@/modules/omie-sales-orders";
+import { IntelligentPollingService, PollingJobHandler } from "@/shared/services/IntelligentPollingService";
+import { getPollingConfigFromEnv } from "@/shared/services/polling.config";
 
 type LoggerLike = {
   info: (obj: any, msg?: string) => void;
@@ -21,11 +22,11 @@ function resolveLogger(input: FastifyInstance | LoggerLike): LoggerLike {
 }
 
 /**
- * Job: sincroniza pedidos Omie etapa 20
- * - cron configurável por env
- * - flag de enable
- * - evita concorrência local (inFlight)
- * - concorrência global garantida pelo JobLock no use case
+ * Job: sincroniza pedidos Omie etapa 20 usando IntelligentPollingService
+ * - Polling dinâmico baseado em criticidade
+ * - Intervalo base: 1 minuto (configurável via env)
+ * - Backoff exponencial em caso de falhas
+ * - Polling adaptativo baseado em sucessos consecutivos
  */
 export function startOmieOrdersStage20SyncJob(
   appOrLogger: FastifyInstance | LoggerLike
@@ -37,108 +38,102 @@ export function startOmieOrdersStage20SyncJob(
     return;
   }
 
-  // ✅ flag de ativação
-  const enabledValue = String(
-    process.env.OMIE_ORDERS_STAGE_SYNC ?? ""
-  )
-    .trim()
-    .toLowerCase();
+  // ✅ obtém configuração do polling do ambiente
+  const pollingConfigs = getPollingConfigFromEnv();
+  const jobConfig = pollingConfigs["omie-orders-stage20-sync"];
 
-  const enabled = enabledValue === "true" || enabledValue === "1";
-  if (!enabled) {
-    log.info({}, "omie orders stage20 sync job disabled");
+  if (!jobConfig.enabled) {
+    log.info({}, "omie orders stage20 sync job disabled via environment");
     return;
   }
 
-  // ✅ cron configurável
-  const cronExpr =
-    String(process.env.OMIE_ORDERS_STAGE20_CRON ?? "").trim() ||
-    "*/10 * * * *";
+  // ✅ cria serviço de polling inteligente
+  const pollingService = new IntelligentPollingService(log);
 
-  const effectiveCronExpr = cron.validate(cronExpr)
-    ? cronExpr
-    : "*/10 * * * *";
+  // ✅ registra o job no serviço de polling
+  pollingService.registerJob(jobConfig);
 
-  if (effectiveCronExpr !== cronExpr) {
-    log.warn(
-      { cronExpr },
-      "omie orders stage20 sync job: invalid cron expr, falling back to */10 * * * *"
-    );
-  }
+  // ✅ handler para execução do job
+  const jobHandler: PollingJobHandler = {
+    execute: async () => {
+      const startTime = Date.now();
 
-  log.info(
-    { cronExpr: effectiveCronExpr },
-    "omie orders stage20 sync job scheduled"
-  );
+      try {
+        // ✅ obtém instância do Fastify se disponível
+        const app =
+          "decorate" in (appOrLogger as any)
+            ? (appOrLogger as FastifyInstance)
+            : null;
 
-  let inFlight = false;
+        if (!app) {
+          throw new Error(
+            "Fastify instance is required to run Omie Orders Stage20 job"
+          );
+        }
 
-  const tick = async () => {
-    if (inFlight) {
-      log.warn(
-        {},
-        "omie orders stage20 sync skipped (previous run still in progress)"
-      );
-      return;
-    }
+        const { useCases } = createOmieSalesOrdersModule(app);
+        const result = await useCases.syncStage20Orders.execute();
 
-    inFlight = true;
-    const startedAt = Date.now();
-    const startedAtIso = new Date(startedAt).toISOString();
+        const durationMs = Date.now() - startTime;
 
-    log.info(
-      { startedAt: startedAtIso },
-      "omie orders stage20 sync started"
-    );
+        return {
+          success: true,
+          durationMs,
+          data: result,
+          metadata: {
+            syncType: "orders-stage20",
+            timestamp: new Date().toISOString(),
+          },
+        };
+      } catch (err: any) {
+        const durationMs = Date.now() - startTime;
 
-    try {
-      // ✅ cria módulo e chama use case
-      const app =
-        "decorate" in (appOrLogger as any)
-          ? (appOrLogger as FastifyInstance)
-          : null;
+        if (err instanceof AppError && err.code === "SYNC_IN_PROGRESS") {
+          return {
+            success: false,
+            durationMs,
+            error: "Sync already in progress",
+            metadata: {
+              errorCode: err.code,
+              syncType: "orders-stage20",
+            },
+          };
+        }
 
-      if (!app) {
-        throw new Error(
-          "Fastify instance is required to run Omie Orders Stage20 job"
-        );
+        return {
+          success: false,
+          durationMs,
+          error: err.message,
+          metadata: {
+            errorStack: err.stack,
+            syncType: "orders-stage20",
+          },
+        };
       }
-
-      const { useCases } = createOmieSalesOrdersModule(app);
-
-      const result = await useCases.syncStage20Orders.execute();
-
-      log.info(
-        {
-          startedAt: startedAtIso,
-          finishedAt: new Date().toISOString(),
-          durationMs: Date.now() - startedAt,
-          ...result,
-        },
-        "omie orders stage20 sync finished"
-      );
-    } catch (err: any) {
-      if (err instanceof AppError && err.code === "SYNC_IN_PROGRESS") {
-        log.warn(
-          { startedAt: startedAtIso, code: err.code },
-          "omie orders stage20 sync skipped: already running"
-        );
-        return;
-      }
-
-      log.error(
-        { err, stack: err?.stack, startedAt: startedAtIso },
-        "omie orders stage20 sync failed"
-      );
-    } finally {
-      inFlight = false;
-    }
+    },
   };
 
-  const task = cron.schedule(effectiveCronExpr, () => {
-    void tick();
+  // ✅ inicia o job com polling inteligente
+  pollingService.startJob("omie-orders-stage20-sync", jobHandler).catch((error) => {
+    log.error(
+      { error: error.message, stack: error.stack },
+      "Failed to start omie orders stage20 sync job"
+    );
   });
 
-  // ✅ permite parar o job (ex.: shutdown)
-  return () => task.stop();
+  log.info(
+    { 
+      baseIntervalMs: jobConfig.baseIntervalMs,
+      maxIntervalMs: jobConfig.maxIntervalMs,
+      criticality: jobConfig.criticality,
+      adaptivePolling: jobConfig.adaptivePolling,
+    },
+    "omie orders stage20 sync job started with intelligent polling"
+  );
+
+  // ✅ retorna função para parar o job
+  return () => {
+    pollingService.stopJob("omie-orders-stage20-sync");
+    log.info({}, "omie orders stage20 sync job stopped");
+  };
 }
