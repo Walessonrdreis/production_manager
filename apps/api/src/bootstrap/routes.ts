@@ -13,6 +13,7 @@ import { createOmieProductionOrdersModule } from "@/modules/omie-production-orde
 import { registerOmieProductionOrdersModule } from "@/modules/omie-production-orders/register";
 import { registerOrdersEnrichedModule } from "@/modules/orders-enriched/register";
 import { registerOrdersViewModule } from "@/modules/orders-view/register";
+import { registerSyncModule } from "@/modules/sync/register";
 
 export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
@@ -246,6 +247,10 @@ export async function registerRoutes(app: FastifyInstance) {
   const omieProductionOrders = createOmieProductionOrdersModule(app);
   
   await registerOrdersViewModule(app);
+  
+  // sync module (API Core - Fase 2) - TEMPORARILY DISABLED DUE TO ZOD SCHEMA ERROR
+  // registerSyncModule(app);
+  
   void omieSalesOrders;
   void omieProductionOrders;
 }

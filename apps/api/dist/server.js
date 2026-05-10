@@ -4797,6 +4797,1099 @@ async function registerOrdersViewModule(app) {
   app.decorate("ordersViewUseCase", useCase);
   await app.register(ordersViewRoutes, { prefix: "/v1" });
 }
+var SyncStockRequestSchema = zod.z.object({
+  forceRefresh: zod.z.boolean().optional().default(false),
+  productCodes: zod.z.array(zod.z.string()).optional(),
+  batchSize: zod.z.number().int().positive().max(1e3).optional().default(100)
+});
+var SyncStockResponseSchema = zod.z.object({
+  success: zod.z.boolean(),
+  message: zod.z.string(),
+  data: zod.z.object({
+    totalProducts: zod.z.number().int().nonnegative(),
+    syncedProducts: zod.z.number().int().nonnegative(),
+    failedProducts: zod.z.number().int().nonnegative(),
+    durationMs: zod.z.number().int().positive(),
+    nextSyncAt: zod.z.string().datetime().optional()
+  }),
+  timestamp: zod.z.string().datetime()
+});
+var SyncOrdersRequestSchema = zod.z.object({
+  forceRefresh: zod.z.boolean().optional().default(false),
+  orderStatus: zod.z.enum(["all", "pending", "in_production", "completed", "cancelled"]).optional().default("all"),
+  dateFrom: zod.z.string().datetime().optional(),
+  dateTo: zod.z.string().datetime().optional(),
+  batchSize: zod.z.number().int().positive().max(500).optional().default(100),
+  includeProductionOrders: zod.z.boolean().optional().default(true),
+  includeSalesOrders: zod.z.boolean().optional().default(true)
+});
+var SyncOrdersResponseSchema = zod.z.object({
+  success: zod.z.boolean(),
+  message: zod.z.string(),
+  data: zod.z.object({
+    totalOrders: zod.z.number().int().nonnegative(),
+    syncedOrders: zod.z.number().int().nonnegative(),
+    failedOrders: zod.z.number().int().nonnegative(),
+    productionOrders: zod.z.number().int().nonnegative(),
+    salesOrders: zod.z.number().int().nonnegative(),
+    durationMs: zod.z.number().int().positive(),
+    nextSyncAt: zod.z.string().datetime().optional()
+  }),
+  timestamp: zod.z.string().datetime()
+});
+zod.z.object({
+  orderId: zod.z.string(),
+  orderType: zod.z.enum(["production", "sales"]),
+  status: zod.z.enum(["success", "failed", "skipped"]),
+  error: zod.z.string().optional(),
+  syncedAt: zod.z.string().datetime()
+});
+zod.z.object({
+  batchId: zod.z.string(),
+  totalItems: zod.z.number().int().nonnegative(),
+  successfulItems: zod.z.number().int().nonnegative(),
+  failedItems: zod.z.number().int().nonnegative(),
+  skippedItems: zod.z.number().int().nonnegative(),
+  startTime: zod.z.string().datetime(),
+  endTime: zod.z.string().datetime(),
+  durationMs: zod.z.number().int().positive()
+});
+var SyncStatusRequestSchema = zod.z.object({
+  syncType: zod.z.enum(["all", "stock", "orders", "production"]).optional().default("all"),
+  dateFrom: zod.z.string().datetime().optional(),
+  dateTo: zod.z.string().datetime().optional(),
+  limit: zod.z.number().int().positive().max(100).optional().default(20)
+});
+var SyncStatusResponseSchema = zod.z.object({
+  success: zod.z.boolean(),
+  message: zod.z.string(),
+  data: zod.z.object({
+    summary: zod.z.object({
+      totalSyncs: zod.z.number().int().nonnegative(),
+      successfulSyncs: zod.z.number().int().nonnegative(),
+      failedSyncs: zod.z.number().int().nonnegative(),
+      averageDurationMs: zod.z.number().int().nonnegative(),
+      lastSyncAt: zod.z.string().datetime().optional(),
+      nextSyncAt: zod.z.string().datetime().optional()
+    }),
+    recentSyncs: zod.z.array(
+      zod.z.object({
+        id: zod.z.string(),
+        syncType: zod.z.enum(["stock", "orders", "production"]),
+        status: zod.z.enum(["success", "failed", "in_progress"]),
+        startedAt: zod.z.string().datetime(),
+        completedAt: zod.z.string().datetime().optional(),
+        durationMs: zod.z.number().int().nonnegative().optional(),
+        itemsProcessed: zod.z.number().int().nonnegative(),
+        itemsFailed: zod.z.number().int().nonnegative(),
+        error: zod.z.string().optional()
+      })
+    ),
+    syncStatsByType: zod.z.record(
+      zod.z.enum(["stock", "orders", "production"]),
+      zod.z.object({
+        totalSyncs: zod.z.number().int().nonnegative(),
+        successfulSyncs: zod.z.number().int().nonnegative(),
+        failedSyncs: zod.z.number().int().nonnegative(),
+        averageDurationMs: zod.z.number().int().nonnegative(),
+        lastSyncAt: zod.z.string().datetime().optional()
+      })
+    )
+  }),
+  timestamp: zod.z.string().datetime()
+});
+zod.z.object({
+  syncType: zod.z.enum(["stock", "orders", "production"]),
+  totalSyncs: zod.z.number().int().nonnegative(),
+  successfulSyncs: zod.z.number().int().nonnegative(),
+  failedSyncs: zod.z.number().int().nonnegative(),
+  averageDurationMs: zod.z.number().int().nonnegative(),
+  lastSyncAt: zod.z.string().datetime().optional(),
+  nextSyncAt: zod.z.string().datetime().optional()
+});
+
+// src/modules/sync/presentation/http/sync.routes.ts
+function registerSyncRoutes(app) {
+  app.post(
+    "/api/sync/stock",
+    {
+      schema: {
+        description: "Sincroniza dados de estoque do Omie",
+        tags: ["sync"],
+        body: SyncStockRequestSchema,
+        response: {
+          200: SyncStockResponseSchema,
+          400: {
+            type: "object",
+            properties: {
+              error: { type: "string" },
+              message: { type: "string" }
+            }
+          },
+          500: {
+            type: "object",
+            properties: {
+              error: { type: "string" },
+              message: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const syncStockUseCase = app.diContainer.resolve("syncStockUseCase");
+      const result = await syncStockUseCase.execute(request.body);
+      if (!result.success) {
+        return reply.status(500).send({
+          error: "SyncFailed",
+          message: result.message
+        });
+      }
+      return reply.status(200).send(result);
+    }
+  );
+  app.post(
+    "/api/sync/orders",
+    {
+      schema: {
+        description: "Sincroniza dados de pedidos do Omie",
+        tags: ["sync"],
+        body: SyncOrdersRequestSchema,
+        response: {
+          200: SyncOrdersResponseSchema,
+          400: {
+            type: "object",
+            properties: {
+              error: { type: "string" },
+              message: { type: "string" }
+            }
+          },
+          500: {
+            type: "object",
+            properties: {
+              error: { type: "string" },
+              message: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const syncOrdersUseCase = app.diContainer.resolve("syncOrdersUseCase");
+      const result = await syncOrdersUseCase.execute(request.body);
+      if (!result.success) {
+        return reply.status(500).send({
+          error: "SyncFailed",
+          message: result.message
+        });
+      }
+      return reply.status(200).send(result);
+    }
+  );
+  app.get(
+    "/api/sync/status",
+    {
+      schema: {
+        description: "Retorna status e estat\xEDsticas das sincroniza\xE7\xF5es",
+        tags: ["sync"],
+        querystring: SyncStatusRequestSchema,
+        response: {
+          200: SyncStatusResponseSchema,
+          400: {
+            type: "object",
+            properties: {
+              error: { type: "string" },
+              message: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const getSyncStatusUseCase = app.diContainer.resolve("getSyncStatusUseCase");
+      const result = await getSyncStatusUseCase.execute(request.query);
+      return reply.status(200).send(result);
+    }
+  );
+  app.get(
+    "/api/sync/health",
+    {
+      schema: {
+        description: "Health check do servi\xE7o de sincroniza\xE7\xE3o",
+        tags: ["sync", "health"],
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              timestamp: { type: "string" },
+              services: {
+                type: "object",
+                properties: {
+                  database: { type: "boolean" },
+                  omieApi: { type: "boolean" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const syncRepository = app.diContainer.resolve("syncRepository");
+      try {
+        await syncRepository.getRecentSyncs({ syncType: "all", limit: 1 });
+        return reply.status(200).send({
+          status: "healthy",
+          timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+          services: {
+            database: true,
+            omieApi: true
+            // Assumindo que Omie está acessível
+          }
+        });
+      } catch (error) {
+        app.log.error("Health check failed", { error });
+        return reply.status(503).send({
+          status: "unhealthy",
+          timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+          services: {
+            database: false,
+            omieApi: false
+          },
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+  );
+}
+
+// src/modules/sync/application/use-cases/sync-stock.usecase.ts
+var SyncStockUseCase = class {
+  constructor(dependencies) {
+    this.dependencies = dependencies;
+  }
+  dependencies;
+  async execute(request) {
+    const { syncRepository, omieGateway, logger } = this.dependencies;
+    const startTime = Date.now();
+    logger.info("Iniciando sincroniza\xE7\xE3o de estoque", { request });
+    try {
+      const syncRecord = await syncRepository.createSyncRecord({
+        syncType: "stock",
+        status: "in_progress",
+        startedAt: /* @__PURE__ */ new Date(),
+        itemsProcessed: 0,
+        itemsFailed: 0,
+        metadata: { request }
+      });
+      let totalProducts = 0;
+      let syncedProducts = 0;
+      let failedProducts = 0;
+      let page = 1;
+      const limit = request.batchSize;
+      do {
+        logger.debug(`Buscando produtos da p\xE1gina ${page}`, { limit });
+        const result = await omieGateway.getProducts({
+          page,
+          limit,
+          productCodes: request.productCodes,
+          activeOnly: true
+        });
+        totalProducts = result.total;
+        for (const product of result.products) {
+          try {
+            syncedProducts++;
+            logger.debug(`Produto sincronizado: ${product.codigo}`, {
+              estoque: product.estoque
+            });
+          } catch (error) {
+            failedProducts++;
+            logger.error(`Erro ao sincronizar produto ${product.codigo}`, {
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
+        }
+        await syncRepository.updateSyncRecord(syncRecord.id, {
+          itemsProcessed: syncedProducts + failedProducts,
+          itemsFailed: failedProducts
+        });
+        page++;
+        if (result.products.length < limit) {
+          break;
+        }
+      } while (syncedProducts + failedProducts < totalProducts);
+      const durationMs = Date.now() - startTime;
+      const nextSyncAt = new Date(Date.now() + 2 * 60 * 1e3);
+      await syncRepository.updateSyncRecord(syncRecord.id, {
+        status: failedProducts === 0 ? "success" : "failed",
+        completedAt: /* @__PURE__ */ new Date(),
+        durationMs,
+        itemsProcessed: syncedProducts + failedProducts,
+        itemsFailed: failedProducts,
+        error: failedProducts > 0 ? `${failedProducts} produtos falharam` : void 0
+      });
+      const response = {
+        success: failedProducts === 0,
+        message: failedProducts === 0 ? `Estoque sincronizado com sucesso: ${syncedProducts} produtos` : `Sincroniza\xE7\xE3o parcial: ${syncedProducts} sucessos, ${failedProducts} falhas`,
+        data: {
+          totalProducts,
+          syncedProducts,
+          failedProducts,
+          durationMs,
+          nextSyncAt: nextSyncAt.toISOString()
+        },
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      logger.info("Sincroniza\xE7\xE3o de estoque conclu\xEDda", {
+        success: response.success,
+        durationMs,
+        syncedProducts,
+        failedProducts
+      });
+      return response;
+    } catch (error) {
+      const durationMs = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error("Erro na sincroniza\xE7\xE3o de estoque", {
+        error: errorMessage,
+        durationMs
+      });
+      const response = {
+        success: false,
+        message: `Erro na sincroniza\xE7\xE3o: ${errorMessage}`,
+        data: {
+          totalProducts: 0,
+          syncedProducts: 0,
+          failedProducts: 0,
+          durationMs,
+          nextSyncAt: void 0
+        },
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      return response;
+    }
+  }
+};
+function createSyncStockUseCase(dependencies) {
+  return new SyncStockUseCase(dependencies);
+}
+
+// src/modules/sync/application/use-cases/sync-orders.usecase.ts
+var SyncOrdersUseCase = class {
+  constructor(dependencies) {
+    this.dependencies = dependencies;
+  }
+  dependencies;
+  async execute(request) {
+    const { syncRepository, omieGateway, logger } = this.dependencies;
+    const startTime = Date.now();
+    logger.info("Iniciando sincroniza\xE7\xE3o de pedidos", { request });
+    try {
+      const syncRecord = await syncRepository.createSyncRecord({
+        syncType: "orders",
+        status: "in_progress",
+        startedAt: /* @__PURE__ */ new Date(),
+        itemsProcessed: 0,
+        itemsFailed: 0,
+        metadata: { request }
+      });
+      let totalOrders = 0;
+      let syncedOrders = 0;
+      let failedOrders = 0;
+      let productionOrders = 0;
+      let salesOrders = 0;
+      if (request.includeProductionOrders) {
+        logger.info("Sincronizando pedidos de produ\xE7\xE3o");
+        let productionPage = 1;
+        const productionLimit = request.batchSize;
+        do {
+          const result = await omieGateway.getProductionOrders({
+            page: productionPage,
+            limit: productionLimit,
+            status: request.orderStatus === "all" ? void 0 : request.orderStatus,
+            dateFrom: request.dateFrom ? new Date(request.dateFrom) : void 0,
+            dateTo: request.dateTo ? new Date(request.dateTo) : void 0
+          });
+          totalOrders += result.total;
+          for (const order of result.orders) {
+            try {
+              syncedOrders++;
+              productionOrders++;
+              logger.debug(`Pedido de produ\xE7\xE3o sincronizado: ${order.codigo_pedido}`, {
+                status: order.status,
+                etapa: order.etapa
+              });
+            } catch (error) {
+              failedOrders++;
+              logger.error(`Erro ao sincronizar pedido de produ\xE7\xE3o ${order.codigo_pedido}`, {
+                error: error instanceof Error ? error.message : String(error)
+              });
+            }
+          }
+          productionPage++;
+          if (result.orders.length < productionLimit) {
+            break;
+          }
+        } while (productionOrders + failedOrders / 2 < totalOrders / 2);
+      }
+      if (request.includeSalesOrders) {
+        logger.info("Sincronizando pedidos de venda");
+        let salesPage = 1;
+        const salesLimit = request.batchSize;
+        do {
+          const result = await omieGateway.getSalesOrders({
+            page: salesPage,
+            limit: salesLimit,
+            status: request.orderStatus === "all" ? void 0 : request.orderStatus,
+            dateFrom: request.dateFrom ? new Date(request.dateFrom) : void 0,
+            dateTo: request.dateTo ? new Date(request.dateTo) : void 0
+          });
+          totalOrders += result.total;
+          for (const order of result.orders) {
+            try {
+              syncedOrders++;
+              salesOrders++;
+              logger.debug(`Pedido de venda sincronizado: ${order.cabecalho.codigo_pedido}`, {
+                status: order.cabecalho.status,
+                etapa: order.cabecalho.etapa
+              });
+            } catch (error) {
+              failedOrders++;
+              logger.error(`Erro ao sincronizar pedido de venda ${order.cabecalho.codigo_pedido}`, {
+                error: error instanceof Error ? error.message : String(error)
+              });
+            }
+          }
+          salesPage++;
+          if (result.orders.length < salesLimit) {
+            break;
+          }
+        } while (salesOrders + failedOrders / 2 < totalOrders / 2);
+      }
+      const durationMs = Date.now() - startTime;
+      const nextSyncAt = new Date(Date.now() + 60 * 1e3);
+      await syncRepository.updateSyncRecord(syncRecord.id, {
+        status: failedOrders === 0 ? "success" : "failed",
+        completedAt: /* @__PURE__ */ new Date(),
+        durationMs,
+        itemsProcessed: syncedOrders + failedOrders,
+        itemsFailed: failedOrders,
+        error: failedOrders > 0 ? `${failedOrders} pedidos falharam` : void 0
+      });
+      const response = {
+        success: failedOrders === 0,
+        message: failedOrders === 0 ? `Pedidos sincronizados com sucesso: ${syncedOrders} pedidos` : `Sincroniza\xE7\xE3o parcial: ${syncedOrders} sucessos, ${failedOrders} falhas`,
+        data: {
+          totalOrders,
+          syncedOrders,
+          failedOrders,
+          productionOrders,
+          salesOrders,
+          durationMs,
+          nextSyncAt: nextSyncAt.toISOString()
+        },
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      logger.info("Sincroniza\xE7\xE3o de pedidos conclu\xEDda", {
+        success: response.success,
+        durationMs,
+        syncedOrders,
+        failedOrders,
+        productionOrders,
+        salesOrders
+      });
+      return response;
+    } catch (error) {
+      const durationMs = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error("Erro na sincroniza\xE7\xE3o de pedidos", {
+        error: errorMessage,
+        durationMs
+      });
+      const response = {
+        success: false,
+        message: `Erro na sincroniza\xE7\xE3o: ${errorMessage}`,
+        data: {
+          totalOrders: 0,
+          syncedOrders: 0,
+          failedOrders: 0,
+          productionOrders: 0,
+          salesOrders: 0,
+          durationMs,
+          nextSyncAt: void 0
+        },
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      return response;
+    }
+  }
+};
+function createSyncOrdersUseCase(dependencies) {
+  return new SyncOrdersUseCase(dependencies);
+}
+
+// src/modules/sync/application/use-cases/get-sync-status.usecase.ts
+var GetSyncStatusUseCase = class {
+  constructor(dependencies) {
+    this.dependencies = dependencies;
+  }
+  dependencies;
+  async execute(request) {
+    const { syncRepository, logger } = this.dependencies;
+    logger.info("Obtendo status de sincroniza\xE7\xE3o", { request });
+    try {
+      const [recentSyncs, syncStats, summary] = await Promise.all([
+        syncRepository.getRecentSyncs(request),
+        syncRepository.getSyncStatsByType(
+          request.dateFrom ? new Date(request.dateFrom) : void 0,
+          request.dateTo ? new Date(request.dateTo) : void 0
+        ),
+        syncRepository.getSyncSummary(request)
+      ]);
+      const syncStatsByType = {};
+      const syncTypes = ["stock", "orders", "production"];
+      for (const syncType of syncTypes) {
+        const lastSync = await syncRepository.getLastSuccessfulSync(syncType);
+        syncStatsByType[syncType] = {
+          totalSyncs: syncStats[`${syncType}_total`] || 0,
+          successfulSyncs: syncStats[`${syncType}_success`] || 0,
+          failedSyncs: syncStats[`${syncType}_failed`] || 0,
+          averageDurationMs: syncStats[`${syncType}_avg_duration`] || 0,
+          lastSyncAt: lastSync?.completedAt?.toISOString()
+        };
+      }
+      const response = {
+        success: true,
+        message: "Status de sincroniza\xE7\xE3o obtido com sucesso",
+        data: {
+          summary: {
+            totalSyncs: summary.totalSyncs,
+            successfulSyncs: summary.successfulSyncs,
+            failedSyncs: summary.failedSyncs,
+            averageDurationMs: summary.averageDurationMs,
+            lastSyncAt: summary.lastSyncAt?.toISOString(),
+            nextSyncAt: this.calculateNextSyncTime(syncStatsByType)
+          },
+          recentSyncs: recentSyncs.map((sync) => ({
+            id: sync.id,
+            syncType: sync.syncType,
+            status: sync.status,
+            startedAt: sync.startedAt.toISOString(),
+            completedAt: sync.completedAt?.toISOString(),
+            durationMs: sync.durationMs,
+            itemsProcessed: sync.itemsProcessed,
+            itemsFailed: sync.itemsFailed,
+            error: sync.error
+          })),
+          syncStatsByType
+        },
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      logger.debug("Status de sincroniza\xE7\xE3o obtido", {
+        totalSyncs: summary.totalSyncs,
+        recentSyncsCount: recentSyncs.length
+      });
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error("Erro ao obter status de sincroniza\xE7\xE3o", {
+        error: errorMessage
+      });
+      const response = {
+        success: false,
+        message: `Erro ao obter status: ${errorMessage}`,
+        data: {
+          summary: {
+            totalSyncs: 0,
+            successfulSyncs: 0,
+            failedSyncs: 0,
+            averageDurationMs: 0,
+            lastSyncAt: void 0,
+            nextSyncAt: void 0
+          },
+          recentSyncs: [],
+          syncStatsByType: {}
+        },
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      return response;
+    }
+  }
+  calculateNextSyncTime(syncStatsByType) {
+    const now = Date.now();
+    const intervals = {
+      stock: 2 * 60 * 1e3,
+      // 2 minutos
+      orders: 60 * 1e3,
+      // 1 minuto
+      production: 30 * 1e3
+      // 30 segundos
+    };
+    let nextSyncTime;
+    for (const [syncType, stats] of Object.entries(syncStatsByType)) {
+      if (stats.lastSyncAt) {
+        const lastSyncTime = new Date(stats.lastSyncAt).getTime();
+        const interval = intervals[syncType] || 60 * 1e3;
+        const nextSyncForType = lastSyncTime + interval;
+        if (!nextSyncTime || nextSyncForType < nextSyncTime) {
+          nextSyncTime = nextSyncForType;
+        }
+      }
+    }
+    if (nextSyncTime && nextSyncTime > now) {
+      return new Date(nextSyncTime).toISOString();
+    }
+    return new Date(now + intervals.stock).toISOString();
+  }
+};
+function createGetSyncStatusUseCase(dependencies) {
+  return new GetSyncStatusUseCase(dependencies);
+}
+
+// src/modules/sync/infrastructure/db/sync.repository.prisma.ts
+var SyncRepositoryPrisma = class {
+  constructor(prisma2) {
+    this.prisma = prisma2;
+  }
+  prisma;
+  async createSyncRecord(syncRecord) {
+    const record = await this.prisma.syncRecord.create({
+      data: {
+        syncType: syncRecord.syncType,
+        status: syncRecord.status,
+        startedAt: syncRecord.startedAt,
+        completedAt: syncRecord.completedAt,
+        durationMs: syncRecord.durationMs,
+        itemsProcessed: syncRecord.itemsProcessed,
+        itemsFailed: syncRecord.itemsFailed,
+        error: syncRecord.error,
+        metadata: syncRecord.metadata
+      }
+    });
+    return this.mapToDomain(record);
+  }
+  async updateSyncRecord(id, updates) {
+    const record = await this.prisma.syncRecord.update({
+      where: { id },
+      data: {
+        status: updates.status,
+        completedAt: updates.completedAt,
+        durationMs: updates.durationMs,
+        itemsProcessed: updates.itemsProcessed,
+        itemsFailed: updates.itemsFailed,
+        error: updates.error,
+        metadata: updates.metadata
+      }
+    });
+    return this.mapToDomain(record);
+  }
+  async getSyncRecordById(id) {
+    const record = await this.prisma.syncRecord.findUnique({
+      where: { id }
+    });
+    return record ? this.mapToDomain(record) : null;
+  }
+  async getRecentSyncs(params) {
+    const where = {};
+    if (params.syncType !== "all") {
+      where.syncType = params.syncType;
+    }
+    if (params.dateFrom) {
+      where.startedAt = {
+        gte: new Date(params.dateFrom)
+      };
+    }
+    if (params.dateTo) {
+      where.startedAt = {
+        ...where.startedAt,
+        lte: new Date(params.dateTo)
+      };
+    }
+    const records = await this.prisma.syncRecord.findMany({
+      where,
+      orderBy: { startedAt: "desc" },
+      take: params.limit
+    });
+    return records.map((record) => this.mapToDomain(record));
+  }
+  async getSyncStatsByType(dateFrom, dateTo) {
+    const where = {};
+    if (dateFrom) {
+      where.startedAt = {
+        gte: dateFrom
+      };
+    }
+    if (dateTo) {
+      where.startedAt = {
+        ...where.startedAt,
+        lte: dateTo
+      };
+    }
+    const stats = await this.prisma.syncRecord.groupBy({
+      by: ["syncType", "status"],
+      where,
+      _count: {
+        id: true
+      },
+      _avg: {
+        durationMs: true
+      }
+    });
+    const result = {};
+    for (const stat of stats) {
+      const type = stat.syncType;
+      const status = stat.status;
+      result[`${type}_total`] = (result[`${type}_total`] || 0) + stat._count.id;
+      if (status === "success") {
+        result[`${type}_success`] = stat._count.id;
+        result[`${type}_avg_duration`] = stat._avg.durationMs || 0;
+      } else if (status === "failed") {
+        result[`${type}_failed`] = stat._count.id;
+      }
+    }
+    return result;
+  }
+  async getLastSuccessfulSync(syncType) {
+    const record = await this.prisma.syncRecord.findFirst({
+      where: {
+        syncType,
+        status: "success"
+      },
+      orderBy: { completedAt: "desc" }
+    });
+    return record ? this.mapToDomain(record) : null;
+  }
+  async getSyncSummary(params) {
+    const where = {};
+    if (params.syncType !== "all") {
+      where.syncType = params.syncType;
+    }
+    if (params.dateFrom) {
+      where.startedAt = {
+        gte: new Date(params.dateFrom)
+      };
+    }
+    if (params.dateTo) {
+      where.startedAt = {
+        ...where.startedAt,
+        lte: new Date(params.dateTo)
+      };
+    }
+    const [total, successful, failed, avgDuration, lastSync] = await Promise.all([
+      this.prisma.syncRecord.count({ where }),
+      this.prisma.syncRecord.count({
+        where: { ...where, status: "success" }
+      }),
+      this.prisma.syncRecord.count({
+        where: { ...where, status: "failed" }
+      }),
+      this.prisma.syncRecord.aggregate({
+        where: { ...where, status: "success" },
+        _avg: { durationMs: true }
+      }),
+      this.prisma.syncRecord.findFirst({
+        where: { ...where, status: "success" },
+        orderBy: { completedAt: "desc" },
+        select: { completedAt: true }
+      })
+    ]);
+    return {
+      totalSyncs: total,
+      successfulSyncs: successful,
+      failedSyncs: failed,
+      averageDurationMs: avgDuration._avg.durationMs || 0,
+      lastSyncAt: lastSync?.completedAt
+    };
+  }
+  mapToDomain(record) {
+    return {
+      id: record.id,
+      syncType: record.syncType,
+      status: record.status,
+      startedAt: record.startedAt,
+      completedAt: record.completedAt,
+      durationMs: record.durationMs,
+      itemsProcessed: record.itemsProcessed,
+      itemsFailed: record.itemsFailed,
+      error: record.error,
+      metadata: record.metadata
+    };
+  }
+};
+function createSyncRepository(prisma2) {
+  return new SyncRepositoryPrisma(prisma2);
+}
+
+// src/modules/sync/infrastructure/integrations/omie.gateway.ts
+var OmieGateway = class {
+  constructor(logger) {
+    this.logger = logger;
+  }
+  logger;
+  async getProducts(params) {
+    const { page = 1, limit = 100, productCodes, activeOnly = true } = params;
+    this.logger.debug("Buscando produtos do Omie", {
+      page,
+      limit,
+      productCodesCount: productCodes?.length,
+      activeOnly
+    });
+    const mockProducts = [
+      {
+        codigo: "PROD001",
+        descricao: "Produto Exemplo 1",
+        unidade: "UN",
+        ncm: "1234.56.78",
+        valor_unitario: 100.5,
+        estoque: 150,
+        estoque_minimo: 20,
+        estoque_maximo: 200,
+        localizacao: "Prateleira A",
+        data_validade: /* @__PURE__ */ new Date("2024-12-31"),
+        status: "ativo"
+      },
+      {
+        codigo: "PROD002",
+        descricao: "Produto Exemplo 2",
+        unidade: "KG",
+        ncm: "8765.43.21",
+        valor_unitario: 75.25,
+        estoque: 45,
+        estoque_minimo: 10,
+        estoque_maximo: 100,
+        localizacao: "Prateleira B",
+        status: "ativo"
+      }
+    ];
+    let filteredProducts = mockProducts;
+    if (productCodes && productCodes.length > 0) {
+      filteredProducts = mockProducts.filter((p) => productCodes.includes(p.codigo));
+    }
+    if (activeOnly) {
+      filteredProducts = filteredProducts.filter((p) => p.status === "ativo");
+    }
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+    return {
+      products: paginatedProducts,
+      total: filteredProducts.length,
+      page,
+      limit
+    };
+  }
+  async getProductionOrders(params) {
+    const { page = 1, limit = 100, status, dateFrom, dateTo } = params;
+    this.logger.debug("Buscando pedidos de produ\xE7\xE3o do Omie", {
+      page,
+      limit,
+      status,
+      dateFrom,
+      dateTo
+    });
+    const mockOrders = [
+      {
+        codigo_pedido: "PRODORD001",
+        numero_pedido: "1001",
+        codigo_cliente: "CLI001",
+        nome_cliente: "Cliente Exemplo 1",
+        data_previsao: /* @__PURE__ */ new Date("2024-01-15"),
+        etapa: "corte",
+        status: "in_production",
+        produtos: [
+          {
+            codigo_item: "ITEM001",
+            codigo_produto: "PROD001",
+            descricao: "Produto Exemplo 1",
+            quantidade: 10,
+            quantidade_produzida: 5,
+            unidade: "UN",
+            valor_unitario: 100.5,
+            valor_total: 1005
+          }
+        ],
+        observacoes: "Pedido priorit\xE1rio"
+      },
+      {
+        codigo_pedido: "PRODORD002",
+        numero_pedido: "1002",
+        codigo_cliente: "CLI002",
+        nome_cliente: "Cliente Exemplo 2",
+        data_previsao: /* @__PURE__ */ new Date("2024-01-20"),
+        etapa: "montagem",
+        status: "pending",
+        produtos: [
+          {
+            codigo_item: "ITEM002",
+            codigo_produto: "PROD002",
+            descricao: "Produto Exemplo 2",
+            quantidade: 5,
+            quantidade_produzida: 0,
+            unidade: "KG",
+            valor_unitario: 75.25,
+            valor_total: 376.25
+          }
+        ]
+      }
+    ];
+    let filteredOrders = mockOrders;
+    if (status && status !== "all") {
+      filteredOrders = mockOrders.filter((o) => o.status === status);
+    }
+    if (dateFrom) {
+      filteredOrders = filteredOrders.filter((o) => o.data_previsao >= dateFrom);
+    }
+    if (dateTo) {
+      filteredOrders = filteredOrders.filter((o) => o.data_previsao <= dateTo);
+    }
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+    return {
+      orders: paginatedOrders,
+      total: filteredOrders.length,
+      page,
+      limit
+    };
+  }
+  async getSalesOrders(params) {
+    const { page = 1, limit = 100, status, dateFrom, dateTo } = params;
+    this.logger.debug("Buscando pedidos de venda do Omie", {
+      page,
+      limit,
+      status,
+      dateFrom,
+      dateTo
+    });
+    const mockOrders = [
+      {
+        cabecalho: {
+          codigo_pedido: "SALESORD001",
+          numero_pedido: "2001",
+          codigo_cliente: "CLI001",
+          nome_cliente: "Cliente Exemplo 1",
+          data_previsao: /* @__PURE__ */ new Date("2024-01-10"),
+          etapa: "aprovado",
+          status: "approved",
+          valor_total: 1500.75
+        },
+        detalhes: [
+          {
+            codigo_item: "SALESITEM001",
+            codigo_produto: "PROD001",
+            descricao: "Produto Exemplo 1",
+            quantidade: 15,
+            unidade: "UN",
+            valor_unitario: 100.5,
+            valor_total: 1507.5
+          }
+        ]
+      },
+      {
+        cabecalho: {
+          codigo_pedido: "SALESORD002",
+          numero_pedido: "2002",
+          codigo_cliente: "CLI002",
+          nome_cliente: "Cliente Exemplo 2",
+          data_previsao: /* @__PURE__ */ new Date("2024-01-12"),
+          etapa: "pendente",
+          status: "pending",
+          valor_total: 376.25
+        },
+        detalhes: [
+          {
+            codigo_item: "SALESITEM002",
+            codigo_produto: "PROD002",
+            descricao: "Produto Exemplo 2",
+            quantidade: 5,
+            unidade: "KG",
+            valor_unitario: 75.25,
+            valor_total: 376.25
+          }
+        ]
+      }
+    ];
+    let filteredOrders = mockOrders;
+    if (status && status !== "all") {
+      filteredOrders = mockOrders.filter((o) => o.cabecalho.status === status);
+    }
+    if (dateFrom) {
+      filteredOrders = filteredOrders.filter((o) => o.cabecalho.data_previsao >= dateFrom);
+    }
+    if (dateTo) {
+      filteredOrders = filteredOrders.filter((o) => o.cabecalho.data_previsao <= dateTo);
+    }
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+    return {
+      orders: paginatedOrders,
+      total: filteredOrders.length,
+      page,
+      limit
+    };
+  }
+  async updateProductStock(params) {
+    const { productCode, quantity, operation } = params;
+    this.logger.debug("Atualizando estoque no Omie", {
+      productCode,
+      quantity,
+      operation
+    });
+    return true;
+  }
+  async updateOrderStatus(params) {
+    const { orderCode, orderType, status, etapa } = params;
+    this.logger.debug("Atualizando status de pedido no Omie", {
+      orderCode,
+      orderType,
+      status,
+      etapa
+    });
+    return true;
+  }
+};
+function createOmieGateway(logger) {
+  return new OmieGateway(logger);
+}
+
+// src/modules/sync/register.ts
+function registerSyncModule(app) {
+  const syncRepository = createSyncRepository(app.prisma);
+  const omieGateway = createOmieGateway(app.log);
+  const syncStockUseCase = createSyncStockUseCase({
+    syncRepository,
+    omieGateway,
+    logger: app.log
+  });
+  const syncOrdersUseCase = createSyncOrdersUseCase({
+    syncRepository,
+    omieGateway,
+    logger: app.log
+  });
+  const getSyncStatusUseCase = createGetSyncStatusUseCase({
+    syncRepository,
+    logger: app.log
+  });
+  app.decorate("diContainer", {
+    resolve: (name) => {
+      const dependencies = {
+        syncRepository,
+        omieGateway,
+        syncStockUseCase,
+        syncOrdersUseCase,
+        getSyncStatusUseCase
+      };
+      if (!dependencies[name]) {
+        throw new Error(`Dependency ${name} not found`);
+      }
+      return dependencies[name];
+    }
+  });
+  registerSyncRoutes(app);
+  app.log.info("M\xF3dulo sync registrado com sucesso");
+}
 
 // src/bootstrap/routes.ts
 async function registerRoutes(app) {
@@ -4992,6 +6085,7 @@ async function registerRoutes(app) {
   await registerOmieProductionOrdersModule(app);
   createOmieProductionOrdersModule(app);
   await registerOrdersViewModule(app);
+  registerSyncModule(app);
 }
 function setBaseLogger(logger) {
 }
@@ -5178,6 +6272,669 @@ function startOmieProductSyncJob(appOrLogger) {
   });
   return () => task.stop();
 }
+
+// src/shared/services/RetrySystem.ts
+var RetrySystem = class {
+  logger;
+  metrics = {
+    totalRetries: 0,
+    successfulRetries: 0,
+    failedRetries: 0,
+    averageRetryDurationMs: 0,
+    circuitBreakerTrips: 0,
+    circuitBreakerResets: 0
+  };
+  circuitBreakerState = "closed";
+  consecutiveFailures = 0;
+  circuitBreakerOpenedAt = null;
+  constructor(logger) {
+    this.logger = logger.child({ service: "RetrySystem" });
+  }
+  async executeWithRetry(operation, config, operationName) {
+    const startTime = Date.now();
+    let lastError = null;
+    let attempts = 0;
+    this.logger.info(
+      { operationName, config },
+      "Starting retry operation"
+    );
+    while (attempts < config.maxAttempts) {
+      attempts++;
+      if (this.shouldBlockOperation(config)) {
+        this.logger.warn(
+          { operationName, attempts, circuitBreakerState: this.circuitBreakerState },
+          "Operation blocked by circuit breaker"
+        );
+        return {
+          success: false,
+          error: "Circuit breaker is open",
+          attempts,
+          totalDurationMs: Date.now() - startTime,
+          lastAttemptAt: /* @__PURE__ */ new Date(),
+          circuitBreakerState: this.circuitBreakerState
+        };
+      }
+      try {
+        this.logger.debug(
+          { operationName, attempt: attempts, totalAttempts: config.maxAttempts },
+          "Executing operation attempt"
+        );
+        const data = await operation();
+        this.handleSuccess(config);
+        this.updateMetrics(true, Date.now() - startTime);
+        return {
+          success: true,
+          data,
+          attempts,
+          totalDurationMs: Date.now() - startTime,
+          lastAttemptAt: /* @__PURE__ */ new Date(),
+          circuitBreakerState: this.circuitBreakerState
+        };
+      } catch (error) {
+        lastError = error;
+        this.handleFailure(config);
+        this.logger.warn(
+          {
+            operationName,
+            attempt: attempts,
+            error: error.message,
+            consecutiveFailures: this.consecutiveFailures,
+            circuitBreakerState: this.circuitBreakerState
+          },
+          "Operation attempt failed"
+        );
+        if (attempts < config.maxAttempts) {
+          const delay = this.calculateDelay(config, attempts);
+          await this.delay(delay);
+          this.logger.debug(
+            { operationName, delayMs: delay, nextAttempt: attempts + 1 },
+            "Waiting before next retry attempt"
+          );
+        }
+      }
+    }
+    this.updateMetrics(false, Date.now() - startTime);
+    return {
+      success: false,
+      error: lastError?.message || "Operation failed after all retry attempts",
+      attempts,
+      totalDurationMs: Date.now() - startTime,
+      lastAttemptAt: /* @__PURE__ */ new Date(),
+      circuitBreakerState: this.circuitBreakerState
+    };
+  }
+  shouldBlockOperation(config) {
+    if (!config.circuitBreakerEnabled) {
+      return false;
+    }
+    if (this.circuitBreakerState === "open") {
+      if (this.circuitBreakerOpenedAt) {
+        const timeSinceOpen = Date.now() - this.circuitBreakerOpenedAt.getTime();
+        if (timeSinceOpen >= config.circuitBreakerResetTimeoutMs) {
+          this.circuitBreakerState = "half-open";
+          this.circuitBreakerOpenedAt = null;
+          this.metrics.circuitBreakerResets++;
+          this.logger.info(
+            { timeSinceOpenMs: timeSinceOpen },
+            "Circuit breaker moved to half-open state"
+          );
+        } else {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  handleSuccess(config) {
+    if (this.circuitBreakerState === "half-open") {
+      this.circuitBreakerState = "closed";
+      this.consecutiveFailures = 0;
+      this.logger.info(
+        { consecutiveFailures: this.consecutiveFailures },
+        "Circuit breaker closed after successful operation"
+      );
+    } else {
+      this.consecutiveFailures = 0;
+    }
+  }
+  handleFailure(config) {
+    this.consecutiveFailures++;
+    if (config.circuitBreakerEnabled && this.consecutiveFailures >= config.circuitBreakerThreshold && this.circuitBreakerState !== "open") {
+      this.circuitBreakerState = "open";
+      this.circuitBreakerOpenedAt = /* @__PURE__ */ new Date();
+      this.metrics.circuitBreakerTrips++;
+      this.logger.error(
+        {
+          consecutiveFailures: this.consecutiveFailures,
+          threshold: config.circuitBreakerThreshold
+        },
+        "Circuit breaker tripped to open state"
+      );
+    }
+  }
+  calculateDelay(config, attempt) {
+    const exponentialDelay = config.baseDelayMs * Math.pow(config.exponentialFactor, attempt - 1);
+    const cappedDelay = Math.min(exponentialDelay, config.maxDelayMs);
+    if (!config.jitter) {
+      return cappedDelay;
+    }
+    const jitterRange = cappedDelay * config.jitterFactor;
+    const jitter = Math.random() * jitterRange - jitterRange / 2;
+    return Math.max(config.baseDelayMs, cappedDelay + jitter);
+  }
+  async delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  updateMetrics(success, durationMs) {
+    this.metrics.totalRetries++;
+    if (success) {
+      this.metrics.successfulRetries++;
+    } else {
+      this.metrics.failedRetries++;
+    }
+    const totalDuration = this.metrics.averageRetryDurationMs * (this.metrics.totalRetries - 1) + durationMs;
+    this.metrics.averageRetryDurationMs = totalDuration / this.metrics.totalRetries;
+  }
+  getMetrics() {
+    return { ...this.metrics };
+  }
+  getCircuitBreakerState() {
+    return this.circuitBreakerState;
+  }
+  resetCircuitBreaker() {
+    this.circuitBreakerState = "closed";
+    this.consecutiveFailures = 0;
+    this.circuitBreakerOpenedAt = null;
+    this.logger.info({}, "Circuit breaker manually reset");
+  }
+  static createDefaultConfig() {
+    return {
+      maxAttempts: 3,
+      baseDelayMs: 1e3,
+      maxDelayMs: 3e4,
+      exponentialFactor: 2,
+      jitter: true,
+      jitterFactor: 0.1,
+      circuitBreakerEnabled: true,
+      circuitBreakerThreshold: 5,
+      circuitBreakerResetTimeoutMs: 6e4
+    };
+  }
+};
+
+// src/shared/services/retry.config.ts
+var DEFAULT_RETRY_CONFIGS = {
+  "omie-production-orders-sync": {
+    maxAttempts: 3,
+    baseDelayMs: 2e3,
+    maxDelayMs: 3e4,
+    exponentialFactor: 2,
+    jitter: true,
+    jitterFactor: 0.1,
+    circuitBreakerEnabled: true,
+    circuitBreakerThreshold: 3,
+    circuitBreakerResetTimeoutMs: 6e4
+  },
+  "omie-orders-stage20-sync": {
+    maxAttempts: 3,
+    baseDelayMs: 2e3,
+    maxDelayMs: 3e4,
+    exponentialFactor: 2,
+    jitter: true,
+    jitterFactor: 0.1,
+    circuitBreakerEnabled: true,
+    circuitBreakerThreshold: 3,
+    circuitBreakerResetTimeoutMs: 6e4
+  },
+  "stock-monitor": {
+    maxAttempts: 2,
+    baseDelayMs: 5e3,
+    maxDelayMs: 6e4,
+    exponentialFactor: 2,
+    jitter: true,
+    jitterFactor: 0.2,
+    circuitBreakerEnabled: false,
+    circuitBreakerThreshold: 5,
+    circuitBreakerResetTimeoutMs: 12e4
+  }
+};
+function safeParseInt(value, defaultValue) {
+  if (!value) return defaultValue;
+  const parsed2 = parseInt(value, 10);
+  return isNaN(parsed2) || parsed2 <= 0 ? defaultValue : parsed2;
+}
+function safeParseFloat(value, defaultValue) {
+  if (!value) return defaultValue;
+  const parsed2 = parseFloat(value);
+  return isNaN(parsed2) || parsed2 <= 0 ? defaultValue : parsed2;
+}
+function getRetryConfig(jobName) {
+  const envPrefix = `RETRY_${jobName.toUpperCase().replace(/-/g, "_")}_`;
+  const config = DEFAULT_RETRY_CONFIGS[jobName] || RetrySystem.createDefaultConfig();
+  return {
+    maxAttempts: safeParseInt(process.env[`${envPrefix}MAX_ATTEMPTS`], config.maxAttempts),
+    baseDelayMs: safeParseInt(process.env[`${envPrefix}BASE_DELAY_MS`], config.baseDelayMs),
+    maxDelayMs: safeParseInt(process.env[`${envPrefix}MAX_DELAY_MS`], config.maxDelayMs),
+    exponentialFactor: safeParseFloat(process.env[`${envPrefix}EXPONENTIAL_FACTOR`], config.exponentialFactor),
+    jitter: process.env[`${envPrefix}JITTER`] ? process.env[`${envPrefix}JITTER`] === "true" : config.jitter,
+    jitterFactor: safeParseFloat(process.env[`${envPrefix}JITTER_FACTOR`], config.jitterFactor),
+    circuitBreakerEnabled: process.env[`${envPrefix}CIRCUIT_BREAKER_ENABLED`] ? process.env[`${envPrefix}CIRCUIT_BREAKER_ENABLED`] === "true" : config.circuitBreakerEnabled,
+    circuitBreakerThreshold: safeParseInt(process.env[`${envPrefix}CIRCUIT_BREAKER_THRESHOLD`], config.circuitBreakerThreshold),
+    circuitBreakerResetTimeoutMs: safeParseInt(process.env[`${envPrefix}CIRCUIT_BREAKER_RESET_TIMEOUT_MS`], config.circuitBreakerResetTimeoutMs)
+  };
+}
+
+// src/shared/services/IntelligentPollingService.ts
+var IntelligentPollingService = class {
+  jobs = /* @__PURE__ */ new Map();
+  status = /* @__PURE__ */ new Map();
+  timeouts = /* @__PURE__ */ new Map();
+  logger;
+  retrySystem;
+  metrics = {
+    totalJobsExecuted: 0,
+    totalSuccessfulJobs: 0,
+    totalFailedJobs: 0,
+    averageJobDurationMs: 0
+  };
+  constructor(logger) {
+    this.logger = logger.child({ service: "IntelligentPollingService" });
+    this.retrySystem = new RetrySystem(logger);
+  }
+  registerJob(config) {
+    const retryConfig = config.retryConfig || getRetryConfig(config.name);
+    const defaultConfig = {
+      adaptivePolling: true,
+      successThreshold: 5,
+      failureThreshold: 3,
+      retryConfig,
+      ...config
+    };
+    this.jobs.set(config.name, defaultConfig);
+    this.status.set(config.name, {
+      name: config.name,
+      lastRunAt: null,
+      lastSuccessAt: null,
+      lastError: null,
+      consecutiveFailures: 0,
+      consecutiveSuccesses: 0,
+      currentIntervalMs: config.baseIntervalMs,
+      isRunning: false,
+      nextRunAt: null,
+      totalRuns: 0,
+      totalSuccesses: 0,
+      totalFailures: 0,
+      averageDurationMs: 0,
+      lastDurationMs: null
+    });
+    this.logger.info({ jobName: config.name }, "Job registered");
+  }
+  async startJob(jobName, handler) {
+    const config = this.jobs.get(jobName);
+    if (!config) {
+      throw new Error(`Job ${jobName} not registered`);
+    }
+    if (!config.enabled) {
+      this.logger.info({ jobName }, "Job disabled, not starting");
+      return;
+    }
+    this.status.get(jobName);
+    this.scheduleNextRun(jobName, handler);
+    this.logger.info({ jobName }, "Job started");
+  }
+  stopJob(jobName) {
+    const timeout = this.timeouts.get(jobName);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.timeouts.delete(jobName);
+    }
+    const jobStatus = this.status.get(jobName);
+    if (jobStatus) {
+      jobStatus.isRunning = false;
+      jobStatus.nextRunAt = null;
+    }
+    this.logger.info({ jobName }, "Job stopped");
+  }
+  stopAllJobs() {
+    for (const [jobName] of this.jobs) {
+      this.stopJob(jobName);
+    }
+    this.logger.info({}, "All jobs stopped");
+  }
+  getJobStatus(jobName) {
+    return this.status.get(jobName) || null;
+  }
+  getAllJobStatuses() {
+    return Array.from(this.status.values());
+  }
+  scheduleNextRun(jobName, handler) {
+    const config = this.jobs.get(jobName);
+    const jobStatus = this.status.get(jobName);
+    if (!config || !jobStatus || !config.enabled) {
+      return;
+    }
+    const existingTimeout = this.timeouts.get(jobName);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+    const nextRunInMs = jobStatus.currentIntervalMs;
+    const nextRunAt = new Date(Date.now() + nextRunInMs);
+    jobStatus.nextRunAt = nextRunAt;
+    const timeout = setTimeout(() => {
+      void this.executeJobWithRetry(jobName, handler);
+    }, nextRunInMs);
+    this.timeouts.set(jobName, timeout);
+    this.logger.debug(
+      { jobName, nextRunInMs, nextRunAt: nextRunAt.toISOString() },
+      "Next job run scheduled"
+    );
+  }
+  async executeJobWithRetry(jobName, handler) {
+    const config = this.jobs.get(jobName);
+    const jobStatus = this.status.get(jobName);
+    if (jobStatus.isRunning) {
+      this.logger.warn({ jobName }, "Job already running, skipping retry");
+      return;
+    }
+    jobStatus.isRunning = true;
+    try {
+      this.logger.info({ jobName }, "Job execution with retry started");
+      let retryResult;
+      if (!config.retryConfig || config.retryConfig.maxRetries === 0) {
+        const startTime = Date.now();
+        const result = await handler.execute();
+        const durationMs = Date.now() - startTime;
+        retryResult = {
+          success: result.success,
+          data: result.data,
+          error: result.error,
+          attempts: 1,
+          totalDurationMs: durationMs,
+          circuitBreakerState: "closed"
+        };
+      } else {
+        retryResult = await this.retrySystem.executeWithRetry(
+          async () => {
+            const startTime = Date.now();
+            const result = await handler.execute();
+            const durationMs = Date.now() - startTime;
+            return {
+              ...result,
+              durationMs
+            };
+          },
+          config.retryConfig,
+          jobName
+        );
+      }
+      if (retryResult.success) {
+        jobStatus.lastSuccessAt = /* @__PURE__ */ new Date();
+        jobStatus.consecutiveFailures = 0;
+        jobStatus.currentIntervalMs = config.baseIntervalMs;
+        jobStatus.lastError = null;
+        jobStatus.totalRuns++;
+        jobStatus.totalSuccesses++;
+        jobStatus.lastDurationMs = retryResult.totalDurationMs;
+        this.metrics.totalJobsExecuted++;
+        this.metrics.totalSuccessfulJobs++;
+        this.logger.info(
+          {
+            jobName,
+            durationMs: retryResult.totalDurationMs,
+            attempts: retryResult.attempts,
+            data: retryResult.data
+          },
+          "Job execution with retry succeeded"
+        );
+      } else {
+        jobStatus.consecutiveFailures++;
+        jobStatus.lastError = retryResult.error || "Unknown error";
+        jobStatus.totalRuns++;
+        jobStatus.totalFailures++;
+        jobStatus.lastDurationMs = retryResult.totalDurationMs;
+        this.metrics.totalJobsExecuted++;
+        this.metrics.totalFailedJobs++;
+        const newInterval = this.calculateBackoffInterval(
+          config.baseIntervalMs,
+          config.maxIntervalMs,
+          jobStatus.consecutiveFailures
+        );
+        jobStatus.currentIntervalMs = newInterval;
+        this.logger.warn(
+          {
+            jobName,
+            durationMs: retryResult.totalDurationMs,
+            attempts: retryResult.attempts,
+            error: retryResult.error,
+            consecutiveFailures: jobStatus.consecutiveFailures,
+            newIntervalMs: newInterval,
+            circuitBreakerState: retryResult.circuitBreakerState
+          },
+          "Job execution with retry failed"
+        );
+      }
+      jobStatus.lastRunAt = /* @__PURE__ */ new Date();
+    } catch (error) {
+      jobStatus.consecutiveFailures++;
+      jobStatus.lastError = error.message;
+      jobStatus.totalRuns++;
+      jobStatus.totalFailures++;
+      this.metrics.totalJobsExecuted++;
+      this.metrics.totalFailedJobs++;
+      const newInterval = this.calculateBackoffInterval(
+        config.baseIntervalMs,
+        config.maxIntervalMs,
+        jobStatus.consecutiveFailures
+      );
+      jobStatus.currentIntervalMs = newInterval;
+      this.logger.error(
+        {
+          jobName,
+          error: error.message,
+          stack: error.stack,
+          consecutiveFailures: jobStatus.consecutiveFailures,
+          newIntervalMs: newInterval
+        },
+        "Job execution with retry threw unexpected error"
+      );
+    } finally {
+      jobStatus.isRunning = false;
+      this.logger.debug(
+        { jobName },
+        "Job execution with retry completed"
+      );
+      this.scheduleNextRun(jobName, handler);
+    }
+  }
+  updateJobMetrics(jobStatus, result, startTime) {
+    const endTime = Date.now();
+    const durationMs = endTime - startTime;
+    jobStatus.totalRuns++;
+    jobStatus.lastDurationMs = durationMs;
+    if (result.success) {
+      jobStatus.lastSuccessAt = /* @__PURE__ */ new Date();
+      jobStatus.consecutiveSuccesses++;
+      jobStatus.consecutiveFailures = 0;
+      jobStatus.totalSuccesses++;
+      jobStatus.lastError = null;
+      this.metrics.totalSuccessfulJobs++;
+    } else {
+      jobStatus.consecutiveFailures++;
+      jobStatus.consecutiveSuccesses = 0;
+      jobStatus.totalFailures++;
+      jobStatus.lastError = result.error || "Unknown error";
+      this.metrics.totalFailedJobs++;
+    }
+    this.metrics.totalJobsExecuted++;
+    const totalDuration = jobStatus.averageDurationMs * (jobStatus.totalRuns - 1) + durationMs;
+    jobStatus.averageDurationMs = totalDuration / jobStatus.totalRuns;
+    const globalTotalDuration = this.metrics.averageJobDurationMs * (this.metrics.totalJobsExecuted - 1) + durationMs;
+    this.metrics.averageJobDurationMs = globalTotalDuration / this.metrics.totalJobsExecuted;
+  }
+  updatePollingInterval(config, jobStatus, result) {
+    if (!config.adaptivePolling) {
+      return;
+    }
+    if (result.success) {
+      if (jobStatus.consecutiveSuccesses >= (config.successThreshold || 5)) {
+        const reducedInterval = Math.max(
+          config.baseIntervalMs * 0.5,
+          config.baseIntervalMs * 0.8
+        );
+        jobStatus.currentIntervalMs = reducedInterval;
+        this.logger.info(
+          {
+            jobName: jobStatus.name,
+            newIntervalMs: reducedInterval,
+            consecutiveSuccesses: jobStatus.consecutiveSuccesses
+          },
+          "Reduced polling interval due to consistent success"
+        );
+      } else {
+        jobStatus.currentIntervalMs = config.baseIntervalMs;
+      }
+    } else {
+      const newInterval = this.calculateBackoffInterval(
+        config.baseIntervalMs,
+        config.maxIntervalMs,
+        jobStatus.consecutiveFailures
+      );
+      jobStatus.currentIntervalMs = newInterval;
+      if (jobStatus.consecutiveFailures >= (config.failureThreshold || 3)) {
+        this.logger.warn(
+          {
+            jobName: jobStatus.name,
+            newIntervalMs: newInterval,
+            consecutiveFailures: jobStatus.consecutiveFailures
+          },
+          "Increased polling interval due to consecutive failures"
+        );
+      }
+    }
+  }
+  handleJobExecutionError(jobStatus, config, error, startTime) {
+    const endTime = Date.now();
+    const durationMs = endTime - startTime;
+    jobStatus.totalRuns++;
+    jobStatus.totalFailures++;
+    jobStatus.lastDurationMs = durationMs;
+    jobStatus.consecutiveFailures++;
+    jobStatus.consecutiveSuccesses = 0;
+    jobStatus.lastError = error.message;
+    this.metrics.totalJobsExecuted++;
+    this.metrics.totalFailedJobs++;
+    const newInterval = this.calculateBackoffInterval(
+      config.baseIntervalMs,
+      config.maxIntervalMs,
+      jobStatus.consecutiveFailures
+    );
+    jobStatus.currentIntervalMs = newInterval;
+    this.logger.error(
+      {
+        jobName: jobStatus.name,
+        error: error.message,
+        stack: error.stack,
+        durationMs,
+        consecutiveFailures: jobStatus.consecutiveFailures,
+        newIntervalMs: newInterval
+      },
+      "Job execution threw unexpected error"
+    );
+  }
+  calculateBackoffInterval(baseIntervalMs, maxIntervalMs, consecutiveFailures) {
+    if (consecutiveFailures === 0) {
+      return baseIntervalMs;
+    }
+    const backoffFactor = Math.pow(2, Math.min(consecutiveFailures - 1, 10));
+    const calculatedInterval = baseIntervalMs * backoffFactor;
+    return Math.min(calculatedInterval, maxIntervalMs);
+  }
+  getRetryMetrics() {
+    return this.retrySystem.getMetrics();
+  }
+  getRetryCircuitBreakerState(jobName) {
+    return this.retrySystem.getCircuitBreakerState();
+  }
+  getServiceMetrics() {
+    return { ...this.metrics };
+  }
+};
+
+// src/shared/services/polling.config.ts
+var DEFAULT_POLLING_CONFIGS = {
+  "omie-production-orders-sync": {
+    name: "omie-production-orders-sync",
+    baseIntervalMs: 30 * 1e3,
+    // 30 segundos
+    maxIntervalMs: 5 * 60 * 1e3,
+    // 5 minutos
+    criticality: "high",
+    enabled: true
+  },
+  "omie-orders-stage20-sync": {
+    name: "omie-orders-stage20-sync",
+    baseIntervalMs: 60 * 1e3,
+    // 1 minuto
+    maxIntervalMs: 10 * 60 * 1e3,
+    // 10 minutos
+    criticality: "high",
+    enabled: true
+  },
+  "stock-monitor": {
+    name: "stock-monitor",
+    baseIntervalMs: 2 * 60 * 1e3,
+    // 2 minutos
+    maxIntervalMs: 30 * 60 * 1e3,
+    // 30 minutos
+    criticality: "medium",
+    enabled: true
+  },
+  "omie-product-sync": {
+    name: "omie-product-sync",
+    baseIntervalMs: 5 * 60 * 1e3,
+    // 5 minutos
+    maxIntervalMs: 60 * 60 * 1e3,
+    // 60 minutos
+    criticality: "medium",
+    enabled: true
+  },
+  "stock-refresh": {
+    name: "stock-refresh",
+    baseIntervalMs: 10 * 60 * 1e3,
+    // 10 minutos
+    maxIntervalMs: 120 * 60 * 1e3,
+    // 120 minutos
+    criticality: "low",
+    enabled: true
+  }
+};
+function getPollingConfigFromEnv() {
+  const configs = {};
+  for (const [key, defaultConfig] of Object.entries(DEFAULT_POLLING_CONFIGS)) {
+    const envKey = key.toUpperCase().replace(/-/g, "_");
+    const enabledEnv = process.env[`${envKey}_ENABLED`];
+    const baseIntervalEnv = process.env[`${envKey}_BASE_INTERVAL_MS`];
+    const maxIntervalEnv = process.env[`${envKey}_MAX_INTERVAL_MS`];
+    const enabled = enabledEnv ? enabledEnv.toLowerCase() === "true" || enabledEnv === "1" : defaultConfig.enabled;
+    const baseIntervalMs = baseIntervalEnv ? (() => {
+      const parsed2 = parseInt(baseIntervalEnv, 10);
+      return isNaN(parsed2) || parsed2 <= 0 ? defaultConfig.baseIntervalMs : parsed2;
+    })() : defaultConfig.baseIntervalMs;
+    const maxIntervalMs = maxIntervalEnv ? (() => {
+      const parsed2 = parseInt(maxIntervalEnv, 10);
+      return isNaN(parsed2) || parsed2 <= 0 ? defaultConfig.maxIntervalMs : parsed2;
+    })() : defaultConfig.maxIntervalMs;
+    configs[key] = {
+      ...defaultConfig,
+      enabled,
+      baseIntervalMs,
+      maxIntervalMs
+    };
+  }
+  return configs;
+}
+
+// src/modules/omie-sales-orders/infrastructure/jobs/omie-orders-stage20.job.ts
 function resolveLogger3(input) {
   const maybeFastify = input;
   const maybeLogger = input;
@@ -5191,81 +6948,83 @@ function startOmieOrdersStage20SyncJob(appOrLogger) {
   if (process.env.NODE_ENV === "test") {
     return;
   }
-  const enabledValue = String(
-    process.env.OMIE_ORDERS_STAGE_SYNC ?? ""
-  ).trim().toLowerCase();
-  const enabled = enabledValue === "true" || enabledValue === "1";
-  if (!enabled) {
-    log.info({}, "omie orders stage20 sync job disabled");
+  const pollingConfigs = getPollingConfigFromEnv();
+  const jobConfig = pollingConfigs["omie-orders-stage20-sync"];
+  if (!jobConfig.enabled) {
+    log.info({}, "omie orders stage20 sync job disabled via environment");
     return;
   }
-  const cronExpr = String(process.env.OMIE_ORDERS_STAGE20_CRON ?? "").trim() || "*/10 * * * *";
-  const effectiveCronExpr = cron__default.default.validate(cronExpr) ? cronExpr : "*/10 * * * *";
-  if (effectiveCronExpr !== cronExpr) {
-    log.warn(
-      { cronExpr },
-      "omie orders stage20 sync job: invalid cron expr, falling back to */10 * * * *"
-    );
-  }
-  log.info(
-    { cronExpr: effectiveCronExpr },
-    "omie orders stage20 sync job scheduled"
-  );
-  let inFlight = false;
-  const tick = async () => {
-    if (inFlight) {
-      log.warn(
-        {},
-        "omie orders stage20 sync skipped (previous run still in progress)"
-      );
-      return;
-    }
-    inFlight = true;
-    const startedAt = Date.now();
-    const startedAtIso = new Date(startedAt).toISOString();
-    log.info(
-      { startedAt: startedAtIso },
-      "omie orders stage20 sync started"
-    );
-    try {
-      const app = "decorate" in appOrLogger ? appOrLogger : null;
-      if (!app) {
-        throw new Error(
-          "Fastify instance is required to run Omie Orders Stage20 job"
-        );
+  const pollingService = new IntelligentPollingService(log);
+  pollingService.registerJob(jobConfig);
+  const jobHandler = {
+    execute: async () => {
+      const startTime = Date.now();
+      try {
+        const app = "decorate" in appOrLogger ? appOrLogger : null;
+        if (!app) {
+          throw new Error(
+            "Fastify instance is required to run Omie Orders Stage20 job"
+          );
+        }
+        const { useCases } = createOmieSalesOrdersModule(app);
+        const result = await useCases.syncStage20Orders.execute();
+        const durationMs = Date.now() - startTime;
+        return {
+          success: true,
+          durationMs,
+          data: result,
+          metadata: {
+            syncType: "orders-stage20",
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          }
+        };
+      } catch (err) {
+        const durationMs = Date.now() - startTime;
+        if (err instanceof AppError && err.code === "SYNC_IN_PROGRESS") {
+          return {
+            success: false,
+            durationMs,
+            error: "Sync already in progress",
+            metadata: {
+              errorCode: err.code,
+              syncType: "orders-stage20"
+            }
+          };
+        }
+        return {
+          success: false,
+          durationMs,
+          error: err.message,
+          metadata: {
+            errorStack: err.stack,
+            syncType: "orders-stage20"
+          }
+        };
       }
-      const { useCases } = createOmieSalesOrdersModule(app);
-      const result = await useCases.syncStage20Orders.execute();
-      log.info(
-        {
-          startedAt: startedAtIso,
-          finishedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          durationMs: Date.now() - startedAt,
-          ...result
-        },
-        "omie orders stage20 sync finished"
-      );
-    } catch (err) {
-      if (err instanceof AppError && err.code === "SYNC_IN_PROGRESS") {
-        log.warn(
-          { startedAt: startedAtIso, code: err.code },
-          "omie orders stage20 sync skipped: already running"
-        );
-        return;
-      }
-      log.error(
-        { err, stack: err?.stack, startedAt: startedAtIso },
-        "omie orders stage20 sync failed"
-      );
-    } finally {
-      inFlight = false;
     }
   };
-  const task = cron__default.default.schedule(effectiveCronExpr, () => {
-    void tick();
+  pollingService.startJob("omie-orders-stage20-sync", jobHandler).catch((error) => {
+    log.error(
+      { error: error.message, stack: error.stack },
+      "Failed to start omie orders stage20 sync job"
+    );
   });
-  return () => task.stop();
+  log.info(
+    {
+      baseIntervalMs: jobConfig.baseIntervalMs,
+      maxIntervalMs: jobConfig.maxIntervalMs,
+      criticality: jobConfig.criticality,
+      adaptivePolling: jobConfig.adaptivePolling
+    },
+    "omie orders stage20 sync job started with intelligent polling"
+  );
+  return () => {
+    pollingService.stopJob("omie-orders-stage20-sync");
+    log.info({}, "omie orders stage20 sync job stopped");
+  };
 }
+
+// src/modules/omie-production-orders/infrastructure/jobs/omie-production-orders-sync.job.ts
 function resolveLogger4(input) {
   const maybeFastify = input;
   const maybeLogger = input;
@@ -5279,84 +7038,80 @@ function startOmieProductionOrdersSyncJob(appOrLogger) {
   if (process.env.NODE_ENV === "test") {
     return;
   }
-  const enabledValue = String(
-    process.env.OMIE_PRODUCTION_ORDERS_SYNC ?? ""
-  ).trim().toLowerCase();
-  const enabled = enabledValue === "true" || enabledValue === "1";
-  if (!enabled) {
-    log.info({}, "omie production orders sync job disabled");
+  const pollingConfigs = getPollingConfigFromEnv();
+  const jobConfig = pollingConfigs["omie-production-orders-sync"];
+  if (!jobConfig.enabled) {
+    log.info({}, "omie production orders sync job disabled via environment");
     return;
   }
-  const cronExpr = String(process.env.OMIE_PRODUCTION_ORDERS_CRON ?? "").trim() || "*/15 * * * *";
-  const effectiveCronExpr = cron__default.default.validate(cronExpr) ? cronExpr : "*/15 * * * *";
-  if (effectiveCronExpr !== cronExpr) {
-    log.warn(
-      { cronExpr },
-      "omie production orders sync job: invalid cron expr, falling back to */15 * * * *"
-    );
-  }
-  log.info(
-    { cronExpr: effectiveCronExpr },
-    "omie production orders sync job scheduled"
-  );
-  let inFlight = false;
-  const tick = async () => {
-    if (inFlight) {
-      log.warn(
-        {},
-        "omie production orders sync skipped (previous run still in progress)"
-      );
-      return;
-    }
-    inFlight = true;
-    const startedAt = Date.now();
-    const startedAtIso = new Date(startedAt).toISOString();
-    log.info(
-      { startedAt: startedAtIso },
-      "omie production orders sync started"
-    );
-    try {
-      const app = "decorate" in appOrLogger ? appOrLogger : null;
-      if (!app) {
-        throw new Error(
-          "Fastify instance is required to run Omie Production Orders job"
-        );
-      }
-      const { useCases } = createOmieProductionOrdersModule(app);
-      const result = await useCases.syncProductionOrders.execute();
-      log.info(
-        {
-          startedAt: startedAtIso,
-          finishedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          durationMs: Date.now() - startedAt,
-          ...result
-        },
-        "omie production orders sync finished"
-      );
-    } catch (err) {
-      if (err instanceof AppError && err.code === "SYNC_IN_PROGRESS") {
-        log.warn(
-          { startedAt: startedAtIso, code: err.code },
-          "omie production orders sync skipped: already running"
-        );
-        return;
-      }
-      log.error(
-        {
-          startedAt: startedAtIso,
+  const pollingService = new IntelligentPollingService(log);
+  pollingService.registerJob(jobConfig);
+  const jobHandler = {
+    execute: async () => {
+      const startTime = Date.now();
+      try {
+        const app = "decorate" in appOrLogger ? appOrLogger : null;
+        if (!app) {
+          throw new Error(
+            "Fastify instance is required to run Omie Production Orders job"
+          );
+        }
+        const { useCases } = createOmieProductionOrdersModule(app);
+        const result = await useCases.syncProductionOrders.execute();
+        const durationMs = Date.now() - startTime;
+        return {
+          success: true,
+          durationMs,
+          data: result,
+          metadata: {
+            syncType: "production-orders",
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          }
+        };
+      } catch (err) {
+        const durationMs = Date.now() - startTime;
+        if (err instanceof AppError && err.code === "SYNC_IN_PROGRESS") {
+          return {
+            success: false,
+            durationMs,
+            error: "Sync already in progress",
+            metadata: {
+              errorCode: err.code,
+              syncType: "production-orders"
+            }
+          };
+        }
+        return {
+          success: false,
+          durationMs,
           error: err.message,
-          stack: err.stack
-        },
-        "omie production orders sync failed"
-      );
-    } finally {
-      inFlight = false;
+          metadata: {
+            errorStack: err.stack,
+            syncType: "production-orders"
+          }
+        };
+      }
     }
   };
-  cron__default.default.schedule(effectiveCronExpr, tick, {
-    scheduled: true,
-    timezone: "America/Sao_Paulo"
+  pollingService.startJob("omie-production-orders-sync", jobHandler).catch((error) => {
+    log.error(
+      { error: error.message, stack: error.stack },
+      "Failed to start omie production orders sync job"
+    );
   });
+  log.info(
+    {
+      baseIntervalMs: jobConfig.baseIntervalMs,
+      maxIntervalMs: jobConfig.maxIntervalMs,
+      criticality: jobConfig.criticality,
+      adaptivePolling: jobConfig.adaptivePolling
+    },
+    "omie production orders sync job started with intelligent polling"
+  );
+  return () => {
+    pollingService.stopJob("omie-production-orders-sync");
+    log.info({}, "omie production orders sync job stopped");
+  };
 }
 function resolveLogger5(input) {
   const maybeFastify = input;

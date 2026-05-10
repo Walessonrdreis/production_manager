@@ -300,6 +300,58 @@ model OmieProductionOrderItem {
   @@map("omie_production_order_item")
 }
 
+model SyncRecord {
+  id            String   @id @default(uuid())
+  syncType      String   @db.VarChar(32)
+  status        String   @db.VarChar(32)
+  startedAt     DateTime
+  completedAt   DateTime?
+  durationMs    Int?
+  itemsProcessed Int     @default(0)
+  itemsFailed   Int      @default(0)
+  error         String?  @db.Text
+  metadata      Json?
+
+  @@index([syncType])
+  @@index([status])
+  @@index([startedAt])
+  @@map("sync_record")
+}
+
+model StockAlert {
+  id                 String   @id @default(uuid())
+  productCode        String   @db.VarChar(64)
+  productDescription String   @db.Text
+  currentStock       Decimal  @db.Decimal(18, 4)
+  minimumStock       Decimal  @db.Decimal(18, 4)
+  severity           String   @db.VarChar(16)
+  status             String   @db.VarChar(16)
+  createdAt          DateTime @default(now())
+  resolvedAt         DateTime?
+  metadata           Json?
+
+  @@index([productCode])
+  @@index([severity])
+  @@index([status])
+  @@index([createdAt])
+  @@map("stock_alert")
+}
+
+model AlertConfig {
+  id                   String   @id @default(uuid())
+  productCode          String?  @db.VarChar(64)
+  criticalThreshold    Decimal  @db.Decimal(18, 4)
+  warningThreshold     Decimal  @db.Decimal(18, 4)
+  notificationChannels String[] // Array de strings para canais
+  autoResolveDays      Int      @default(7)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([productCode])
+  @@index([productCode])
+  @@map("alert_config")
+}
+
 enum PersonType {
   INDIVIDUAL @map("FISICA")
   COMPANY    @map("JURIDICA")
