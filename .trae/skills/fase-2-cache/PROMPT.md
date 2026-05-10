@@ -36,24 +36,43 @@ Você está implementando a **Fase 2 da Etapa 2** do projeto Production Manager.
 ### 🚫 REGRA CRÍTICA: AÇÕES CURTAS E INCREMENTAIS
 **NÃO FAÇA TUDO DE UMA VEZ!** Siga estas regras rigorosamente:
 
-1. **Máximo por ação**: Implemente **UMA** tarefa por vez
-2. **Mostre progresso**: Após cada tarefa, mostre o que foi feito
-3. **Teste incremental**: Teste cada parte antes de continuar
-4. **Evite créditos excessivos**: Faça pouco a pouco para não esgotar créditos
-5. **Facilite revisão**: Mostre progresso claro para eu revisar facilmente
+#### 📋 REGRAS DE TRABALHO INCREMENTAL (OBRIGATÓRIAS)
+1. **Máximo 3 arquivos** criados/modificados por ação
+2. **Máximo 15 minutos** por ação
+3. **Apenas UMA** funcionalidade específica por ação
+4. **Mostre progresso** após cada ação (arquivos, testes, logs)
+5. **Pergunte se continua** após cada ação concluída
 
-**EXEMPLO DE FLUXO CORRETO PARA FASE 2:**
-1. Configure Redis no `.env` e crie `infra/redis.ts` (apenas estrutura)
-2. Mostre a configuração
-3. Escreva testes para o client Redis
-4. Mostre os testes
-5. Implemente `MultiLevelCacheService` (apenas estrutura)
-6. Mostre a estrutura
-7. Escreva testes para o cache service
-8. Implemente lógica do cache (um nível por vez)
-9. Teste e corrija incrementalmente
+#### 🔗 REFERÊNCIA COMPLETA
+- [Regras de Trabalho Incremental](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/skills/REGRAS_TRABALHO_INCREMENTAL.md)
+- [Regras do Projeto](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/index.md)
 
-**NUNCA FAÇA**: Configurar Redis + implementar todo cache + integrar todos módulos + escrever todos testes de uma vez!
+#### ✅ EXEMPLO DE FLUXO CORRETO (1 ação):
+1. **Planejar**: "Vou configurar Redis no `.env` e criar estrutura básica do client"
+2. **Implementar**: Adicionar `REDIS_URL` ao `.env` + criar `infra/redis.ts` (estrutura)
+3. **Testar**: Escrever testes básicos para conexão Redis
+4. **Mostrar**: Mostrar configuração e testes
+5. **Perguntar**: "Redis configurado com sucesso. Devo continuar implementando o cache service?"
+
+#### ❌ EXEMPLO DE FLUXO ERRADO (múltiplas ações juntas):
+- Configurar Redis + implementar todo cache + integrar todos módulos + testar tudo
+- Implementar múltiplos níveis de cache sem mostrar progresso intermediário
+- Trabalhar por mais de 15 minutos sem parar para mostrar progresso
+
+#### 🎯 METAS POR AÇÃO
+- **Ideal**: 1-2 arquivos, 1 funcionalidade, 5-15 minutos
+- **Aceitável**: 3 arquivos, 1 funcionalidade, até 15 minutos  
+- **Proibido**: >3 arquivos, >1 funcionalidade, >15 minutos
+
+#### 📋 CHECKLIST APÓS CADA AÇÃO
+- [ ] Mostrei quais arquivos foram criados/modificados?
+- [ ] Mostrei testes executados e resultados?
+- [ ] Verifiquei logs do sistema?
+- [ ] Corrigi erros imediatamente?
+- [ ] A ação levou menos de 15 minutos?
+- [ ] Modifiquei no máximo 3 arquivos?
+- [ ] Implementei apenas UMA funcionalidade?
+- [ ] Perguntei se devo continuar?
 
 ## 📊 OBJETIVOS DE NEGÓCIO
 1. **Reduzir latência**: Cache hit < 100ms

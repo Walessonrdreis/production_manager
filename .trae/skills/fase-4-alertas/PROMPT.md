@@ -50,37 +50,57 @@ Você está implementando a **Fase 4 da Etapa 2** do projeto Production Manager.
 ### 🚫 REGRA CRÍTICA: AÇÕES CURTAS E INCREMENTAIS
 **NÃO FAÇA TUDO DE UMA VEZ!** Siga estas regras rigorosamente:
 
-1. **Máximo por ação**: Implemente **UMA** tarefa por vez
-2. **Mostre progresso**: Após cada tarefa, mostre o que foi feito
-3. **Teste incremental**: Teste cada parte antes de continuar
-4. **Evite créditos excessivos**: Faça pouco a pouco para não esgotar créditos
-5. **Facilite revisão**: Mostre progresso claro para eu revisar facilmente
+#### 📋 REGRAS DE TRABALHO INCREMENTAL (OBRIGATÓRIAS)
+1. **Máximo 3 arquivos** criados/modificados por ação
+2. **Máximo 15 minutos** por ação
+3. **Apenas UMA** funcionalidade específica por ação
+4. **Mostre progresso** após cada ação (arquivos, testes, logs)
+5. **Pergunte se continua** após cada ação concluída
 
-**EXEMPLO DE FLUXO CORRETO PARA FASE 4:**
-1. Crie estrutura do módulo `stock-monitor` com arquivos básicos
-2. Mostre a estrutura criada
-3. Implemente `StockMonitorService` (apenas estrutura)
-4. Mostre o serviço
-5. Implemente **UMA** regra de negócio (ex: estoque mínimo)
-6. Escreva testes para essa regra
-7. Implemente **UM** canal de notificação (ex: email)
-8. Teste e corrija incrementalmente
-9. Continue com próxima regra/canal
+#### 🔗 REFERÊNCIA COMPLETA
+- [Regras de Trabalho Incremental](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/skills/REGRAS_TRABALHO_INCREMENTAL.md)
+- [Regras do Projeto](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/index.md)
 
-**NUNCA FAÇA**: Criar todo módulo + implementar todas regras + configurar todos canais + escrever todos testes + integrar tudo de uma vez!
+#### ✅ EXEMPLO DE FLUXO CORRETO (1 ação):
+1. **Planejar**: "Vou criar estrutura básica do módulo stock-monitor"
+2. **Implementar**: Criar diretório `modules/stock-monitor/` + arquivos básicos (index.ts, register.ts)
+3. **Testar**: Escrever testes básicos para estrutura do módulo
+4. **Mostrar**: Mostrar estrutura criada e testes
+5. **Perguntar**: "Módulo stock-monitor criado com sucesso. Devo continuar implementando o StockMonitorService?"
 
-**DIVISÃO RECOMENDADA PARA FASE 4:**
-- **Ação 1**: Estrutura do módulo stock-monitor
-- **Ação 2**: StockMonitorService básico
-- **Ação 3**: Regra de estoque mínimo
-- **Ação 4**: Notificações por email
-- **Ação 5**: Regra de consumo anormal
-- **Ação 6**: Notificações por SMS
-- **Ação 7**: Integração com dashboard
-- **Ação 8**: Sistema de histórico
-- **Ação 9**: Testes completos
+#### ❌ EXEMPLO DE FLUXO ERRADO (múltiplas ações juntas):
+- Criar todo módulo + implementar todas regras + configurar todos canais + testar tudo
+- Implementar múltiplas regras de negócio sem mostrar progresso intermediário
+- Trabalhar por mais de 15 minutos sem parar para mostrar progresso
 
-**LIMITE POR CHAT**: Máximo **2-3 arquivos** por ação. Se precisar criar mais, divida em múltiplas ações.
+#### 🎯 METAS POR AÇÃO
+- **Ideal**: 1-2 arquivos, 1 funcionalidade, 5-15 minutos
+- **Aceitável**: 3 arquivos, 1 funcionalidade, até 15 minutos  
+- **Proibido**: >3 arquivos, >1 funcionalidade, >15 minutos
+
+#### 📋 CHECKLIST APÓS CADA AÇÃO
+- [ ] Mostrei quais arquivos foram criados/modificados?
+- [ ] Mostrei testes executados e resultados?
+- [ ] Verifiquei logs do sistema?
+- [ ] Corrigi erros imediatamente?
+- [ ] A ação levou menos de 15 minutos?
+- [ ] Modifiquei no máximo 3 arquivos?
+- [ ] Implementei apenas UMA funcionalidade?
+- [ ] Perguntei se devo continuar?
+
+#### 🗂️ DIVISÃO RECOMENDADA PARA FASE 4:
+- **Ação 1**: Estrutura do módulo stock-monitor (diretório + arquivos básicos)
+- **Ação 2**: StockMonitorService básico (estrutura + interface)
+- **Ação 3**: Regra de estoque mínimo (implementação + testes)
+- **Ação 4**: Notificações por email (configuração + envio básico)
+- **Ação 5**: Regra de consumo anormal (implementação + testes)
+- **Ação 6**: Notificações por SMS (configuração + envio básico)
+- **Ação 7**: Integração com dashboard (WebSocket + UI alerts)
+- **Ação 8**: Sistema de histórico (banco + queries básicas)
+- **Ação 9**: Testes completos (unitários + integração)
+
+#### 💡 DICA IMPORTANTE:
+**Economize créditos**: Cada ação curta usa menos créditos. Se você fizer tudo de uma vez, pode esgotar os créditos antes de terminar e ficar difícil revisar. Faça pouco a pouco!
 
 ## 📊 OBJETIVOS DE NEGÓCIO
 1. **Prevenção ruptura**: Alertas antes do estoque zerar

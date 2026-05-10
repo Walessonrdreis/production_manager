@@ -50,33 +50,54 @@ apps/dashboard/
 ### 🚫 REGRA CRÍTICA: AÇÕES CURTAS E INCREMENTAIS
 **NÃO FAÇA TUDO DE UMA VEZ!** Siga estas regras rigorosamente:
 
-1. **Máximo por ação**: Implemente **UMA** tarefa por vez
-2. **Mostre progresso**: Após cada tarefa, mostre o que foi feito
-3. **Teste incremental**: Teste cada parte antes de continuar
-4. **Evite créditos excessivos**: Faça pouco a pouco para não esgotar créditos
-5. **Facilite revisão**: Mostre progresso claro para eu revisar facilmente
+#### 📋 REGRAS DE TRABALHO INCREMENTAL (OBRIGATÓRIAS)
+1. **Máximo 3 arquivos** criados/modificados por ação
+2. **Máximo 15 minutos** por ação
+3. **Apenas UMA** funcionalidade específica por ação
+4. **Mostre progresso** após cada ação (arquivos, testes, logs)
+5. **Pergunte se continua** após cada ação concluída
 
-**EXEMPLO DE FLUXO CORRETO PARA FASE 3:**
-1. Crie WebSocket server (apenas estrutura com heartbeat)
-2. Mostre o server implementado
-3. Configure projeto React (Vite + TypeScript + Tailwind)
-4. Mostre a configuração
-5. Desenvolva UM componente (ex: ProductionQueue)
-6. Mostre o componente
-7. Escreva testes para o componente
-8. Integre componente com WebSocket
-9. Teste e corrija incrementalmente
+#### 🔗 REFERÊNCIA COMPLETA
+- [Regras de Trabalho Incremental](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/skills/REGRAS_TRABALHO_INCREMENTAL.md)
+- [Regras do Projeto](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/index.md)
 
-**NUNCA FAÇA**: Criar WebSocket + configurar React + desenvolver todos componentes + escrever todos testes + integrar tudo de uma vez!
+#### ✅ EXEMPLO DE FLUXO CORRETO (1 ação):
+1. **Planejar**: "Vou criar estrutura básica do WebSocket server"
+2. **Implementar**: Criar `websocket/dashboard.websocket.ts` (apenas estrutura com heartbeat)
+3. **Testar**: Escrever testes básicos para conexão WebSocket
+4. **Mostrar**: Mostrar arquivo criado e testes
+5. **Perguntar**: "WebSocket server criado com sucesso. Devo continuar configurando o projeto React?"
 
-**DIVISÃO RECOMENDADA PARA FASE 3:**
-- **Ação 1**: WebSocket server básico
-- **Ação 2**: Configuração projeto React
-- **Ação 3**: Componente ProductionQueue
-- **Ação 4**: Componente StockMonitor  
-- **Ação 5**: Componente OrderStatus
-- **Ação 6**: Integração WebSocket
-- **Ação 7**: Testes E2E
+#### ❌ EXEMPLO DE FLUXO ERRADO (múltiplas ações juntas):
+- Criar WebSocket + configurar React + desenvolver todos componentes + testar tudo
+- Implementar múltiplos componentes sem mostrar progresso intermediário
+- Trabalhar por mais de 15 minutos sem parar para mostrar progresso
+
+#### 🎯 METAS POR AÇÃO
+- **Ideal**: 1-2 arquivos, 1 funcionalidade, 5-15 minutos
+- **Aceitável**: 3 arquivos, 1 funcionalidade, até 15 minutos  
+- **Proibido**: >3 arquivos, >1 funcionalidade, >15 minutos
+
+#### 📋 CHECKLIST APÓS CADA AÇÃO
+- [ ] Mostrei quais arquivos foram criados/modificados?
+- [ ] Mostrei testes executados e resultados?
+- [ ] Verifiquei logs do sistema?
+- [ ] Corrigi erros imediatamente?
+- [ ] A ação levou menos de 15 minutos?
+- [ ] Modifiquei no máximo 3 arquivos?
+- [ ] Implementei apenas UMA funcionalidade?
+- [ ] Perguntei se devo continuar?
+
+#### 🗂️ DIVISÃO RECOMENDADA PARA FASE 3:
+- **Ação 1**: WebSocket server básico (estrutura + heartbeat)
+- **Ação 2**: Configuração projeto React (Vite + TypeScript + Tailwind)
+- **Ação 3**: Componente ProductionQueue (estrutura básica)
+- **Ação 4**: Componente StockMonitor (estrutura básica)
+- **Ação 5**: Componente OrderStatus (estrutura básica)
+- **Ação 6**: Integração WebSocket (conexão básica)
+- **Ação 7**: Testes unitários para componentes
+- **Ação 8**: Responsividade básica
+- **Ação 9**: Testes E2E básicos
 
 ## 📊 OBJETIVOS DE NEGÓCIO
 1. **Monitoramento tempo real**: Atualizações < 1 segundo

@@ -52,8 +52,15 @@
 ### 9. [REGRAS DE RESPOSTAS](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/regras-de-respostas.md)
 - Não quebrar compilação
 - Confirmar antes de mudanças críticas
+- Trabalho incremental obrigatório
 
-### 10. [GIT COMMIT MESSAGE](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/git-commit-message.md)
+### 10. [TRABALHO INCREMENTAL](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/trabalho-incremental.md)
+- Máximo 3 arquivos por ação
+- Máximo 15 minutos por ação
+- Uma tarefa específica por ação
+- Progresso visível passo a passo
+
+### 11. [GIT COMMIT MESSAGE](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/git-commit-message.md)
 - Formato: `tipo(escopo): descrição`
 - Tipos: feat, fix, docs, style, refactor, test, chore
 

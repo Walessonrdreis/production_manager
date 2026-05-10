@@ -30,23 +30,33 @@ Você está implementando a **Fase 1 da Etapa 2** do projeto Production Manager.
 ### 🚫 REGRA CRÍTICA: AÇÕES CURTAS E INCREMENTAIS
 **NÃO FAÇA TUDO DE UMA VEZ!** Siga estas regras rigorosamente:
 
-1. **Máximo por ação**: Implemente **UMA** tarefa por vez
-2. **Mostre progresso**: Após cada tarefa, mostre o que foi feito
-3. **Teste incremental**: Teste cada parte antes de continuar
-4. **Evite créditos excessivos**: Faça pouco a pouco para não esgotar créditos
-5. **Facilite revisão**: Mostre progresso claro para eu revisar facilmente
+#### 📋 REGRAS DE TRABALHO INCREMENTAL (OBRIGATÓRIAS)
+1. **Máximo 3 arquivos** criados/modificados por ação
+2. **Máximo 15 minutos** por ação
+3. **Apenas UMA** funcionalidade específica por ação
+4. **Mostre progresso** após cada ação (arquivos, testes, logs)
+5. **Pergunte se continua** após cada ação concluída
 
-**EXEMPLO DE FLUXO CORRETO:**
-1. Crie o arquivo `IntelligentPollingService.ts` (apenas estrutura)
-2. Mostre o arquivo criado
-3. Escreva testes unitários para o serviço
-4. Mostre os testes
-5. Implemente a lógica do serviço
-6. Mostre a implementação
-7. Execute testes e corrija erros
-8. Mostre resultados
+#### 🔗 REFERÊNCIA COMPLETA
+- [Regras de Trabalho Incremental](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/skills/REGRAS_TRABALHO_INCREMENTAL.md)
+- [Regras do Projeto](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/index.md)
 
-**NUNCA FAÇA**: Criar todos arquivos + implementar tudo + escrever todos testes de uma vez!
+#### ✅ EXEMPLO DE FLUXO CORRETO (1 ação):
+1. **Planejar**: "Vou criar estrutura básica do IntelligentPollingService"
+2. **Implementar**: Criar `IntelligentPollingService.ts` (apenas estrutura)
+3. **Testar**: Escrever testes unitários básicos
+4. **Mostrar**: Mostrar arquivo criado e testes
+5. **Perguntar**: "Arquivo criado com sucesso. Devo continuar implementando a lógica?"
+
+#### ❌ EXEMPLO DE FLUXO ERRADO (múltiplas ações juntas):
+- Criar service + modificar jobs + configurar Redis + testar tudo de uma vez
+- Implementar múltiplas features sem mostrar progresso intermediário
+- Trabalhar por mais de 15 minutos sem parar para mostrar progresso
+
+#### 🎯 METAS POR AÇÃO
+- **Ideal**: 1-2 arquivos, 1 funcionalidade, 5-15 minutos
+- **Aceitável**: 3 arquivos, 1 funcionalidade, até 15 minutos  
+- **Proibido**: >3 arquivos, >1 funcionalidade, >15 minutos
 
 ## 📊 OBJETIVOS DE NEGÓCIO
 1. **Estoque atualizado**: Máximo 2 minutos de atraso
