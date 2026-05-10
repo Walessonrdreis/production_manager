@@ -1,53 +1,60 @@
 ---
 name: "fase-3-dashboard"
-description: "Agente de revisão para Fase 3 - Dashboard Tempo Real. Invoke quando implementar WebSocket server, criar componentes React ou desenvolver dashboard com atualizações em tempo real."
+description: "Agente de revisão para Fase 3 - Dashboard Tempo Real (Frontend). Invoke quando implementar WebSocket server, criar componentes React ou desenvolver dashboard com atualizações em tempo real como parte do Frontend após API estável."
 ---
 
-# FASE 3 - AGENTE DE REVISÃO: DASHBOARD TEMPO REAL
+# FASE 3 - AGENTE DE REVISÃO: DASHBOARD TEMPO REAL (FRONTEND)
 
-## 🎯 OBJETIVOS DA FASE 3
-1. **WebSocket Server**: Integrado ao Fastify
-2. **Componentes React**: Dashboard com atualizações automáticas
-3. **Integração dados**: Polling + Cache + WebSocket
-4. **Interface responsiva**: Funciona em desktop e mobile
+## 🎯 CONTEXTO DA FASE - ESTRATÉGIA API-FIRST
+Você está revisando a **Fase 3 da Etapa 2** com foco **API-FIRST**. Esta fase (Dias 21-40) desenvolve o **Dashboard Frontend** completo, APÓS a API Core e API Avançada estarem estáveis e documentadas.
+
+## 🎯 OBJETIVOS DA FASE 3 (FRONTEND)
+1. **WebSocket Server**: Integrado ao Fastify para comunicação em tempo real
+2. **Componentes React**: Dashboard com atualizações automáticas via API
+3. **Integração dados**: Polling + Cache + WebSocket + API REST
+4. **Interface responsiva**: Funciona em tablets da fábrica e desktop
+5. **Experiência operador**: Intuitiva para uso diário sem treinamento extensivo
 
 ## 📋 CHECKLIST DE REVISÃO
 
-### ✅ 1. WEBSOCKET SERVER
-- [ ] **Integração Fastify**: Plugin WebSocket configurado
-- [ ] **Conexões persistentes**: Heartbeat funcionando
-- [ ] **Broadcast**: Atualizações para todos clientes
-- [ ] **Reconexão automática**: Clientes reconectam após falha
-- [ ] **Monitoramento**: Métricas de conexões WebSocket
+### ✅ 1. WEBSOCKET SERVER (BACKEND PARA FRONTEND)
+- [ ] **Integração Fastify**: Plugin WebSocket configurado para frontend
+- [ ] **Conexões persistentes**: Heartbeat funcionando para clientes React
+- [ ] **Broadcast**: Atualizações para todos clientes dashboard
+- [ ] **Reconexão automática**: Clientes React reconectam após falha
+- [ ] **Monitoramento**: Métricas de conexões WebSocket para frontend
 
-### ✅ 2. COMPONENTES REACT
-- [ ] **KPI Cards**: Produção, estoque, pedidos, eficiência
-- [ ] **Gráficos**: Produção por hora, estoque crítico
-- [ ] **Listas**: Ordens ativas, alertas, máquinas
-- [ ] **Controles**: Refresh, intervalos, filtros
-- [ ] **Responsividade**: Funciona em diferentes tamanhos de tela
+### ✅ 2. COMPONENTES REACT (FRONTEND)
+- [ ] **KPI Cards**: Produção, estoque, pedidos, eficiência via API
+- [ ] **Gráficos**: Produção por hora, estoque crítico com dados da API
+- [ ] **Listas**: Ordens ativas, alertas, máquinas consumindo endpoints REST
+- [ ] **Controles**: Refresh, intervalos, filtros integrados com API
+- [ ] **Responsividade**: Funciona em tablets (1024px) e computadores da fábrica
 
-### ✅ 3. INTEGRAÇÃO DADOS
-- [ ] **Polling → WebSocket**: Atualizações em tempo real
-- [ ] **Cache → Dashboard**: Dados rápidos com fallback
-- [ ] **Eventos**: Stock alerts, order status, production updates
-- [ ] **Performance**: Dashboard atualiza em < 1 segundo
+### ✅ 3. INTEGRAÇÃO COM API (FRONTEND + BACKEND)
+- [ ] **API REST**: Consumo correto de endpoints da API Core e Avançada
+- [ ] **WebSocket**: Notificações em tempo real via WebSocket server
+- [ ] **Cache local**: IndexedDB/localStorage para dados frequentes
+- [ ] **Fallback**: Polling se WebSocket não disponível
+- [ ] **Performance**: Dashboard atualiza em < 1 segundo após mudança na API
 
-### ✅ 4. INTERFACE
-- [ ] **UI intuitiva**: Fácil de usar para operadores
-- [ ] **Status claro**: Conexão, atualização, erros visíveis
-- [ ] **Alertas visíveis**: Destaque para situações críticas
-- [ ] **Logs**: Ações do usuário registradas
+### ✅ 4. INTERFACE E USABILIDADE (FRONTEND)
+- [ ] **UI intuitiva**: Fácil de usar para operadores sem treinamento extensivo
+- [ ] **Status claro**: Conexão API, atualização, erros visíveis para operadores
+- [ ] **Alertas visíveis**: Destaque imediato para situações críticas de estoque
+- [ ] **Logs**: Ações do operador registradas para auditoria
+- [ ] **Acessibilidade**: WCAG 2.1 AA compliance para operadores com deficiência
 
-## 🔍 CRITÉRIOS DE ACEITAÇÃO
+## 🔍 CRITÉRIOS DE ACEITAÇÃO (FRONTEND)
 
-### 1. PERFORMANCE WEBSOCKET
-- **Latência mensagens**: < 100ms
-- **Conexões simultâneas**: Suporta > 100 clientes
-- **Reconexão**: < 5 segundos após falha
-- **Heartbeat**: Mantém conexões ativas
+### 1. PERFORMANCE FRONTEND
+- **Tempo de carregamento**: < 3 segundos para First Contentful Paint
+- **Latência WebSocket**: < 100ms para atualizações em tempo real
+- **Atualização dashboard**: < 1 segundo após mudança na API
+- **FPS estável**: > 60 FPS durante animações e interações
+- **Uso de memória**: < 200MB RAM com múltiplas conexões ativas
 
-### 2. EXPERIÊNCIA USUÁRIO
+### 2. EXPERIÊNCIA DO OPERADOR
 - **Tempo carregamento**: < 2 segundos inicial
 - **Atualizações automáticas**: Sem necessidade de refresh
 - **Responsividade**: Funciona em mobile e desktop

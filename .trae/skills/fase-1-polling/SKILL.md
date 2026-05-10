@@ -1,53 +1,59 @@
 ---
 name: "fase-1-polling"
-description: "Agente de revisão para Fase 1 - Polling Inteligente. Invoke quando implementar polling para estoque (2min), pedidos (1min) e produção (30s), ou modificar jobs existentes."
+description: "Agente de revisão para Fase 1 - Polling Inteligente (API Core). Invoke quando implementar polling para estoque (2min), pedidos (1min) e produção (30s), ou modificar jobs existentes como parte da API Core."
 ---
 
-# FASE 1 - AGENTE DE REVISÃO: POLLING INTELIGENTE
+# FASE 1 - AGENTE DE REVISÃO: POLLING INTELIGENTE (API CORE)
 
-## 🎯 OBJETIVOS DA FASE 1
+## 🎯 CONTEXTO DA FASE - ESTRATÉGIA API-FIRST
+Você está revisando a **Fase 1 da Etapa 2** com foco **API-FIRST**. Esta fase (Dias 1-10) desenvolve o **Polling Inteligente** como parte da **API Core**.
+
+## 🎯 OBJETIVOS DA FASE 1 (API CORE)
 1. **IntelligentPollingService**: Polling dinâmico baseado em criticidade
-2. **Modificar jobs existentes**: Intervalos otimizados
-3. **Sistema de retry**: Backoff inteligente
+2. **Modificar jobs existentes**: Intervalos otimizados para API Core
+3. **Sistema de retry**: Backoff inteligente para endpoints REST
+4. **Integração com módulos**: Conectar polling com outros módulos da API
 
 ## 📋 CHECKLIST DE REVISÃO
 
-### ✅ 1. INTELLIGENTPOLLINGSERVICE
-- [ ] **SRP**: Apenas lógica de polling, sem cache ou notificações
-- [ ] **Configuração**: Intervalos base e máximo definidos
-- [ ] **Dinâmico**: Ajusta intervalos baseado em status da API
-- [ ] **Testes**: Unitários cobrem todos os cenários
-- [ ] **Logs**: Registra sucessos, falhas e ajustes de intervalo
+### ✅ 1. INTELLIGENTPOLLINGSERVICE (API CORE)
+- [ ] **SRP**: Apenas lógica de polling, sem cache ou notificações complexas
+- [ ] **Configuração**: Intervalos base e máximo definidos para API Core
+- [ ] **Dinâmico**: Ajusta intervalos baseado em status da API Omie
+- [ ] **Testes**: Unitários cobrem todos os cenários de endpoints REST
+- [ ] **Logs**: Registra sucessos, falhas e ajustes de intervalo para API
 
-### ✅ 2. JOBS MODIFICADOS
-- [ ] **omie-production-orders-sync.job.ts**: Intervalo 30 segundos
-- [ ] **omie-orders-stage20.job.ts**: Intervalo 1 minuto  
-- [ ] **stock-monitor.job.ts**: Novo job para estoque (2 minutos)
-- [ ] **Compatibilidade**: Jobs antigos continuam funcionando
-- [ ] **Configuração**: Intervalos via variáveis de ambiente
+### ✅ 2. JOBS MODIFICADOS (API CORE)
+- [ ] **omie-production-orders-sync.job.ts**: Intervalo 30 segundos (API Core)
+- [ ] **omie-orders-stage20.job.ts**: Intervalo 1 minuto (API Core)  
+- [ ] **stock-monitor.job.ts**: Novo job para estoque (2 minutos) (API Core)
+- [ ] **Compatibilidade**: Jobs antigos continuam funcionando com API Core
+- [ ] **Configuração**: Intervalos via variáveis de ambiente da API
 
-### ✅ 3. SISTEMA DE RETRY
-- [ ] **Backoff exponencial**: Baseado em tipo de erro
-- [ ] **Limite de tentativas**: Configurável
-- [ ] **Circuit breaker**: Evita sobrecarga da API Omie
-- [ ] **Logs**: Registra tentativas e falhas
+### ✅ 3. SISTEMA DE RETRY (API CORE)
+- [ ] **Backoff exponencial**: Baseado em tipo de erro da API Omie
+- [ ] **Limite de tentativas**: Configurável para endpoints REST
+- [ ] **Circuit breaker**: Evita sobrecarga da API Omie para API Core
+- [ ] **Logs**: Registra tentativas e falhas da API
 
-## 🔍 CRITÉRIOS DE ACEITAÇÃO
+## 🔍 CRITÉRIOS DE ACEITAÇÃO (API CORE)
 
-### 1. PERFORMANCE
-- **Estoque**: Atualizado a cada 2 minutos (máximo)
-- **Pedidos**: Atualizado a cada 1 minuto (máximo)
-- **Produção**: Atualizado a cada 30 segundos (máximo)
-- **Latência**: Polling completo < 5 segundos
+### 1. PERFORMANCE API CORE
+- **Estoque**: Atualizado a cada 2 minutos (máximo) via API
+- **Pedidos**: Atualizado a cada 1 minuto (máximo) via API
+- **Produção**: Atualizado a cada 30 segundos (máximo) via API
+- **Latência**: Polling completo < 5 segundos para API Core
 
-### 2. CONFIABILIDADE
-- **Retry automático**: Para falhas transitórias
-- **Fallback**: Dados cacheados se API indisponível
-- **Monitoramento**: Métricas de sucesso/falha
-- **Alertas**: Para falhas persistentes
+### 2. CONFIABILIDADE API CORE
+- **Retry automático**: Para falhas transitórias da API Omie
+- **Fallback**: Dados cacheados se API Omie indisponível
+- **Monitoramento**: Métricas de sucesso/falha da API Core
+- **Alertas**: Para falhas persistentes da API Omie
 
-### 3. MANUTENIBILIDADE
-- **Configurável**: Intervalos via environment
+### 3. MANUTENIBILIDADE API CORE
+- **Configurável**: Intervalos via environment da API
+- **Documentação**: Endpoints REST documentados em OpenAPI
+- **Testes**: Cobertura > 80% para lógica de polling da API Core
 - **Testável**: Mocks mínimos para testes
 - **Modular**: Fácil de estender/modificar
 - **Documentado**: README explicando uso

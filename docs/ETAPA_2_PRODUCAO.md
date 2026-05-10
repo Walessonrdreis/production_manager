@@ -245,27 +245,77 @@ class ProductionQueueService {
 }
 ```
 
-## 📈 PLANO DE IMPLEMENTAÇÃO
+## 🎯 ESTRATÉGIA API-FIRST - FOCO PRIMEIRO NA API
 
-### SEMANA 1: FUNDAÇÃO
-- **Dia 1-2**: Sistema de sincronização básico (estoque + pedidos)
-- **Dia 3-4**: Dashboard mínimo com dados em tempo real
-- **Dia 5**: Sistema de alertas de estoque crítico
+**PRINCÍPIO FUNDAMENTAL:** Desenvolver API completa e estável ANTES de iniciar qualquer desenvolvimento frontend.
 
-### SEMANA 2: OTIMIZAÇÃO
-- **Dia 6-7**: Fila de produção com prioridades
-- **Dia 8-9**: Integração vendas → produção automática
-- **Dia 10**: Otimização de cache e performance
+### VANTAGENS DA ABORDAGEM API-FIRST:
 
-### SEMANA 3: EXPANSÃO
-- **Dia 11-12**: Métricas de performance e qualidade
-- **Dia 13-14**: Previsão de demanda e planejamento
-- **Dia 15**: Relatórios avançados
+1. **API ESTÁVEL ANTES DO FRONTEND** - Evita mudanças constantes no frontend durante desenvolvimento
+2. **TESTES INDEPENDENTES** - API pode ser testada sem dependência do frontend
+3. **MÚLTIPLOS CONSUMIDORES** - Outras aplicações podem usar a API simultaneamente
+4. **DESENVOLVIMENTO PARALELO** - Frontend pode começar quando API estiver madura
+5. **DOCUMENTAÇÃO CLARA** - API documentada antes do desenvolvimento do frontend
+6. **CONTRATO BEM DEFINIDO** - Interface clara entre frontend e backend
 
-### SEMANA 4: CONSOLIDAÇÃO
-- **Dia 16-17**: Testes e validação
-- **Dia 18-19**: Documentação e treinamento
-- **Dia 20**: Go-live e monitoramento
+### FLUXO DE IMPLEMENTAÇÃO API-FIRST:
+
+```
+FASE 1: API CORE (10 dias) → API básica funcional
+    ↓
+FASE 2: API AVANÇADA (10 dias) → API completa versão 1.0
+    ↓
+FASE 3: FRONTEND (20 dias) → Dashboard completo em produção
+```
+
+## 📈 PLANO DE IMPLEMENTAÇÃO API-FIRST DETALHADO
+
+### 📋 DOCUMENTAÇÃO COMPLETA DISPONÍVEL:
+
+1. **[ETAPA_2_API_FIRST_DETALHADO.md](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/ETAPA_2_API_FIRST_DETALHADO.md)** - Plano completo com especificações técnicas
+2. **[CRONOGRAMA_API_FIRST.md](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/CRONOGRAMA_API_FIRST.md)** - Cronograma visual por dia com milestones
+
+### 🎯 RESUMO DAS FASES:
+
+#### FASE 1: API CORE (DIAS 1-10) - **FOCO TOTAL NA API**
+- **Endpoints críticos**: Sincronização estoque/pedidos, alertas, fila produção
+- **Entregáveis**: API básica funcional + documentação OpenAPI
+- **Status para frontend**: API pronta para consumo básico
+
+#### FASE 2: API AVANÇADA (DIAS 11-20) - **API COMPLETA**
+- **Endpoints avançados**: Métricas, previsão, relatórios, integração automática
+- **Entregáveis**: API versão 1.0 estável com todos os recursos
+- **Status para frontend**: API completa para desenvolvimento frontend
+
+#### FASE 3: FRONTEND (DIAS 21-40) - **APÓS API ESTÁVEL**
+- **Desenvolvimento**: Dashboard React com integração à API
+- **Funcionalidades**: Gráficos em tempo real, notificações, responsividade
+- **Entregáveis**: Sistema completo em produção
+
+### 🔑 PONTOS CRÍTICOS DA ABORDAGEM API-FIRST:
+
+1. **NENHUM DESENVOLVIMENTO FRONTEND ANTES DO DIA 21**
+2. **API DEVE SER 100% TESTADA E DOCUMENTADA ANTES DO FRONTEND**
+3. **CONTRATO DE API DEFINIDO CLARAMENTE ENTRE EQUIPES**
+4. **VERSÕES DA API DEVEM SER COMPATÍVEIS COM FRONTEND EXISTENTE**
+
+### 📊 ALOCAÇÃO DE RECURSOS:
+
+```
+BACKEND TEAM (API): Dias 1-40 (100% do tempo)
+  - Dias 1-20: Desenvolvimento da API
+  - Dias 21-40: Suporte ao frontend + manutenção
+
+FRONTEND TEAM: Dias 21-40 (50% do tempo total)
+  - Dias 1-20: Preparação (design system, mockups)
+  - Dias 21-40: Desenvolvimento do dashboard
+
+DEVOPS TEAM: Dias 1-40 (distribuído)
+  - Dias 1-10: Ambiente dev
+  - Dias 11-20: CI/CD pipeline
+  - Dias 21-30: Ambiente produção
+  - Dias 31-40: Deploy + monitoramento
+```
 
 ## 🎯 MÉTRICAS DE SUCESSO
 

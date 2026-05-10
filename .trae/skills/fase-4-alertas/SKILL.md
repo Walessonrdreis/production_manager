@@ -1,33 +1,37 @@
 ---
 name: "fase-4-alertas"
-description: "Agente de revisão para Fase 4 - Sistema de Alertas. Invoke quando implementar StockMonitorService, regras de negócio para estoque crítico, sistema de notificações ou integração com dashboard."
+description: "Agente de revisão para Fase 4 - Sistema de Alertas Avançado (API Avançada). Invoke quando implementar AdvancedAlertService, regras complexas de negócio com machine learning, sistema de notificações multi-canal ou integração com métricas avançadas."
 ---
 
-# FASE 4 - AGENTE DE REVISÃO: SISTEMA DE ALERTAS
+# FASE 4 - AGENTE DE REVISÃO: SISTEMA DE ALERTAS AVANÇADO (API AVANÇADA)
 
-## 🎯 OBJETIVOS DA FASE 4
-1. **StockMonitorService**: Monitoramento contínuo de estoque
-2. **Regras de negócio**: Estoque mínimo, consumo anormal, validade
-3. **Sistema de notificações**: Email, SMS, dashboard
-4. **Integração completa**: Polling + Cache + Dashboard + Alertas
+## 🎯 CONTEXTO DA FASE - ESTRATÉGIA API-FIRST
+Você está revisando a **Fase 4 da Etapa 2** com foco **API-FIRST**. Esta fase (Dias 11-20) desenvolve o **Sistema de Alertas Avançado** como parte da **API Avançada**, após a API Core estar estável.
+
+## 🎯 OBJETIVOS DA FASE 4 (API AVANÇADA)
+1. **AdvancedAlertService**: Monitoramento complexo com regras avançadas
+2. **Machine Learning**: Detecção de anomalias e previsão de ruptura
+3. **Sistema multi-canal**: Email, SMS, WebSocket integrados
+4. **Dashboard de gestão**: Configuração e monitoramento de alertas
+5. **Integração completa**: Métricas + Previsão + Cache + Alertas
 
 ## 📋 CHECKLIST DE REVISÃO
 
-### ✅ 1. STOCKMONITORSERVICE
-- [ ] **SRP**: Apenas monitoramento e alertas, sem cache ou polling
-- [ ] **Regras configuráveis**: Via environment ou banco
-- [ ] **Monitoramento contínuo**: Executa periodicamente
-- [ ] **Logs detalhados**: Alertas gerados, ações tomadas
-- [ ] **Testes**: Unitários cobrem todas regras de negócio
+### ✅ 1. ADVANCEDALERTSERVICE (API AVANÇADA)
+- [ ] **SRP**: Monitoramento complexo com regras avançadas, integração ML
+- [ ] **Regras configuráveis**: Dashboard de gestão com interface REST
+- [ ] **Machine Learning**: Detecção de anomalias, previsão de demanda
+- [ ] **Logs detalhados**: Alertas complexos, ações automáticas registradas
+- [ ] **Testes avançados**: Unitários, integração e E2E para regras ML
 
-### ✅ 2. REGRAS DE NEGÓCIO
-- [ ] **Estoque mínimo**: Por produto/categoria
-- [ ] **Consumo anormal**: Desvio padrão histórico
-- [ ] **Validade próxima**: Produtos perto de vencer
-- [ ] **Ruptura iminente**: Baseado em consumo e lead time
-- [ ] **Personalizável**: Regras podem ser ajustadas
+### ✅ 2. REGRAS DE NEGÓCIO AVANÇADAS
+- [ ] **Análise preditiva**: Machine learning para previsão de ruptura
+- [ ] **Detecção de anomalias**: Algoritmos para consumo anormal
+- [ ] **Otimização de estoque**: Regras baseadas em custo-benefício
+- [ ] **Integração métricas**: Correlação com eficiência de produção
+- [ ] **Dashboard gestão**: Interface completa para configuração
 
-### ✅ 3. SISTEMA DE NOTIFICAÇÕES
+### ✅ 3. SISTEMA MULTI-CANAL AVANÇADO
 - [ ] **Email**: Para produtos críticos
 - [ ] **SMS**: Para ruptura iminente
 - [ ] **Dashboard**: Alertas ativos visíveis

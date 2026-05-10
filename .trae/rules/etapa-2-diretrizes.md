@@ -3,41 +3,47 @@ alwaysApply: true
 scene: development
 ---
 
-# ETAPA 2 - DIRETRIZES DE IMPLEMENTAÇÃO
+# ETAPA 2 - DIRETRIZES DE IMPLEMENTAÇÃO (API-FIRST)
 
-## OBJETIVOS PRIORITÁRIOS
-1. **Estoque atualizado**: 2 minutos
-2. **Pedidos vendidos**: 1 minuto
-3. **Ordens produção**: 30 segundos
-4. **Dashboard tempo real**: WebSocket
-5. **Alertas automáticos**: Estoque crítico
+## OBJETIVOS PRIORITÁRIOS - ESTRATÉGIA API-FIRST
+1. **API Core estável**: Dias 1-10 - Endpoints básicos de produção
+2. **API Avançada completa**: Dias 11-20 - Funcionalidades avançadas
+3. **Frontend dashboard**: Dias 21-40 - React após API estável
+4. **Sistema de alertas**: Dias 11-20 - Parte da API Avançada
+5. **Compatibilidade mantida**: APIs existentes funcionando
 
-## FASE 1: POLLING INTELIGENTE (Dias 1-3)
+## FASE 1: API CORE (Dias 1-10)
 
-### Tarefa 1.1: IntelligentPollingService
+### Tarefa 1.1: Endpoints de Sincronização
 ```typescript
-// modules/shared/services/IntelligentPollingService.ts
-class IntelligentPollingService {
-  private config = {
-    'estoque': { base: 120000, max: 600000 },
-    'pedidos': { base: 60000, max: 300000 },
-    'producao': { base: 30000, max: 120000 }
-  };
-}
+// modules/sync/routes/stock.routes.ts
+export const stockSyncRoutes = {
+  method: 'POST',
+  url: '/api/sync/stock',
+  handler: stockSyncHandler
+};
+
+// modules/sync/routes/orders.routes.ts  
+export const ordersSyncRoutes = {
+  method: 'POST',
+  url: '/api/sync/orders',
+  handler: ordersSyncHandler
+};
 ```
 
-### Tarefa 1.2: Modificar jobs existentes
-- `omie-production-orders-sync.job.ts`: 30s interval
-- `omie-orders-stage20.job.ts`: 1min interval
-- Criar `stock-monitor.job.ts`: 2min interval
+### Tarefa 1.2: Sistema de Alertas Básico
+- `GET /api/alerts/stock/critical`: Listar estoque crítico
+- `POST /api/alerts/stock/configure`: Configurar limites
+- Integração com polling de estoque (2min interval)
 
-## FASE 2: CACHE MULTI-NÍVEL (Dias 4-6)
+### Tarefa 1.3: Fila de Produção
+- `POST /api/production/queue/add`: Adicionar ordem à fila
+- Sistema de prioridades básico
+- Integração vendas→produção automática
 
-### Tarefa 2.1: Configurar Redis
-- Adicionar `REDIS_URL` ao env
-- Criar `infra/redis.ts` com client configurado
+## FASE 2: API AVANÇADA (Dias 11-20)
 
-### Tarefa 2.2: MultiLevelCacheService
+### Tarefa 2.1: Cache Multi-nível
 ```typescript
 // modules/shared/services/MultiLevelCacheService.ts
 class MultiLevelCacheService {
@@ -47,7 +53,17 @@ class MultiLevelCacheService {
 }
 ```
 
-## FASE 3: DASHBOARD TEMPO REAL (Dias 7-10)
+### Tarefa 2.2: Métricas e Previsão
+- `GET /api/metrics/production/efficiency`: KPIs de produção
+- `POST /api/forecast/demand`: Previsão de demanda
+- Relatórios avançados em PDF
+
+### Tarefa 2.3: Sistema de Alertas Avançado
+- Regras complexas com machine learning
+- Notificações multi-canal (Email, SMS, WebSocket)
+- Dashboard de gestão de alertas
+
+## FASE 3: FRONTEND DASHBOARD (Dias 21-40)
 
 ### Tarefa 3.1: WebSocket Server
 - Adicionar WebSocket ao Fastify

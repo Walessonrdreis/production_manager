@@ -1,51 +1,82 @@
-# PROMPT PARA FASE 4 - SISTEMA DE ALERTAS
+# PROMPT PARA FASE 4 - SISTEMA DE ALERTAS AVANÇADO (API AVANÇADA)
 
-## 🎯 CONTEXTO DA FASE
-Você está implementando a **Fase 4 da Etapa 2** do projeto Production Manager. O foco é criar um sistema completo de alertas para monitoramento proativo do estoque, integrando com todos os sistemas já implementados (polling, cache, dashboard).
+## 🎯 CONTEXTO DA FASE - ESTRATÉGIA API-FIRST
+Você está implementando a **Fase 4 da Etapa 2** com foco **API-FIRST**. Esta fase (Dias 11-20) desenvolve o **Sistema de Alertas Avançado** como parte da **API Avançada**, após a API Core estar estável.
+
+**PRINCÍPIO FUNDAMENTAL:** Sistema de alertas complexo com regras de negócio avançadas, disponível para múltiplos consumidores via API.
+
+## 📋 INSTRUÇÕES PARA O CHAT BUILDER - FASE ALERTAS API AVANÇADA
+
+### O QUE VOCÊ PRECISA FAZER (DIAS 11-20):
+1. **Implementar módulo `advanced-alerts`** na API Avançada com endpoints REST
+2. **Criar `AdvancedAlertService`** com monitoramento complexo de estoque crítico
+3. **Desenvolver sistema de notificações multi-canal** (Email, SMS, WebSocket)
+4. **Implementar regras de negócio avançadas** (machine learning, previsão)
+5. **Criar dashboard de gestão de alertas** com endpoints de configuração
+6. **Integrar com métricas e previsão** da API Avançada
+
+### PASSO A PASSO PARA API AVANÇADA (DIAS 11-20):
+1. **Dia 11**: Configurar módulo `advanced-alerts` com estrutura Clean Architecture
+2. **Dia 12**: Implementar `AdvancedAlertService` com regras complexas
+3. **Dia 13**: Criar endpoints REST para gestão de regras de alerta
+4. **Dia 14**: Implementar sistema de notificações multi-canal
+5. **Dia 15**: Integrar com sistema de previsão de demanda
+6. **Dia 16**: Desenvolver dashboard de gestão de alertas
+7. **Dia 17**: Implementar machine learning para detecção de anomalias
+8. **Dia 18**: Testes unitários e integração complexos
+9. **Dia 19**: Otimizar performance e escalabilidade
+10. **Dia 20**: Documentação OpenAPI completa e deploy staging
+
+### ✅ REGRA CRÍTICA: PARTE DA API AVANÇADA
+**PERMITIDO APENAS SE:** Sistema implementado como endpoints REST da API Avançada, após API Core estável.
+**PROIBIDO:** Implementar lógica básica que deveria estar na API Core.
 
 ## 📋 INSTRUÇÕES PARA O CHAT BUILDER
 
 ### O QUE VOCÊ PRECISA FAZER:
-1. **Implementar `StockMonitorService`** com monitoramento contínuo de estoque
-2. **Criar regras de negócio configuráveis** para diferentes tipos de alertas
-3. **Desenvolver sistema de notificações** multi-canal (email, SMS, dashboard)
-4. **Integrar completamente** com polling, cache e dashboard existentes
-5. **Implementar histórico e relatórios** de efetividade dos alertas
+1. **Implementar módulo `advanced-alerts`** seguindo estrutura Clean Architecture
+2. **Criar `AdvancedAlertService`** com monitoramento complexo de estoque
+3. **Desenvolver endpoints REST avançados** para gestão de regras
+4. **Implementar sistema multi-canal** (Email, SMS, WebSocket)
+5. **Integrar com machine learning** para detecção de anomalias
 
 ### PASSO A PASSO:
-1. **Crie StockMonitorService**: `modules/stock-monitor/application/StockMonitorService.ts`
-2. **Implemente regras**: Estoque mínimo, consumo anormal, validade, ruptura iminente
-3. **Configure notificações**: Email para críticos, SMS para urgente, WebSocket para dashboard
-4. **Integre sistemas**: Conecte com polling (dados), cache (performance), dashboard (UI)
-5. **Desenvolva histórico**: Banco de dados de alertas com resolução e análise
-6. **Escreva testes**: Unitários para regras, integração para fluxo completo
+1. **Módulo Advanced-Alerts**: Crie `modules/advanced-alerts/` com presentation/application/infrastructure
+2. **AdvancedAlertService**: Implemente `AdvancedAlertService.ts` com regras complexas
+3. **Endpoints REST Avançados**: Crie routes para gestão de regras ML, configuração multi-canal
+4. **Sistema Multi-canal**: Configure Email, SMS e WebSocket integrados
+5. **Integração ML**: Conecte com sistema de previsão e detecção de anomalias
+6. **Testes Complexos**: Escreva testes unitários, integração e E2E para regras avançadas
 7. **Solicite revisão**: Use `@fase-4-alertas`
 
 ### REGRAS IMPORTANTES:
-- **Configurável**: Regras ajustáveis via environment ou interface
-- **Multi-canal**: Notificações por email, SMS e dashboard
-- **Escalonamento**: Alertas não resolvidos escalam em severidade
-- **Histórico**: Todos alertas registrados para análise
-- **Efetividade**: Métricas de falsos positivos/negativos
+- **API First**: Endpoints REST bem definidos e documentados
+- **Tempo real**: WebSocket para notificações imediatas
+- **Configurável**: Regras ajustáveis via API
+- **Histórico**: Todos alertas registrados para consulta
+- **Performance**: Monitoramento executa em < 30 segundos
 
 ### PRÉ-REQUISITOS:
-- **Fase 1 aprovada**: Polling inteligente funcionando
-- **Fase 2 aprovada**: Cache multi-nível configurado
-- **Fase 3 aprovada**: Dashboard tempo real implementado
-- **Serviços externos**: Email (SMTP), SMS (API) configurados
+- **Estrutura Clean Architecture**: Módulos existentes como referência
+- **Fastify configurado**: Servidor HTTP funcionando
+- **Prisma ORM**: Banco de dados configurado
+- **Node.js 18+**: Ambiente de desenvolvimento
 
-### TIPOS DE ALERTAS A IMPLEMENTAR:
-1. **Estoque mínimo**: Produto abaixo do nível configurado
-2. **Consumo anormal**: Desvio > 2σ do histórico
-3. **Validade próxima**: 30, 15, 7 dias antes do vencimento
-4. **Ruptura iminente**: Lead time + consumo atual > estoque atual
-5. **Tendência negativa**: Consumo caindo consistentemente
+### ENDPOINTS DA API CORE A IMPLEMENTAR:
+1. **GET /v1/alerts**: Lista alertas ativos com filtros
+2. **GET /v1/alerts/{id}**: Detalhes de um alerta específico
+3. **POST /v1/alerts**: Criar novo alerta manualmente
+4. **PUT /v1/alerts/{id}**: Atualizar status de alerta
+5. **GET /v1/alerts/rules**: Listar regras de alerta configuradas
+6. **POST /v1/alerts/rules**: Criar nova regra de alerta
+7. **PUT /v1/alerts/rules/{id}**: Atualizar regra existente
+8. **GET /v1/alerts/history**: Consultar histórico de alertas
 
-### SEVERIDADE DOS ALERTAS:
-- **Baixa**: Situação monitorar (ex: estoque 20% acima mínimo)
-- **Média**: Ação recomendada (ex: estoque próximo do mínimo)
-- **Alta**: Ação necessária (ex: estoque abaixo do mínimo)
-- **Crítica**: Ação urgente (ex: ruptura iminente em < 24h)
+### TIPOS DE ALERTAS BÁSICOS (API CORE):
+1. **Estoque crítico**: Produto abaixo do nível mínimo configurado
+2. **Estoque baixo**: Produto próximo do nível mínimo (warning)
+3. **Sincronização falhou**: Erro na sincronização com Omie
+4. **Sistema indisponível**: Serviço externo não respondendo
 
 ### 🚫 REGRA CRÍTICA: AÇÕES CURTAS E INCREMENTAIS
 **NÃO FAÇA TUDO DE UMA VEZ!** Siga estas regras rigorosamente:
@@ -111,134 +142,223 @@ Você está implementando a **Fase 4 da Etapa 2** do projeto Production Manager.
 
 ## 🛠️ TAREFAS ESPECÍFICAS
 
-### TAREFA 4.1: STOCKMONITORSERVICE
-Criar `modules/stock-monitor/application/StockMonitorService.ts` com:
-- Monitoramento contínuo de níveis de estoque
-- Regras de negócio configuráveis
-- Detecção de padrões anormais de consumo
-- Sistema de severidade de alertas (baixa, média, alta, crítica)
+### TAREFA 4.1: MÓDULO ALERTS (API CORE)
+Criar estrutura completa do módulo `alerts` seguindo Clean Architecture:
+- **Presentation**: Routes, controllers, schemas para endpoints REST
+- **Application**: `AlertService`, DTOs, use cases básicos
+- **Infrastructure**: Repositories, WebSocket integration, job scheduling
+- **Domain**: Entities (`Alert`, `AlertRule`), value objects, errors
 
-### TAREFA 4.2: REGRAS DE NEGÓCIO
-Implementar regras específicas:
-- **Estoque mínimo**: Por produto, categoria, fornecedor
-- **Consumo anormal**: Baseado em histórico e sazonalidade
-- **Validade**: Alertas 30, 15, 7 dias antes do vencimento
-- **Ruptura iminente**: Cálculo baseado em lead time + consumo
-- **Tendências**: Aumento/diminuição súbita de consumo
+### TAREFA 4.2: ALERTSERVICE BÁSICO
+Implementar `AlertService.ts` com funcionalidades core:
+- Monitoramento de estoque crítico (regra básica)
+- Sistema de severidade simples (baixa, média, alta)
+- Integração com polling de estoque (2min interval)
+- Notificações via WebSocket em tempo real
+- Histórico básico de alertas
 
-### TAREFA 4.3: SISTEMA DE NOTIFICAÇÕES
-Implementar múltiplos canais:
-- **Email**: Relatórios diários, alertas críticos
-- **SMS**: Apenas para ruptura iminente (urgente)
-- **Dashboard**: Alertas em tempo real via WebSocket
-- **Escalonamento**: Alertas não resolvidos em X horas
-- **Histórico**: Banco de dados de todos alertas
+### TAREFA 4.3: ENDPOINTS REST DA API CORE
+Desenvolver endpoints REST bem definidos:
+- **GET /v1/alerts**: Listagem com paginação e filtros (status, severity, type)
+- **GET /v1/alerts/{id}**: Detalhes completos de um alerta específico
+- **POST /v1/alerts**: Criação manual de alertas (para testes e integração)
+- **PUT /v1/alerts/{id}**: Atualização de status (acknowledged, resolved)
+- **GET /v1/alerts/rules**: Consulta de regras configuradas
+- **POST /v1/alerts/rules**: Criação de novas regras de alerta
+- **PUT /v1/alerts/rules/{id}**: Atualização de regras existentes
+- **GET /v1/alerts/history**: Histórico com filtros por data e tipo
 
-### TAREFA 4.4: INTEGRAÇÃO COMPLETA
-Conectar todos sistemas:
-- Polling fornece dados atualizados
-- Cache otimiza performance do monitor
-- Dashboard mostra alertas em tempo real
-- Sistema permite marcar alertas como resolvidos
-- Relatórios de efetividade do sistema
+### TAREFA 4.4: WEBSOCKET PARA TEMPO REAL
+Implementar sistema de notificações em tempo real:
+- WebSocket server integrado ao Fastify
+- Broadcast de novos alertas para todos clientes conectados
+- Sistema de reconexão automática com backoff
+- Autenticação via JWT token para conexões WebSocket
+- Heartbeat (30s) para manter conexões ativas
+
+### TAREFA 4.5: INTEGRAÇÃO COM POLLING
+Conectar sistema de alertas com polling inteligente:
+- Consumo de dados atualizados de estoque (2min interval)
+- Trigger de alertas baseado em mudanças detectadas
+- Cache de dados frequentes para performance
+- Sistema de debounce para evitar alertas duplicados
 
 ## 🧪 TESTES OBRIGATÓRIOS
 
-### TESTES UNITÁRIOS
-1. **StockMonitorService**
-   - Testar cada regra de negócio isoladamente
-   - Testar cálculo de severidade
-   - Testar detecção de padrões anormais
-   - Testar configuração de regras
+### TESTES UNITÁRIOS (API CORE)
+1. **AlertService**
+   - Testar regra básica de estoque crítico
+   - Testar cálculo de severidade (baixa, média, alta)
+   - Testar criação e atualização de alertas
+   - Testar consulta de histórico
 
-2. **Notification Services**
-   - Testar envio de email (mock)
-   - Testar envio de SMS (mock)
-   - Testar broadcast WebSocket
-   - Testar escalonamento
+2. **Controllers & Routes**
+   - Testar validação de schemas para endpoints
+   - Testar tratamento de erros HTTP (400, 404, 500)
+   - Testar paginação e filtros funcionando
+   - Testar autenticação e autorização
 
-### TESTES DE INTEGRAÇÃO
-1. **Fluxo completo de alerta**
-   - Dados → Monitor → Regras → Notificação → Dashboard
-   - Testar fallback se algum componente falha
-   - Testar performance com muitos produtos
-   - Testar consistência de dados
+3. **WebSocket Server**
+   - Testar conexão e desconexão de clientes
+   - Testar broadcast de alertas em tempo real
+   - Testar reconexão automática com backoff
+   - Testar autenticação via JWT token
 
-2. **Sistema de resolução**
+### TESTES DE INTEGRAÇÃO (API CORE)
+1. **Endpoints REST completos**
+   - Testar fluxo completo: criação → consulta → atualização → histórico
+   - Testar integração com banco de dados (Prisma)
+   - Testar cache funcionando para consultas frequentes
+   - Testar performance com múltiplas requisições simultâneas
+
+2. **Integração com Polling**
+   - Testar consumo de dados atualizados de estoque
+   - Testar trigger de alertas baseado em mudanças
+   - Testar sistema de debounce para evitar duplicados
+   - Testar fallback se polling falhar
+
+3. **WebSocket + REST integração**
+   - Testar notificações em tempo real após criação via REST
+   - Testar múltiplos clientes recebendo broadcast simultâneo
+   - Testar reconexão após falha de rede
+   - Testar autenticação consistente entre REST e WebSocket
+
+### TESTES E2E (API CORE)
+1. **Cenários de uso real**
+   - Simular estoque crítico e ver alerta gerado automaticamente
+   - Testar consulta e filtragem de alertas via API
+   - Validar notificações WebSocket em tempo real
    - Testar marcação de alertas como resolvidos
-   - Testar histórico e relatórios
-   - Testar re-alerta se situação não melhora
-   - Testar auditoria de ações
 
-### TESTES E2E
-1. **Cenários reais**
-   - Simular ruptura iminente e ver alerta
-   - Testar diferentes canais de notificação
-   - Validar interface do dashboard
-   - Testar configuração de regras por usuário
+2. **Performance e escalabilidade**
+   - Testar tempo de resposta < 100ms para endpoints principais
+   - Testar suporte a > 50 conexões WebSocket simultâneas
+   - Testar uso de memória com muitos alertas ativos
+   - Testar recovery após downtime do sistema
 
 ## 📈 MÉTRICAS DE SUCESSO
 
-### OPERACIONAIS
-- ✅ Monitoramento executa em < 30 segundos
-- ✅ Notificações enviadas em < 10 segundos
-- ✅ Alertas visíveis no dashboard em < 1 segundo
-- ✅ Sistema escala para > 1000 produtos
+### PERFORMANCE API CORE
+- ✅ **Tempo de resposta endpoints**: < 100ms para 95% das requisições
+- ✅ **Monitoramento execução**: < 30 segundos para verificação completa
+- ✅ **Notificações WebSocket**: < 500ms entre evento e broadcast
+- ✅ **Concorrência WebSocket**: Suporta > 50 conexões simultâneas estáveis
+- ✅ **Cache hit rate**: > 80% para consultas frequentes de alertas
+- ✅ **Uptime API**: > 99.9% durante horário de produção
 
-### DE NEGÓCIO
-- ✅ Rupturas prevenidas > 95% dos casos
-- ✅ Falsos positivos < 5%
-- ✅ Tempo de reação reduzido em > 50%
-- ✅ Perdas por validade reduzidas em > 30%
+### QUALIDADE DOS DADOS
+- ✅ **Alertas gerados automaticamente**: > 95% dos casos de estoque crítico
+- ✅ **Falsos positivos**: < 10% (aceitável para fase inicial)
+- ✅ **Dados consistentes**: 100% sincronia entre REST e WebSocket
+- ✅ **Histórico completo**: Todos alertas registrados com timestamp e metadata
 
-### EFETIVIDADE
-- ✅ Alertas levam a ações corretivas > 90% das vezes
-- ✅ Usuários consideram alertas úteis > 80%
-- ✅ Configuração de regras intuitiva
-- ✅ Histórico de alertas facilmente consultável
+### USABILIDADE DA API
+- ✅ **Documentação OpenAPI**: 100% dos endpoints documentados com exemplos
+- ✅ **Schemas de validação**: Todos endpoints com validação TypeScript + JSON Schema
+- ✅ **Error handling**: Mensagens de erro claras e códigos HTTP apropriados
+- ✅ **Autenticação**: Sistema JWT funcionando para REST e WebSocket
+- ✅ **Versionamento**: API versionada (v1/) para compatibilidade futura
+
+### INTEGRAÇÃO E ESCALABILIDADE
+- ✅ **Integração com polling**: Dados atualizados consumidos corretamente
+- ✅ **Sistema de debounce**: Alertas duplicados prevenidos em > 90% dos casos
+- ✅ **Performance sob carga**: < 200ms response time com 100 req/s simultâneas
+- ✅ **Recovery após falha**: Sistema recupera automaticamente em < 30 segundos
+- ✅ **Logs e monitoramento**: Todos eventos registrados para troubleshooting
 
 ## ⚠️ SINAIS DE ALERTA (REJEITAR)
 
-### ARQUITETURA
-- ❌ StockMonitorService com responsabilidades múltiplas
-- ❌ Regras não configuráveis ou hardcoded
-- ❌ Sem sistema de escalonamento ou histórico
-- ❌ Notificações sem fallback ou confirmação
+### ARQUITETURA API CORE
+- ❌ **Módulo não segue Clean Architecture**: Mistura presentation/application/infrastructure
+- ❌ **Endpoints REST mal definidos**: Sem schemas de validação ou documentação
+- ❌ **WebSocket sem autenticação**: Conexões aceitas sem verificação JWT
+- ❌ **Sem versionamento**: Endpoints diretos sem prefixo de versão (v1/)
+- ❌ **Integração pobre com polling**: Dados desatualizados ou inconsistentes
 
-### QUALIDADE
-- ❌ Testes não cobrem cenários de borda críticos
-- ❌ Sem métricas de efetividade dos alertas
-- ❌ Logs incompletos para debugging de falsos positivos
-- ❌ Documentação insuficiente das regras de negócio
+### QUALIDADE DE CÓDIGO
+- ❌ **Testes insuficientes**: Cobertura < 80% para endpoints críticos
+- ❌ **TypeScript any abuse**: Uso excessivo de `any` em vez de tipos específicos
+- ❌ **Error handling pobre**: Erros genéricos sem contexto útil
+- ❌ **Logs incompletos**: Sem timestamps, request IDs ou metadata para debugging
+- ❌ **Documentação ausente**: Endpoints não documentados em OpenAPI
 
-### PERFORMANCE
-- ❌ Monitoramento > 2 minutos (perde atualidade)
-- ❌ Notificações > 30 segundos (perde urgência)
-- ❌ Falsos positivos > 20% (cria alerta fadiga)
-- ❌ Interface lenta para consulta de histórico
+### PERFORMANCE API
+- ❌ **Tempo de resposta lento**: > 500ms para endpoints básicos
+- ❌ **WebSocket latência alta**: > 1 segundo para notificações
+- ❌ **Cache ineficiente**: Hit rate < 50% para consultas frequentes
+- ❌ **Monitoramento lento**: > 1 minuto para verificação completa
+- ❌ **Escalabilidade pobre**: Sistema trava com > 20 conexões simultâneas
 
-### USABILIDADE
-- ❌ Alertas ambíguos ou sem ação clara
-- ❌ Dificuldade para ajustar regras de negócio
-- ❌ Sem indicação visual clara de severidade
-- ❌ Histórico confuso ou difícil de filtrar
+### USABILIDADE DA API
+- ❌ **Schemas de validação ausentes**: Endpoints aceitam dados malformados
+- ❌ **Error messages ambíguas**: "Internal server error" sem detalhes
+- ❌ **Autenticação inconsistente**: REST e WebSocket com sistemas diferentes
+- ❌ **Pagination mal implementada**: Sem limites ou ordenação consistente
+- ❌ **Filtros não funcionais**: Parâmetros de filtro ignorados ou mal interpretados
+
+### INTEGRAÇÃO E CONFIABILIDADE
+- ❌ **Sem sistema de debounce**: Alertas duplicados frequentes
+- ❌ **Falta de fallback**: Sistema quebra completamente se polling falha
+- ❌ **Recovery manual necessário**: Não recupera automaticamente após falhas
+- ❌ **Dados inconsistentes**: REST e WebSocket mostram informações diferentes
+- ❌ **Monitoramento ausente**: Sem métricas ou alertas de saúde do sistema
 
 ## 🚀 PRÓXIMOS PASSOS APÓS APROVAÇÃO
 
-1. **Monitorar efetividade**: 1 semana de uso real
-2. **Ajustar regras**: Baseado em falsos positivos/negativos
-3. **Treinar equipe**: Procedimentos para cada tipo de alerta
-4. **Expandir sistema**: Alertas para produção, qualidade, manutenção
+### DEPLOY E MONITORAMENTO
+1. **Deploy em staging**: Testar integração completa com outros módulos
+2. **Testes de carga**: Validar performance com dados reais de produção
+3. **Monitoramento contínuo**: Coletar métricas de uso e performance da API
+4. **Documentação final**: Atualizar OpenAPI com exemplos reais
+
+### INTEGRAÇÃO COM SISTEMAS EXISTENTES
+1. **Polling inteligente**: Conectar com sincronização de estoque (2min interval)
+2. **Cache multi-nível**: Integrar com sistema de cache para performance
+3. **Dashboard frontend**: Preparar endpoints para consumo pelo React dashboard
+4. **Sistemas externos**: Configurar webhooks para integração com outros sistemas
+
+### EVOLUÇÃO E MELHORIAS FUTURAS
+1. **Regras avançadas**: Implementar detecção de padrões complexos (Fase 2)
+2. **Multi-canal**: Adicionar email e SMS notifications (Fase 3)
+3. **Machine learning**: Previsão de estoque baseada em histórico (Fase 4)
+4. **APIs customizadas**: Endpoints específicos para integrações empresariais
+
+### TREINAMENTO E ADOÇÃO
+1. **Documentação para desenvolvedores**: Guia de integração com a API
+2. **Exemplos de código**: SDKs em diferentes linguagens (JavaScript, Python)
+3. **Suporte inicial**: Equipe disponível para dúvidas de integração
+4. **Feedback contínuo**: Sistema para coletar sugestões de melhorias
 
 ## 💬 COMO SOLICITAR REVISÃO
 ```
-@fase-4-alertas: Implementei StockMonitorService com regras de estoque mínimo, 
-consumo anormal e validade. Sistema de notificações por email, SMS e dashboard.
-Por favor, revise conforme checklist da Fase 4.
+@fase-4-alertas: Implementei módulo `alerts` da API Core com endpoints REST:
+- GET /v1/alerts - Listagem com paginação e filtros
+- POST /v1/alerts - Criação manual de alertas
+- GET /v1/alerts/rules - Consulta de regras configuradas
+- WebSocket server para notificações em tempo real
+- Integração com polling de estoque (2min interval)
+
+Por favor, revise conforme checklist da Fase 4 (API Core).
 ```
 
 ## 🔗 REFERÊNCIAS
-- [SISTEMA_MONITORAMENTO_ESTOQUE.md](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/SISTEMA_MONITORAMENTO_ESTOQUE.md)
-- [StockMonitorService.ts](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/modules/stock-monitor/application/StockMonitorService.ts)
-- [Alert Rules Configuration](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/modules/stock-monitor/domain/AlertRule.ts)
-- [Notification Channels](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/modules/shared/notifications/)
+
+### DOCUMENTAÇÃO DA API CORE
+- [OpenAPI Specification](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/openapi.yaml) - Documentação completa da API versão 1.0
+- [API Core Architecture](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/API_CORE_ARCHITECTURE.md) - Guia arquitetural da API Core
+- [Endpoints REST Guidelines](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/REST_GUIDELINES.md) - Padrões para desenvolvimento de endpoints
+
+### MÓDULOS EXISTENTES (REFERÊNCIA)
+- [omie-production-orders](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/modules/omie-production-orders) - Estrutura Clean Architecture
+- [omie-sales-orders](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/modules/omie-sales-orders) - Controllers e routes
+- [orders-enriched](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/modules/orders-enriched) - Integração entre módulos
+
+### INFRAESTRUTURA
+- [Fastify Configuration](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/bootstrap/fastify.config.ts) - Configuração do servidor HTTP
+- [Prisma Schema](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/prisma/schema.prisma) - Modelos de banco de dados
+- [WebSocket Plugin](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/bootstrap/plugins/websocket.plugin.ts) - Configuração WebSocket
+
+### ESPECIFICAÇÕES DE ALERTAS
+- [Alert System Requirements](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/ALERT_SYSTEM_REQUIREMENTS.md) - Requisitos funcionais do sistema
+- [WebSocket Protocol](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/WEBSOCKET_PROTOCOL.md) - Especificação do protocolo WebSocket
+- [API Authentication](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/API_AUTHENTICATION.md) - Sistema de autenticação JWT

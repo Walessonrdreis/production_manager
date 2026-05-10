@@ -1,7 +1,31 @@
-# PROMPT PARA FASE 2 - CACHE MULTI-NÍVEL
+# PROMPT PARA FASE 2 - API AVANÇADA (MÉTRICAS, PREVISÃO, RELATÓRIOS)
 
-## 🎯 CONTEXTO DA FASE
-Você está implementando a **Fase 2 da Etapa 2** do projeto Production Manager. O foco é implementar um sistema de cache multi-nível para reduzir a latência e diminuir a carga na API do Omie.
+## 🎯 CONTEXTO DA FASE - ESTRATÉGIA API-FIRST
+Você está implementando a **FASE 2 da Etapa 2** com foco **API-FIRST**. Esta fase (Dias 11-20) desenvolve a **API Avançada** completa, expandindo a API Core com funcionalidades avançadas.
+
+**PRINCÍPIO FUNDAMENTAL:** API completa versão 1.0 estável antes do frontend.
+
+## 📋 INSTRUÇÕES PARA O CHAT BUILDER - FASE API AVANÇADA
+
+### O QUE VOCÊ PRECISA FAZER (DIAS 11-20):
+1. **Implementar endpoints de métricas** (`GET /api/metrics/production/efficiency`)
+2. **Criar sistema de previsão de demanda** (`POST /api/forecast/demand`)
+3. **Desenvolver relatórios avançados** (`GET /api/reports/production/daily`)
+4. **Expandir sistema de filas** com prioridades avançadas
+5. **Implementar segurança completa** (authentication, authorization)
+6. **Otimizar performance** (database indexing, query optimization)
+
+### PASSO A PASSO PARA API AVANÇADA:
+1. **Dia 11-12**: Criar endpoints de métricas de produção e qualidade
+2. **Dia 13-14**: Implementar sistema de previsão de demanda
+3. **Dia 15**: Desenvolver relatórios avançados em PDF
+4. **Dia 16-17**: Testes de integração end-to-end
+5. **Dia 18-19**: Performance tuning e security hardening
+6. **Dia 20**: API versão 1.0 pronta para consumo
+
+### 🚫 REGRA CRÍTICA: NENHUM FRONTEND ANTES DO DIA 21
+**PROIBIDO:** Desenvolver qualquer componente React, HTML ou CSS nesta fase.
+**PERMITIDO:** Apenas desenvolvimento de API avançada (métricas, previsão, relatórios, segurança).
 
 ## 📋 INSTRUÇÕES PARA O CHAT BUILDER
 
@@ -74,107 +98,165 @@ Você está implementando a **Fase 2 da Etapa 2** do projeto Production Manager.
 - [ ] Implementei apenas UMA funcionalidade?
 - [ ] Perguntei se devo continuar?
 
-## 📊 OBJETIVOS DE NEGÓCIO
-1. **Reduzir latência**: Cache hit < 100ms
-2. **Diminuir carga Omie**: 80% menos requisições diretas
-3. **Aumentar disponibilidade**: Dados disponíveis mesmo se API Omie cair
-4. **Otimizar performance**: Cache inteligente baseado em criticidade
-5. **Garantir consistência**: Sistema de invalidação eficiente
+## 📊 OBJETIVOS DA FASE API AVANÇADA
+1. **API completa versão 1.0**: Todos os endpoints avançados implementados
+2. **Sistema de métricas operacional**: Métricas de produção e qualidade calculadas
+3. **Previsão de demanda funcional**: Algoritmos de previsão implementados
+4. **Relatórios avançados gerados**: PDFs com análises detalhadas
+5. **Segurança implementada**: Authentication, authorization, rate limiting
+6. **Performance otimizada**: Database indexing, query optimization
 
-## 🛠️ TAREFAS ESPECÍFICAS
+## 🛠️ TAREFAS ESPECÍFICAS - API AVANÇADA
 
-### TAREFA 2.1: CONFIGURAR REDIS
-Configurar Redis no ambiente:
-- Adicionar `REDIS_URL` ao `.env`
-- Criar `infra/redis.ts` com client configurado
-- Implementar conexão com retry
-- Configurar TTLs baseados em tipo de dado
+### TAREFA 2.1: ENDPOINTS DE MÉTRICAS DE PRODUÇÃO
+Criar `modules/metrics/routes/production.routes.ts` com:
+- `GET /api/metrics/production/efficiency`: Eficiência de produção
+- `GET /api/metrics/quality/rejection-rate`: Taxa de rejeição
+- `GET /api/metrics/timeliness/cycle-time`: Tempo de ciclo
+- `GET /api/metrics/stock/turnover`: Giro de estoque
+- Agregações SQL otimizadas com indexes
 
-### TAREFA 2.2: MULTILEVELCACHESERVICE
-Criar `modules/shared/services/MultiLevelCacheService.ts` com:
-- Cache em 4 níveis: Memória → Redis → Banco → Omie
-- Estratégia stale-while-revalidate
-- Invalidação baseada em eventos
-- Métricas de hit/miss rate
+### TAREFA 2.2: SISTEMA DE PREVISÃO DE DEMANDA
+Criar `modules/forecast/routes/demand.routes.ts` com:
+- `POST /api/forecast/demand`: Prever demanda para período
+- `GET /api/forecast/history`: Histórico de previsões
+- `GET /api/forecast/accuracy`: Precisão das previsões
+- Algoritmos: Média móvel, regressão linear, sazonalidade
 
-### TAREFA 2.3: INTEGRAR COM MÓDULOS EXISTENTES
-Atualizar módulos para usar cache:
-- `omie-production-orders`: Cache de ordens
-- `omie-sales-orders`: Cache de pedidos
-- `orders-enriched`: Cache enriquecido
-- `products`: Cache de produtos
+### TAREFA 2.3: RELATÓRIOS AVANÇADOS
+Criar `modules/reports/routes/production.routes.ts` com:
+- `GET /api/reports/production/daily`: Relatório diário de produção
+- `GET /api/reports/stock/trends`: Tendências de estoque
+- `POST /api/reports/custom`: Relatório customizado com filtros
+- Geração de PDF com gráficos e análises
 
-## 🧪 TESTES OBRIGATÓRIOS
+### TAREFA 2.4: SEGURANÇA COMPLETA DA API
+Implementar sistema de segurança:
+- **Authentication**: JWT tokens com refresh
+- **Authorization**: RBAC (Role-Based Access Control)
+- **Rate limiting**: Limitação inteligente por endpoint
+- **CORS**: Configuração segura para múltiplos domínios
+- **Input validation**: Sanitização de dados de entrada
 
-### TESTES UNITÁRIOS
-1. **MultiLevelCacheService**
-   - Testar hierarquia de cache (1→2→3→4)
-   - Testar stale-while-revalidate
-   - Testar invalidação por evento
-   - Testar TTLs diferentes por tipo
+### TAREFA 2.5: OTIMIZAÇÃO DE PERFORMANCE
+Otimizar performance da API:
+- **Database indexing**: Indexes para queries frequentes
+- **Query optimization**: Otimização de queries do Prisma
+- **Connection pooling**: Configuração otimizada do PostgreSQL
+- **Cache Redis**: Estratégias avançadas de cache
+- **Compression**: Gzip compression para respostas grandes
+## 🧪 TESTES OBRIGATÓRIOS - API AVANÇADA
 
-2. **Redis client**
-   - Testar conexão e reconexão
-   - Testar operações básicas (get/set/del)
-   - Testar TTL expiration
-   - Testar fallback se Redis indisponível
+### TESTES UNITÁRIOS PARA ENDPOINTS AVANÇADOS
+1. **Endpoints de métricas**
+   - `GET /api/metrics/production/efficiency`: Testar cálculo de eficiência
+   - `GET /api/metrics/quality/rejection-rate`: Testar taxa de rejeição
+   - `GET /api/metrics/timeliness/cycle-time`: Testar tempo de ciclo
+   - `GET /api/metrics/stock/turnover`: Testar giro de estoque
 
-### TESTES DE INTEGRAÇÃO
-1. **Cache completo**
-   - Testar fluxo completo com falhas simuladas
-   - Testar consistência entre níveis
-   - Testar performance sob carga
-   - Testar recovery após downtime
+2. **Sistema de previsão**
+   - `POST /api/forecast/demand`: Testar algoritmos de previsão
+   - `GET /api/forecast/history`: Testar histórico de previsões
+   - `GET /api/forecast/accuracy`: Testar precisão das previsões
 
-## 📈 MÉTRICAS DE SUCESSO
+3. **Relatórios avançados**
+   - `GET /api/reports/production/daily`: Testar geração de relatório diário
+   - `GET /api/reports/stock/trends`: Testar análise de tendências
+   - `POST /api/reports/custom`: Testar relatórios customizados
 
-### OPERACIONAIS
-- ✅ Cache hit rate > 80%
-- ✅ Latência cache < 100ms
-- ✅ Redis disponibilidade > 99.9%
-- ✅ Invalidação automática funcionando
+4. **Segurança da API**
+   - Testar authentication JWT tokens
+   - Testar authorization RBAC
+   - Testar rate limiting por endpoint
+   - Testar CORS configuration
 
-### DE NEGÓCIO
-- ✅ 80% menos requisições para API Omie
-- ✅ Dados disponíveis durante downtime Omie
-- ✅ Performance consistente sob carga
-- ✅ Zero data inconsistency
+### TESTES DE INTEGRAÇÃO AVANÇADOS
+1. **Fluxo completo de métricas**
+   - Testar cálculo de métricas com dados reais
+   - Testar performance de agregações SQL
+   - Testar cache de métricas calculadas
 
-## ⚠️ SINAIS DE ALERTA (REJEITAR)
+2. **Sistema de previsão em produção**
+   - Testar precisão com dados históricos
+   - Testar performance de algoritmos
+   - Testar atualização automática de modelos
 
-### ARQUITETURA
-- ❌ CacheService faz polling ou notificações
-- ❌ Sem hierarquia de cache (apenas 1 nível)
-- ❌ Sem sistema de invalidação
-- ❌ TTLs hardcoded ou não configuráveis
+3. **Segurança e performance combinadas**
+   - Testar API sob carga com autenticação
+   - Testar rate limiting em cenários reais
+   - Testar fallback de segurança
 
-### QUALIDADE
-- ❌ Testes não cobrem cenários de falha
-- ❌ Sem testes de performance
-- ❌ Sem métricas de cache hit/miss
-- ❌ Logs incompletos para debugging
+## 📈 MÉTRICAS DE SUCESSO - API AVANÇADA
 
-### PERFORMANCE
-- ❌ Cache hit rate < 50%
-- ❌ Latência cache > 500ms
-- ❌ Sem fallback se Redis cai
-- ❌ Data inconsistency entre níveis
+### TÉCNICAS (OBRIGATÓRIAS)
+- ✅ **10 endpoints avançados implementados**: Métricas, previsão, relatórios
+- ✅ **Segurança completa**: Authentication, authorization, rate limiting
+- ✅ **Performance otimizada**: Database indexes, query optimization
+- ✅ **Cache avançado**: Redis com estratégias multi-nível
+- ✅ **Test coverage > 85%**: Testes unitários e de integração
+- ✅ **Response time < 300ms**: Performance superior (p95)
 
-## 🚀 PRÓXIMOS PASSOS APÓS APROVAÇÃO
+### DE NEGÓCIO (CRÍTICAS)
+- ✅ **Métricas de produção calculadas**: Eficiência, qualidade, tempo
+- ✅ **Previsão de demanda funcional**: Algoritmos precisos (>80%)
+- ✅ **Relatórios gerados automaticamente**: PDFs com análises detalhadas
+- ✅ **Sistema de filas avançado**: Prioridades, balanceamento, monitoramento
 
-1. **Monitorar**: Métricas de cache por 48h
-2. **Otimizar**: Ajustar TTLs baseado em uso real
-3. **Escalar**: Configurar Redis cluster se necessário
-4. **Preparar**: Ambiente para Fase 3 (WebSocket)
+### QUALIDADE (VERIFICAÇÃO)
+- ✅ **Segurança auditada**: Vulnerabilidades corrigidas
+- ✅ **Performance validada**: Sob carga real de produção
+- ✅ **Documentação completa**: Inclui exemplos e guias avançados
+- ✅ **Testes automatizados**: Pipeline CI/CD funcionando
+
+## ⚠️ SINAIS DE ALERTA - REJEITAR IMEDIATAMENTE
+
+### VIOLAÇÃO DA ESTRATÉGIA API-FIRST
+- ❌ **Qualquer desenvolvimento frontend**: React, HTML, CSS, componentes UI
+- ❌ **Endpoints sem segurança**: Sem authentication ou authorization
+- ❌ **Performance inadequada**: Response time > 500ms para endpoints críticos
+- ❌ **Testes incompletos**: Coverage < 85% para endpoints avançados
+
+### ARQUITETURA DA API AVANÇADA
+- ❌ **Métricas calculadas incorretamente**: Cálculos imprecisos ou incompletos
+- ❌ **Previsão não funcional**: Algoritmos não implementados ou imprecisos
+- ❌ **Relatórios não gerados**: PDFs não criados ou com erros
+- ❌ **Segurança incompleta**: Falta de rate limiting ou authorization
+
+### QUALIDADE DO CÓDIGO AVANÇADO
+- ❌ **Queries não otimizadas**: Sem indexes para agregações frequentes
+- ❌ **Algoritmos não testados**: Previsão sem validação de precisão
+- ❌ **Cache ineficiente**: Hit rate < 70% para dados críticos
+- ❌ **Logs inadequados**: Sem registro de cálculos complexos
+
+## 🚀 PRÓXIMOS PASSOS APÓS APROVAÇÃO DA API AVANÇADA
+
+### FASE 3: FRONTEND (DIAS 21-40)
+1. **Dashboard básico React**: Layout, componentes, integração API
+2. **Visualizações em tempo real**: Gráficos, atualizações automáticas
+3. **Sistema de notificações**: Alertas em tempo real no frontend
+4. **Responsividade completa**: Mobile, tablet, desktop
+
+### COORDENAÇÃO COM EQUIPE FRONTEND
+1. **API versão 1.0 estável**: Pronta para consumo do frontend
+2. **Documentação compartilhada**: Ambos times usam mesma OpenAPI spec
+3. **Testes de integração**: Frontend pode testar contra API estável
+4. **Contrato bem definido**: Interface clara entre equipes
 
 ## 💬 COMO SOLICITAR REVISÃO
 ```
-@fase-2-cache: Implementei o MultiLevelCacheService e configurei Redis. 
-Por favor, revise conforme checklist da Fase 2.
+@fase-2-cache: Implementei endpoints avançados de métricas, previsão e relatórios.
+API completa versão 1.0 pronta para consumo frontend. Por favor, revise.
 ```
 
-## 🔗 REFERÊNCIAS
-- [ETAPA_2_PRODUCAO.md](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/ETAPA_2_PRODUCAO.md)
-- [MultiLevelCacheService.ts](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/modules/shared/services/MultiLevelCacheService.ts)
-- [infra/redis.ts](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/infra/redis.ts)
-- [OmieStockCache.ts](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/modules/shared/cache/OmieStockCache.ts)
+## 🔗 REFERÊNCIAS - API AVANÇADA
+
+### DOCUMENTAÇÃO PRINCIPAL
+- [ETAPA_2_API_FIRST_DETALHADO.md](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/ETAPA_2_API_FIRST_DETALHADO.md) - Plano completo API-first
+- [CRONOGRAMA_API_FIRST.md](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/CRONOGRAMA_API_FIRST.md) - Cronograma visual por dia
+
+### ENDPOINTS DE REFERÊNCIA AVANÇADOS
+- `GET /api/metrics/production/efficiency` - Eficiência de produção
+- `POST /api/forecast/demand` - Previsão de demanda
+- `GET /api/reports/production/daily` - Relatório diário
+- `POST /api/integration/rules` - Regras de conversão
+- `GET /api/metrics/stock/turnover` - Giro de estoque

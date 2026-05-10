@@ -1,7 +1,35 @@
-# PROMPT PARA FASE 3 - DASHBOARD TEMPO REAL
+# PROMPT PARA FASE 3 - FRONTEND DASHBOARD (APÓS API ESTÁVEL)
 
-## 🎯 CONTEXTO DA FASE
-Você está implementando a **Fase 3 da Etapa 2** do projeto Production Manager. O foco é criar um dashboard em tempo real para monitoramento da produção, integrando WebSocket com os sistemas de polling e cache já implementados.
+## 🎯 CONTEXTO DA FASE - ESTRATÉGIA API-FIRST
+Você está implementando a **FASE 3 da Etapa 2** com foco **API-FIRST**. Esta fase (Dias 21-40) desenvolve o **Frontend Dashboard** completo, APÓS a API estar estável e documentada.
+
+**PRINCÍPIO FUNDAMENTAL:** Frontend desenvolvido apenas quando API versão 1.0 está pronta para consumo.
+
+## 📋 INSTRUÇÕES PARA O CHAT BUILDER - FASE FRONTEND
+
+### O QUE VOCÊ PRECISA FAZER (DIAS 21-40):
+1. **Criar projeto React separado** para dashboard de produção
+2. **Desenvolver componentes principais**: KPI Cards, Charts, Alerts, Tables
+3. **Integrar com API estável** via REST endpoints e WebSocket
+4. **Implementar sistema de notificações** em tempo real no frontend
+5. **Garantir responsividade completa** para mobile, tablet e desktop
+6. **Escrever testes E2E** com Cypress para fluxos de usuário
+
+### PASSO A PASSO PARA FRONTEND (DIAS 21-40):
+1. **Dia 21-22**: Configurar projeto React + TypeScript + Tailwind CSS
+2. **Dia 23-24**: Desenvolver layout base e sistema de navegação
+3. **Dia 25**: Dashboard mínimo funcional com integração API
+4. **Dia 26-27**: Componentes de gráficos e visualizações em tempo real
+5. **Dia 28-29**: Sistema de notificações e alertas frontend
+6. **Dia 30**: Otimização de performance e bundle size
+7. **Dia 31-32**: Testes E2E com Cypress para fluxos críticos
+8. **Dia 33-34**: Responsividade mobile/tablet e cross-browser testing
+9. **Dia 35**: Performance tuning final e SEO optimization
+10. **Dia 36-40**: Deploy, monitoramento e ajustes finais
+
+### ✅ REGRA CRÍTICA: API DEVE ESTAR ESTÁVEL
+**PERMITIDO APENAS SE:** API versão 1.0 está documentada em OpenAPI e todos os endpoints estão testados e funcionando.
+**PROIBIDO:** Desenvolver frontend se API ainda está em mudança constante.
 
 ## 📋 INSTRUÇÕES PARA O CHAT BUILDER
 
@@ -29,8 +57,9 @@ Você está implementando a **Fase 3 da Etapa 2** do projeto Production Manager.
 - **Fallback**: Polling se WebSocket não disponível
 
 ### PRÉ-REQUISITOS:
-- **Fase 1 aprovada**: Polling inteligente funcionando
-- **Fase 2 aprovada**: Cache multi-nível configurado
+- **Fase 1 aprovada**: API Core estável e documentada
+- **Fase 2 aprovada**: API Avançada estável e documentada
+- **OpenAPI disponível**: Documentação completa da API
 - **Node.js 18+**: Para desenvolvimento React
 - **Navegadores modernos**: Chrome, Firefox, Edge suportados
 
@@ -108,117 +137,188 @@ apps/dashboard/
 
 ## 🛠️ TAREFAS ESPECÍFICAS
 
-### TAREFA 3.1: WEBSOCKET SERVER
-Implementar WebSocket integrado ao Fastify:
-- Criar `websocket/dashboard.websocket.ts`
-- Configurar heartbeat para manter conexões
-- Implementar broadcast de atualizações
-- Sistema de reconexão automática
-- Monitoramento de métricas de conexão
+### TAREFA 3.1: WEBSOCKET SERVER (BACKEND)
+Implementar WebSocket integrado ao Fastify para comunicação em tempo real:
+- Criar `websocket/dashboard.websocket.ts` com sistema de broadcast
+- Configurar heartbeat (30s) para manter conexões ativas
+- Implementar autenticação via token JWT para conexões WebSocket
+- Sistema de reconexão automática com backoff exponencial
+- Monitoramento de métricas: conexões ativas, mensagens por segundo
+- Integração com eventos do sistema: estoque crítico, ordens concluídas
 
-### TAREFA 3.2: PROJETO REACT
-Criar projeto React separado para dashboard:
-- Configurar Vite + TypeScript + Tailwind
-- Componentes principais: KPI Cards, Charts, Alerts
-- Integração WebSocket com reconexão
-- Cache local para performance offline
+### TAREFA 3.2: PROJETO REACT (FRONTEND)
+Criar projeto React separado para dashboard de produção:
+- Configurar Vite + TypeScript + Tailwind CSS + ESLint
+- Setup de desenvolvimento: hot reload, source maps, dev server
+- Estrutura de pastas modular baseada em funcionalidades
+- Sistema de temas (light/dark) para diferentes ambientes da fábrica
+- Internacionalização básica (pt-BR) para operadores
 
-### TAREFA 3.3: INTEGRAÇÃO DADOS
-Conectar dashboard com backend:
-- WebSocket para atualizações em tempo real
-- REST API para dados históricos
-- Cache local para dados frequentes
-- Fallback para polling se WebSocket falhar
+### TAREFA 3.3: COMPONENTES PRINCIPAIS (FRONTEND)
+Desenvolver componentes específicos para monitoramento de produção:
+- **ProductionQueue**: Fila visual de ordens de produção com drag & drop
+- **StockMonitor**: Dashboard de níveis de estoque com alertas visuais
+- **OrderStatus**: Timeline interativo de status de pedidos vendidos
+- **MachineEfficiency**: Gráficos de eficiência por máquina/operador
+- **AlertsPanel**: Sistema de notificações em tempo real com prioridades
+- **KPI Dashboard**: Cards com métricas críticas atualizadas em tempo real
 
-### TAREFA 3.4: COMPONENTES PRINCIPAIS
-Desenvolver componentes específicos:
-- **ProductionQueue**: Fila de ordens de produção
-- **StockMonitor**: Níveis de estoque crítico
-- **OrderStatus**: Status de pedidos vendidos
-- **MachineEfficiency**: Eficiência por máquina
-- **AlertsPanel**: Painel de alertas ativos
+### TAREFA 3.4: INTEGRAÇÃO API (FRONTEND)
+Conectar dashboard com API estável via REST + WebSocket:
+- Service layer para comunicação com endpoints REST da API
+- WebSocket client com reconexão automática e cache local
+- Sistema de polling fallback (5s) se WebSocket não disponível
+- Cache local (IndexedDB) para dados frequentes e offline mode
+- Error handling com retry automático para falhas temporárias
 
 ## 🧪 TESTES OBRIGATÓRIOS
 
-### TESTES UNITÁRIOS
-1. **WebSocket Server**
-   - Testar conexão e desconexão
-   - Testar heartbeat funcionando
-   - Testar broadcast de mensagens
-   - Testar reconexão automática
+### TESTES UNITÁRIOS (FRONTEND)
+1. **React Components**
+   - Testar renderização de dados da API
+   - Testar atualizações via WebSocket em tempo real
+   - Testar responsividade em diferentes breakpoints
+   - Testar interações do usuário (clicks, drag & drop)
+   - Testar estado de loading e error handling
 
-2. **React Components**
-   - Testar renderização de dados
-   - Testar atualizações via WebSocket
-   - Testar responsividade
-   - Testar interações do usuário
+2. **Custom Hooks**
+   - Testar `useWebSocket` com reconexão automática
+   - Testar `useApiService` com cache e retry
+   - Testar `useProductionQueue` com operações de fila
+   - Testar `useStockMonitor` com alertas de estoque
 
-### TESTES DE INTEGRAÇÃO
-1. **Fluxo completo**
-   - Testar polling → cache → WebSocket → dashboard
-   - Testar fallback se WebSocket falha
-   - Testar performance com múltiplos clientes
-   - Testar recovery após downtime
+3. **Services & Utils**
+   - Testar formatação de dados para visualização
+   - Testar cálculos de métricas (KPI, eficiência)
+   - Testar validação de dados da API
+   - Testar transformação de dados para gráficos
 
-### TESTES E2E
-1. **Experiência usuário**
-   - Testar uso real por operador
-   - Testar em diferentes dispositivos
-   - Testar cenários de falha de rede
-   - Testar tempo de carregamento inicial
+### TESTES DE INTEGRAÇÃO (FRONTEND + BACKEND)
+1. **Fluxo completo API → Dashboard**
+   - Testar integração REST API com componentes React
+   - Testar comunicação WebSocket em tempo real
+   - Testar fallback para polling quando WebSocket falha
+   - Testar cache local e sincronização com backend
+
+2. **Autenticação e Segurança**
+   - Testar fluxo de login e token refresh
+   - Testar autorização baseada em roles (operador, supervisor)
+   - Testar proteção de rotas no frontend
+   - Testar expiração de sessão e logout automático
+
+### TESTES E2E COM CYPRESS
+1. **Experiência do Operador**
+   - Testar fluxo completo de monitoramento de produção
+   - Testar visualização de alertas em tempo real
+   - Testar interação com fila de ordens de produção
+   - Testar responsividade em tablets e computadores
+
+2. **Cenários de Falha**
+   - Testar comportamento com perda de conexão
+   - Testar recovery após downtime do servidor
+   - Testar offline mode com cache local
+   - Testar error handling de API indisponível
+
+3. **Performance Frontend**
+   - Testar tempo de carregamento inicial (< 3s)
+   - Testar FPS (frames per second) durante animações
+   - Testar uso de memória com múltiplas conexões
+   - Testar bundle size otimizado (< 2MB gzipped)
 
 ## 📈 MÉTRICAS DE SUCESSO
 
-### OPERACIONAIS
-- ✅ Latência WebSocket < 100ms
-- ✅ Dashboard atualiza em < 1 segundo
-- ✅ Suporta > 50 conexões simultâneas
-- ✅ Reconexão automática < 5 segundos
+### PERFORMANCE FRONTEND
+- ✅ **Tempo de carregamento inicial**: < 3 segundos (First Contentful Paint)
+- ✅ **Latência WebSocket**: < 100ms para atualizações em tempo real
+- ✅ **Atualização dashboard**: < 1 segundo após mudança no backend
+- ✅ **Bundle size otimizado**: < 2MB gzipped (incluindo todas dependências)
+- ✅ **FPS estável**: > 60 FPS durante animações e interações
+- ✅ **Uso de memória**: < 200MB RAM com múltiplas conexões ativas
 
-### DE NEGÓCIO
-- ✅ Operadores conseguem monitorar produção em tempo real
-- ✅ Alertas visíveis imediatamente
-- ✅ Interface intuitiva sem treinamento extensivo
-- ✅ Funciona em tablets da fábrica
+### USABILIDADE E EXPERIÊNCIA DO USUÁRIO
+- ✅ **Intuitividade**: Operadores conseguem usar sem treinamento extensivo
+- ✅ **Responsividade**: Funciona perfeitamente em tablets (1024px) e computadores
+- ✅ **Acessibilidade**: WCAG 2.1 AA compliance para operadores com deficiência visual
+- ✅ **Navegação**: Tempo < 2 segundos para alternar entre seções principais
+- ✅ **Feedback visual**: Alertas visíveis dentro de 500ms após evento
+- ✅ **Offline mode**: Funcionalidade básica disponível sem conexão por até 5 minutos
 
-### EXPERIÊNCIA USUÁRIO
-- ✅ Tempo de carregamento inicial < 3 segundos
-- ✅ Zero erros de interface para operadores
-- ✅ Navegação intuitiva entre seções
-- ✅ Status de conexão sempre visível
+### INTEGRAÇÃO COM API
+- ✅ **Conectividade**: Reconexão automática < 5 segundos após falha de rede
+- ✅ **Cache eficiente**: Hit rate > 80% para dados frequentes
+- ✅ **Error handling**: Zero crashes por erros de API malformada
+- ✅ **Autenticação**: Token refresh automático sem interrupção do usuário
+- ✅ **Sincronização**: Dados consistentes entre múltiplos dispositivos
+
+### METRICS DE NEGÓCIO
+- ✅ **Adoção**: > 90% dos operadores usando dashboard diariamente
+- ✅ **Eficiência**: Redução de tempo de resposta a alertas em > 50%
+- ✅ **Disponibilidade**: Uptime > 99.9% durante horário de produção
+- ✅ **Satisfação**: NPS > 70 entre operadores e supervisores
+- ✅ **Produtividade**: Aumento de throughput em > 15% com monitoramento em tempo real
 
 ## ⚠️ SINAIS DE ALERTA (REJEITAR)
 
-### ARQUITETURA
-- ❌ WebSocket sem heartbeat ou reconexão
-- ❌ Dashboard sem cache local
-- ❌ Sem fallback para polling
-- ❌ Componentes React não responsivos
+### ARQUITETURA FRONTEND
+- ❌ **Sem WebSocket fallback**: Dashboard depende 100% de WebSocket sem polling backup
+- ❌ **Cache local ausente**: Sem IndexedDB ou localStorage para dados frequentes
+- ❌ **Componentes monolíticos**: Componentes React com > 500 linhas ou múltiplas responsabilidades
+- ❌ **Estado global excessivo**: Uso abusivo de context/Redux para dados locais
+- ❌ **Dependências desnecessárias**: Bundle inchado com libs que poderiam ser substituídas
 
-### QUALIDADE
-- ❌ Testes não cobrem cenários de falha de rede
-- ❌ Sem testes de performance WebSocket
-- ❌ Interface não testada em dispositivos móveis
-- ❌ Logs incompletos para debugging
+### QUALIDADE DE CÓDIGO
+- ❌ **Testes insuficientes**: Cobertura < 80% para componentes críticos
+- ❌ **Sem testes de responsividade**: Não testado em tablets (1024px) ou mobile
+- ❌ **TypeScript any abuse**: Uso excessivo de `any` em vez de tipos específicos
+- ❌ **Error handling pobre**: Falta de tratamento para erros de API/network
+- ❌ **Logs de debug ausentes**: Sem console.log ou sistema de logging para troubleshooting
 
-### PERFORMANCE
-- ❌ Latência WebSocket > 500ms
-- ❌ Dashboard atualiza > 5 segundos
-- ❌ Consumo excessivo de memória no cliente
-- ❌ Tempo de carregamento > 10 segundos
+### PERFORMANCE FRONTEND
+- ❌ **Bundle size grande**: > 2MB gzipped para aplicação de dashboard
+- ❌ **Tempo de carregamento lento**: > 5 segundos para First Contentful Paint
+- ❌ **Memory leaks**: Uso de memória crescente com uso prolongado
+- ❌ **Re-renders excessivos**: Componentes renderizando sem necessidade
+- ❌ **WebSocket latência alta**: > 500ms para atualizações em tempo real
 
-### USABILIDADE
-- ❌ Interface confusa para operadores
-- ❌ Alertas não visíveis o suficiente
-- ❌ Sem indicação clara de status de conexão
-- ❌ Navegação complexa entre seções
+### USABILIDADE E UX
+- ❌ **Interface complexa**: Operadores precisam de treinamento extensivo
+- ❌ **Feedback visual pobre**: Alertas não destacados ou difíceis de identificar
+- ❌ **Navegação confusa**: Muitos cliques para acessar informações críticas
+- ❌ **Sem offline mode**: Aplicação quebra completamente sem conexão
+- ❌ **Acessibilidade ignorada**: Não segue WCAG 2.1 para operadores com deficiência
+
+### INTEGRAÇÃO COM API
+- ❌ **Hardcoded endpoints**: URLs da API hardcoded em vez de configuração
+- ❌ **Sem retry automático**: Falhas de rede não tentam reconectar automaticamente
+- ❌ **Token handling pobre**: Sem refresh automático ou tratamento de expiração
+- ❌ **Cache invalidation ausente**: Dados stale mostrados por tempo indefinido
+- ❌ **Version locking**: Frontend trava em versão específica da API sem fallback
 
 ## 🚀 PRÓXIMOS PASSOS APÓS APROVAÇÃO
 
-1. **Treinar**: Operadores no uso do dashboard
-2. **Monitorar**: Uso real e feedback dos operadores
-3. **Otimizar**: Baseado em uso real na fábrica
-4. **Preparar**: Ambiente para Fase 4 (Sistema de Alertas)
+### DEPLOY E ROLLOUT
+1. **Deploy em staging**: Testar integração completa com API estável
+2. **Testes de aceitação**: Validar com supervisores e operadores chave
+3. **Deploy em produção**: Rollout gradual para diferentes setores da fábrica
+4. **Monitoramento contínuo**: Coletar métricas de uso e performance
+
+### TREINAMENTO E ADOÇÃO
+1. **Treinamento operadores**: Sessões práticas de 30 minutos por turno
+2. **Documentação rápida**: Guia visual de 1 página para referência rápida
+3. **Suporte inicial**: Equipe de suporte disponível nas primeiras 2 semanas
+4. **Coleta de feedback**: Sistema simples para sugestões e problemas
+
+### OTIMIZAÇÃO CONTÍNUA
+1. **Análise de métricas**: Identificar pontos de atrito na interface
+2. **Performance tuning**: Otimizar componentes com maior impacto
+3. **Novos recursos**: Priorizar baseado em feedback dos operadores
+4. **Manutenção proativa**: Atualizações de segurança e dependências
+
+### INTEGRAÇÃO COM SISTEMAS EXISTENTES
+1. **SSO (Single Sign-On)**: Integrar com sistema de autenticação da empresa
+2. **Notificações push**: Enviar alertas para dispositivos móveis dos supervisores
+3. **Exportação de dados**: Permitir exportar relatórios para Excel/PDF
+4. **APIs customizadas**: Criar endpoints específicos para integrações futuras
 
 ## 💬 COMO SOLICITAR REVISÃO
 ```
@@ -227,7 +327,23 @@ Por favor, revise conforme checklist da Fase 3.
 ```
 
 ## 🔗 REFERÊNCIAS
-- [DASHBOARD_PRODUCAO_TEMPO_REAL.md](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/DASHBOARD_PRODUCAO_TEMPO_REAL.md)
-- [websocket/dashboard.websocket.ts](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/websocket/dashboard.websocket.ts)
-- [React Dashboard Project](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/dashboard)
-- [Fastify WebSocket Plugin](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/bootstrap/plugins/websocket.plugin.ts)
+
+### DOCUMENTAÇÃO DA API (PRÉ-REQUISITO)
+- [OpenAPI Specification](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/openapi.yaml) - Documentação completa da API versão 1.0
+- [API Core Endpoints](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/API_CORE_ENDPOINTS.md) - Lista de endpoints básicos
+- [API Advanced Endpoints](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/API_ADVANCED_ENDPOINTS.md) - Endpoints avançados e relatórios
+
+### ESPECIFICAÇÕES DO DASHBOARD
+- [DASHBOARD_PRODUCAO_TEMPO_REAL.md](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/DASHBOARD_PRODUCAO_TEMPO_REAL.md) - Especificação técnica completa
+- [UI/UX Guidelines](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/UI_UX_GUIDELINES.md) - Padrões de interface para operadores
+- [Component Library](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/dashboard/src/components/README.md) - Documentação dos componentes React
+
+### INFRAESTRUTURA BACKEND
+- [websocket/dashboard.websocket.ts](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/websocket/dashboard.websocket.ts) - Servidor WebSocket
+- [Fastify WebSocket Plugin](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/api/src/bootstrap/plugins/websocket.plugin.ts) - Plugin de configuração
+- [API Authentication](file:///C:/Users/walll/OneDrive/projects_git/production_manager/docs/API_AUTHENTICATION.md) - Sistema de autenticação JWT
+
+### PROJETO FRONTEND
+- [React Dashboard Project](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/dashboard) - Estrutura do projeto React
+- [Build Configuration](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/dashboard/vite.config.ts) - Configuração Vite
+- [Testing Setup](file:///C:/Users/walll/OneDrive/projects_git/production_manager/apps/dashboard/cypress.config.ts) - Configuração Cypress E2E
