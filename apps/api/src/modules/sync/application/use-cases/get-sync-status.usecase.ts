@@ -1,6 +1,6 @@
 import { SyncRepositoryPort } from "../ports/sync.repository.port";
 import { SyncStatusRequest, SyncStatusResponse } from "../dtos/sync-status.dto";
-import { Logger } from "fastify";
+import type { Logger } from "@/shared/logger";
 
 export interface GetSyncStatusUseCaseDependencies {
   syncRepository: SyncRepositoryPort;

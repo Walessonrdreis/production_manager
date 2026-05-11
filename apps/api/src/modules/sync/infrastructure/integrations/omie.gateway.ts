@@ -1,5 +1,5 @@
 import { OmieGatewayPort, OmieProduct, OmieProductionOrder, OmieSalesOrder } from "../../application/ports/omie.gateway.port";
-import { Logger } from "fastify";
+import type { Logger } from "@/shared/logger";
 
 export class OmieGateway implements OmieGatewayPort {
   constructor(private readonly logger: Logger) {}

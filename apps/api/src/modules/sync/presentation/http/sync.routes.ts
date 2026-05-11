@@ -1,4 +1,15 @@
 import { FastifyInstance } from "fastify";
+import type { SyncStockUseCase } from "../application/use-cases/sync-stock.usecase";
+import type { SyncOrdersUseCase } from "../application/use-cases/sync-orders.usecase";
+import type { GetSyncStatusUseCase } from "../application/use-cases/get-sync-status.usecase";
+import type { SyncRepositoryPort } from "../application/ports/sync.repository.port";
+
+export interface SyncDependencies {
+  syncStockUseCase: SyncStockUseCase;
+  syncOrdersUseCase: SyncOrdersUseCase;
+  getSyncStatusUseCase: GetSyncStatusUseCase;
+  syncRepository: SyncRepositoryPort;
+}
 
 // Schemas JSON Schema válidos para Fastify
 const SyncStockRequestSchema = {
@@ -102,7 +113,10 @@ const SyncStatusResponseSchema = {
   additionalProperties: false
 };
 
-export function registerSyncRoutes(app: FastifyInstance): void {
+export function registerSyncRoutes(app: FastifyInstance, dependencies?: SyncDependencies): void {
+  // Se dependências não foram fornecidas, usar container DI (se existir)
+  const useDiContainer = !dependencies && (app as any).diContainer;
+  
   // POST /api/sync/stock - Sincronizar estoque
   app.post(
     "/api/sync/stock",
@@ -134,7 +148,16 @@ export function registerSyncRoutes(app: FastifyInstance): void {
     },
     async (request, reply) => {
       try {
-        const syncStockUseCase = app.diContainer.resolve("syncStockUseCase");
+        let syncStockUseCase;
+        
+        if (dependencies) {
+          syncStockUseCase = dependencies.syncStockUseCase;
+        } else if (useDiContainer) {
+          syncStockUseCase = (app as any).diContainer.resolve("syncStockUseCase");
+        } else {
+          throw new Error("Sync dependencies not available");
+        }
+        
         const result = await syncStockUseCase.execute(request.body as any);
         
         if (!result.success) {
@@ -186,7 +209,16 @@ export function registerSyncRoutes(app: FastifyInstance): void {
     },
     async (request, reply) => {
       try {
-        const syncOrdersUseCase = app.diContainer.resolve("syncOrdersUseCase");
+        let syncOrdersUseCase;
+        
+        if (dependencies) {
+          syncOrdersUseCase = dependencies.syncOrdersUseCase;
+        } else if (useDiContainer) {
+          syncOrdersUseCase = (app as any).diContainer.resolve("syncOrdersUseCase");
+        } else {
+          throw new Error("Sync dependencies not available");
+        }
+        
         const result = await syncOrdersUseCase.execute(request.body as any);
         
         if (!result.success) {
@@ -230,7 +262,16 @@ export function registerSyncRoutes(app: FastifyInstance): void {
     },
     async (request, reply) => {
       try {
-        const getSyncStatusUseCase = app.diContainer.resolve("getSyncStatusUseCase");
+        let getSyncStatusUseCase;
+        
+        if (dependencies) {
+          getSyncStatusUseCase = dependencies.getSyncStatusUseCase;
+        } else if (useDiContainer) {
+          getSyncStatusUseCase = (app as any).diContainer.resolve("getSyncStatusUseCase");
+        } else {
+          throw new Error("Sync dependencies not available");
+        }
+        
         const result = await getSyncStatusUseCase.execute(request.query as any);
         
         return reply.status(200).send(result);
@@ -288,7 +329,15 @@ export function registerSyncRoutes(app: FastifyInstance): void {
     },
     async (request, reply) => {
       try {
-        const syncRepository = app.diContainer.resolve("syncRepository");
+        let syncRepository;
+        
+        if (dependencies) {
+          syncRepository = dependencies.syncRepository;
+        } else if (useDiContainer) {
+          syncRepository = (app as any).diContainer.resolve("syncRepository");
+        } else {
+          throw new Error("Sync dependencies not available");
+        }
         
         // Testar conexão com banco
         await syncRepository.getRecentSyncs({ syncType: "all", limit: 1 });

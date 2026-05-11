@@ -1,7 +1,7 @@
 import { SyncRepositoryPort } from "../ports/sync.repository.port";
 import { OmieGatewayPort } from "../ports/omie.gateway.port";
 import { SyncStockRequest, SyncStockResponse } from "../dtos/sync-stock.dto";
-import { Logger } from "fastify";
+import type { Logger } from "@/shared/logger";
 
 export interface SyncStockUseCaseDependencies {
   syncRepository: SyncRepositoryPort;
@@ -35,7 +35,9 @@ export class SyncStockUseCase {
       const limit = request.batchSize;
 
       do {
-        logger.debug(`Buscando produtos da página ${page}`, { limit });
+        if (logger.debug) {
+          logger.debug(`Buscando produtos da página ${page}`, { limit });
+        }
 
         const result = await omieGateway.getProducts({
           page,
@@ -51,9 +53,11 @@ export class SyncStockUseCase {
             // Aqui seria a lógica para atualizar o estoque no banco de dados
             // Por enquanto, apenas registramos o sucesso
             syncedProducts++;
-            logger.debug(`Produto sincronizado: ${product.codigo}`, {
-              estoque: product.estoque,
-            });
+            if (logger.debug) {
+              logger.debug(`Produto sincronizado: ${product.codigo}`, {
+                estoque: product.estoque,
+              });
+            }
           } catch (error) {
             failedProducts++;
             logger.error(`Erro ao sincronizar produto ${product.codigo}`, {
@@ -75,7 +79,6 @@ export class SyncStockUseCase {
       } while (syncedProducts + failedProducts < totalProducts);
 
       const durationMs = Date.now() - startTime;
-      const nextSyncAt = new Date(Date.now() + 2 * 60 * 1000); // 2 minutos
 
       await syncRepository.updateSyncRecord(syncRecord.id, {
         status: failedProducts === 0 ? "success" : "failed",
@@ -96,7 +99,6 @@ export class SyncStockUseCase {
           syncedProducts,
           failedProducts,
           durationMs,
-          nextSyncAt: nextSyncAt.toISOString(),
         },
         timestamp: new Date().toISOString(),
       };
@@ -126,7 +128,6 @@ export class SyncStockUseCase {
           syncedProducts: 0,
           failedProducts: 0,
           durationMs,
-          nextSyncAt: undefined,
         },
         timestamp: new Date().toISOString(),
       };

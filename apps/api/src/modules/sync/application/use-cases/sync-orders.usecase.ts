@@ -1,7 +1,7 @@
 import { SyncRepositoryPort } from "../ports/sync.repository.port";
 import { OmieGatewayPort } from "../ports/omie.gateway.port";
 import { SyncOrdersRequest, SyncOrdersResponse } from "../dtos/sync-orders.dto";
-import { Logger } from "fastify";
+import type { Logger } from "@/shared/logger";
 
 export interface SyncOrdersUseCaseDependencies {
   syncRepository: SyncRepositoryPort;

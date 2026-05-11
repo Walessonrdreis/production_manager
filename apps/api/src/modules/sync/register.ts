@@ -54,8 +54,13 @@ export function registerSyncModule(app: FastifyInstance): void {
     },
   });
   
-  // Registrar rotas
-  registerSyncRoutes(app);
+  // Registrar rotas com dependências
+  registerSyncRoutes(app, {
+    syncStockUseCase,
+    syncOrdersUseCase,
+    getSyncStatusUseCase,
+    syncRepository,
+  });
   
   app.log.info("Módulo sync registrado com sucesso");
 }

@@ -185,7 +185,7 @@ export class SyncRepositoryPrisma implements SyncRepositoryPort {
       successfulSyncs: successful,
       failedSyncs: failed,
       averageDurationMs: avgDuration._avg.durationMs || 0,
-      lastSyncAt: lastSync?.completedAt,
+      lastSyncAt: lastSync?.completedAt || undefined,
     };
   }
 

@@ -57,7 +57,7 @@ export class IntelligentPollingService {
   };
 
   constructor(logger: Logger) {
-    this.logger = logger.child({ service: "IntelligentPollingService" });
+    this.logger = logger.child ? logger.child({ service: "IntelligentPollingService" }) : logger;
     this.retrySystem = new RetrySystem(logger);
   }
 
@@ -90,7 +90,7 @@ export class IntelligentPollingService {
       lastDurationMs: null,
     });
 
-    this.logger.info({ jobName: config.name }, "Job registered");
+    this.logger.info("Job registered", { jobName: config.name });
   }
 
   async startJob(jobName: string, handler: PollingJobHandler): Promise<void> {
@@ -100,7 +100,7 @@ export class IntelligentPollingService {
     }
 
     if (!config.enabled) {
-      this.logger.info({ jobName }, "Job disabled, not starting");
+      this.logger.info("Job disabled, not starting", { jobName });
       return;
     }
 
@@ -108,7 +108,7 @@ export class IntelligentPollingService {
 
     const executeJob = async () => {
       if (jobStatus.isRunning) {
-        this.logger.warn({ jobName }, "Job already running, skipping");
+        this.logger.warn("Job already running, skipping", { jobName });
         return;
       }
 
@@ -116,7 +116,7 @@ export class IntelligentPollingService {
       const startTime = Date.now();
 
       try {
-        this.logger.info({ jobName }, "Job execution started");
+        this.logger.info("Job execution started", { jobName });
 
         const result = await handler.execute();
 
@@ -124,27 +124,21 @@ export class IntelligentPollingService {
         this.updatePollingInterval(config, jobStatus, result);
 
         if (result.success) {
-          this.logger.info(
-            {
+          this.logger.info("Job execution succeeded", {
               jobName,
               durationMs: result.durationMs,
               data: result.data,
               metadata: result.metadata,
-            },
-            "Job execution succeeded"
-          );
+            });
         } else {
-          this.logger.warn(
-            {
+          this.logger.warn("Job execution failed", {
               jobName,
               durationMs: result.durationMs,
               error: result.error,
               metadata: result.metadata,
               consecutiveFailures: jobStatus.consecutiveFailures,
               currentIntervalMs: jobStatus.currentIntervalMs,
-            },
-            "Job execution failed"
-          );
+            });
         }
 
         jobStatus.lastRunAt = new Date();
@@ -155,17 +149,14 @@ export class IntelligentPollingService {
         const endTime = Date.now();
         const durationMs = endTime - startTime;
 
-        this.logger.debug(
-          { jobName, durationMs },
-          "Job execution completed"
-        );
+        this.logger.debug("Job execution completed", { jobName, durationMs });
 
         this.scheduleNextRun(jobName, handler);
       }
     };
 
     this.scheduleNextRun(jobName, handler);
-    this.logger.info({ jobName }, "Job started");
+    this.logger.info("Job started", { jobName });
   }
 
   stopJob(jobName: string): void {
@@ -181,7 +172,7 @@ export class IntelligentPollingService {
       jobStatus.nextRunAt = null;
     }
 
-    this.logger.info({ jobName }, "Job stopped");
+    this.logger.info("Job stopped", { jobName });
   }
 
   stopAllJobs(): void {
@@ -224,10 +215,7 @@ export class IntelligentPollingService {
 
     this.timeouts.set(jobName, timeout);
 
-    this.logger.debug(
-      { jobName, nextRunInMs, nextRunAt: nextRunAt.toISOString() },
-      "Next job run scheduled"
-    );
+    this.logger.debug("Next job run scheduled", { jobName, nextRunInMs, nextRunAt: nextRunAt.toISOString() });
   }
 
   private async executeJobWithRetry(
@@ -238,14 +226,14 @@ export class IntelligentPollingService {
     const jobStatus = this.status.get(jobName)!;
 
     if (jobStatus.isRunning) {
-      this.logger.warn({ jobName }, "Job already running, skipping retry");
+      this.logger.warn("Job already running, skipping retry", { jobName });
       return;
     }
 
     jobStatus.isRunning = true;
 
     try {
-      this.logger.info({ jobName }, "Job execution with retry started");
+      this.logger.info("Job execution with retry started", { jobName });
 
       let retryResult;
       
@@ -293,15 +281,12 @@ export class IntelligentPollingService {
         this.metrics.totalJobsExecuted++;
         this.metrics.totalSuccessfulJobs++;
 
-        this.logger.info(
-          {
+        this.logger.info("Job execution with retry succeeded", {
             jobName,
             durationMs: retryResult.totalDurationMs,
             attempts: retryResult.attempts,
             data: retryResult.data,
-          },
-          "Job execution with retry succeeded"
-        );
+          });
       } else {
         jobStatus.consecutiveFailures++;
         jobStatus.lastError = retryResult.error || "Unknown error";
@@ -319,8 +304,7 @@ export class IntelligentPollingService {
         );
         jobStatus.currentIntervalMs = newInterval;
 
-        this.logger.warn(
-          {
+        this.logger.warn("Job execution with retry failed", {
             jobName,
             durationMs: retryResult.totalDurationMs,
             attempts: retryResult.attempts,
@@ -328,9 +312,7 @@ export class IntelligentPollingService {
             consecutiveFailures: jobStatus.consecutiveFailures,
             newIntervalMs: newInterval,
             circuitBreakerState: retryResult.circuitBreakerState,
-          },
-          "Job execution with retry failed"
-        );
+          });
       }
 
       jobStatus.lastRunAt = new Date();
@@ -350,23 +332,17 @@ export class IntelligentPollingService {
       );
       jobStatus.currentIntervalMs = newInterval;
 
-      this.logger.error(
-        {
+      this.logger.error("Job execution with retry threw unexpected error", {
           jobName,
           error: error.message,
           stack: error.stack,
           consecutiveFailures: jobStatus.consecutiveFailures,
           newIntervalMs: newInterval,
-        },
-        "Job execution with retry threw unexpected error"
-      );
+        });
     } finally {
       jobStatus.isRunning = false;
 
-      this.logger.debug(
-        { jobName },
-        "Job execution with retry completed"
-      );
+      this.logger.debug("Job execution with retry completed", { jobName });
 
       this.scheduleNextRun(jobName, handler);
     }
@@ -426,14 +402,11 @@ export class IntelligentPollingService {
         );
         jobStatus.currentIntervalMs = reducedInterval;
         
-        this.logger.info(
-          { 
+        this.logger.info("Reduced polling interval due to consistent success", { 
             jobName: jobStatus.name,
             newIntervalMs: reducedInterval,
             consecutiveSuccesses: jobStatus.consecutiveSuccesses
-          },
-          "Reduced polling interval due to consistent success"
-        );
+          });
       } else {
         jobStatus.currentIntervalMs = config.baseIntervalMs;
       }
@@ -446,14 +419,11 @@ export class IntelligentPollingService {
       jobStatus.currentIntervalMs = newInterval;
 
       if (jobStatus.consecutiveFailures >= (config.failureThreshold || 3)) {
-        this.logger.warn(
-          { 
+        this.logger.warn("Increased polling interval due to consecutive failures", { 
             jobName: jobStatus.name,
             newIntervalMs: newInterval,
             consecutiveFailures: jobStatus.consecutiveFailures
-          },
-          "Increased polling interval due to consecutive failures"
-        );
+          });
       }
     }
   }
@@ -484,17 +454,14 @@ export class IntelligentPollingService {
     );
     jobStatus.currentIntervalMs = newInterval;
 
-    this.logger.error(
-      {
+    this.logger.error("Job execution threw unexpected error", {
         jobName: jobStatus.name,
         error: error.message,
         stack: error.stack,
         durationMs,
         consecutiveFailures: jobStatus.consecutiveFailures,
         newIntervalMs: newInterval,
-      },
-      "Job execution threw unexpected error"
-    );
+      });
   }
 
   private calculateBackoffInterval(

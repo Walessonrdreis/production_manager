@@ -24,6 +24,9 @@ import { ListOrdersViewUseCase } from "@/modules/orders-view/application/list-or
 import type { ListClientsUseCase } from "@/modules/client/application/use-cases/list-clients.usecase";
 import type { ListStage20OrdersEnrichedUseCase } from "@/modules/orders-enriched/application/use-cases/list-stage20-orders-enriched.usecase";
 
+// Documentação OpenAPI simplificada
+import { registerOpenAPIDocumentation } from "./openapi-simple";
+
 // Extende tipagem do request para requestId
 declare module "fastify" {
   interface FastifyRequest {
@@ -168,6 +171,11 @@ export async function buildApp(): Promise<FastifyInstance> {
       },
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Documentação OpenAPI
+  // ---------------------------------------------------------------------------
+  registerOpenAPIDocumentation(app);
 
   // ---------------------------------------------------------------------------
   // Rotas

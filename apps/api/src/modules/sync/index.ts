@@ -19,11 +19,6 @@ export * from "./presentation/http/sync-stock.controller";
 export * from "./presentation/http/sync-orders.controller";
 export * from "./presentation/http/sync-status.controller";
 
-// Schemas
-export * from "./presentation/http/sync-stock.schemas";
-export * from "./presentation/http/sync-orders.schemas";
-export * from "./presentation/http/sync-status.schemas";
-
 // Tipos
-export * from "./application/ports/sync-repository.port";
-export * from "./application/ports/omie-gateway.port";
+export * from "./application/ports/sync.repository.port";
+export * from "./application/ports/omie.gateway.port";

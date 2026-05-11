@@ -59,19 +59,13 @@ export class RetrySystem {
     let lastError: Error | null = null;
     let attempts = 0;
 
-    this.logger.info(
-      { operationName, config },
-      "Starting retry operation"
-    );
+    this.logger.info("Starting retry operation", { operationName, config });
 
     while (attempts < config.maxAttempts) {
       attempts++;
 
       if (this.shouldBlockOperation(config)) {
-        this.logger.warn(
-          { operationName, attempts, circuitBreakerState: this.circuitBreakerState },
-          "Operation blocked by circuit breaker"
-        );
+        this.logger.warn("Operation blocked by circuit breaker", { operationName, attempts, circuitBreakerState: this.circuitBreakerState });
 
         return {
           success: false,
@@ -84,10 +78,7 @@ export class RetrySystem {
       }
 
       try {
-        this.logger.debug(
-          { operationName, attempt: attempts, totalAttempts: config.maxAttempts },
-          "Executing operation attempt"
-        );
+        this.logger.debug("Executing operation attempt", { operationName, attempt: attempts, totalAttempts: config.maxAttempts });
 
         const data = await operation();
         
@@ -106,25 +97,19 @@ export class RetrySystem {
         lastError = error;
         this.handleFailure(config);
 
-        this.logger.warn(
-          {
+        this.logger.warn("Operation attempt failed", {
             operationName,
             attempt: attempts,
             error: error.message,
             consecutiveFailures: this.consecutiveFailures,
             circuitBreakerState: this.circuitBreakerState,
-          },
-          "Operation attempt failed"
-        );
+          });
 
         if (attempts < config.maxAttempts) {
           const delay = this.calculateDelay(config, attempts);
           await this.delay(delay);
 
-          this.logger.debug(
-            { operationName, delayMs: delay, nextAttempt: attempts + 1 },
-            "Waiting before next retry attempt"
-          );
+          this.logger.debug("Waiting before next retry attempt", { operationName, delayMs: delay, nextAttempt: attempts + 1 });
         }
       }
     }
@@ -154,10 +139,7 @@ export class RetrySystem {
           this.circuitBreakerOpenedAt = null;
           this.metrics.circuitBreakerResets++;
           
-          this.logger.info(
-            { timeSinceOpenMs: timeSinceOpen },
-            "Circuit breaker moved to half-open state"
-          );
+          this.logger.info("Circuit breaker moved to half-open state", { timeSinceOpenMs: timeSinceOpen });
         } else {
           return true;
         }
@@ -172,10 +154,7 @@ export class RetrySystem {
       this.circuitBreakerState = "closed";
       this.consecutiveFailures = 0;
       
-      this.logger.info(
-        { consecutiveFailures: this.consecutiveFailures },
-        "Circuit breaker closed after successful operation"
-      );
+      this.logger.info("Circuit breaker closed after successful operation", { consecutiveFailures: this.consecutiveFailures });
     } else {
       this.consecutiveFailures = 0;
     }
@@ -193,13 +172,10 @@ export class RetrySystem {
       this.circuitBreakerOpenedAt = new Date();
       this.metrics.circuitBreakerTrips++;
 
-      this.logger.error(
-        {
+      this.logger.error("Circuit breaker tripped to open state", {
           consecutiveFailures: this.consecutiveFailures,
           threshold: config.circuitBreakerThreshold,
-        },
-        "Circuit breaker tripped to open state"
-      );
+        });
     }
   }
 

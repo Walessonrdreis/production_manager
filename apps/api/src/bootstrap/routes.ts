@@ -14,6 +14,9 @@ import { registerOmieProductionOrdersModule } from "@/modules/omie-production-or
 import { registerOrdersEnrichedModule } from "@/modules/orders-enriched/register";
 import { registerOrdersViewModule } from "@/modules/orders-view/register";
 import { registerSyncModule } from "@/modules/sync/register";
+import { registerAlertsModule } from "@/modules/alerts/register";
+import { registerProductionQueueModule } from "@/modules/production-queue/register";
+import { registerSalesProductionIntegrationModule } from "@/modules/sales-production-integration/register";
 
 export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
@@ -192,6 +195,24 @@ export async function registerRoutes(app: FastifyInstance) {
       { method: "GET", path: "/v1/admin/omie/products/by-code/:omieCode", description: "[Admin][Omie] Detalhe do produto Omie por código." },
       { method: "GET", path: "/v1/admin/omie/products/:id/stock", description: "[Admin][Omie] Estoque por UUID do OmieProduct." },
       { method: "GET", path: "/v1/admin/omie/products/by-code/:omieCode/stock", description: "[Admin][Omie] Estoque por código do Omie." },
+
+      // alerts module (API Core - Fase 2)
+      { method: "GET", path: "/api/alerts/stock", description: "[Admin] Listar alertas de estoque com filtros." },
+      { method: "GET", path: "/api/alerts/stock/critical", description: "[Admin] Listar alertas críticos de estoque." },
+      { method: "POST", path: "/api/alerts/stock/configure", description: "[Admin] Configurar regras de alertas de estoque." },
+      { method: "PATCH", path: "/api/alerts/stock/:id/status", description: "[Admin] Atualizar status de um alerta de estoque." },
+      { method: "GET", path: "/api/alerts/stock/statistics", description: "[Admin] Obter estatísticas de alertas de estoque." },
+
+      // production queue module (API Core - Fase 2)
+      { method: "POST", path: "/api/production/queue/add", description: "[Admin] Adicionar ordem à fila de produção." },
+      { method: "GET", path: "/api/production/queue", description: "[Admin] Listar itens da fila de produção com filtros." },
+      { method: "PATCH", path: "/api/production/queue/:id/status", description: "[Admin] Atualizar status de um item na fila." },
+      { method: "GET", path: "/api/production/queue/statistics", description: "[Admin] Obter estatísticas da fila de produção." },
+      { method: "POST", path: "/api/production/queue/reorder", description: "[Admin] Reordenar a fila de produção." },
+
+      // sales production integration module (API Core - Fase 2)
+      { method: "POST", path: "/api/integration/sales-to-production", description: "[Admin] Integrar pedido de venda à fila de produção automaticamente." },
+      { method: "GET", path: "/api/integration/sales-to-production/statistics", description: "[Admin] Obter estatísticas da integração vendas→produção." },
     ];
 
     const deprecatedEndpoints = [
@@ -250,6 +271,15 @@ export async function registerRoutes(app: FastifyInstance) {
   
   // sync module (API Core - Fase 2) - TEMPORARILY DISABLED DUE TO ZOD SCHEMA ERROR
   // registerSyncModule(app);
+  
+  // alerts module (API Core - Fase 2)
+  registerAlertsModule(app);
+  
+  // production queue module (API Core - Fase 2) - TEMPORARILY DISABLED DUE TO FST_ERR_DEC_ALREADY_PRESENT
+  // registerProductionQueueModule(app);
+  
+  // sales production integration module (API Core - Fase 2)
+  registerSalesProductionIntegrationModule(app);
   
   void omieSalesOrders;
   void omieProductionOrders;

@@ -1,9 +1,12 @@
 type LoggerLike = {
-  info: (obj: any, msg?: string) => void;
-  warn: (obj: any, msg?: string) => void;
-  error: (obj: any, msg?: string) => void;
-  debug?: (obj: any, msg?: string) => void;
+  info: (msg: string, obj?: any) => void;
+  warn: (msg: string, obj?: any) => void;
+  error: (msg: string, obj?: any) => void;
+  debug?: (msg: string, obj?: any) => void;
+  child?: (context: Record<string, any>) => LoggerLike;
 };
+
+export type Logger = LoggerLike;
 
 let baseLogger: LoggerLike | null = null;
 
@@ -30,9 +33,9 @@ export function getLogger(context?: string): LoggerLike {
 
   // fallback (scripts / testes / early bootstrap)
   return {
-    info: (obj, msg) => console.log(msg ?? "", obj),
-    warn: (obj, msg) => console.warn(msg ?? "", obj),
-    error: (obj, msg) => console.error(msg ?? "", obj),
-    debug: (obj, msg) => console.debug(msg ?? "", obj),
+    info: (msg, obj) => console.log(msg, obj ?? ""),
+    warn: (msg, obj) => console.warn(msg, obj ?? ""),
+    error: (msg, obj) => console.error(msg, obj ?? ""),
+    debug: (msg, obj) => console.debug(msg, obj ?? ""),
   };
 }
