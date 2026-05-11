@@ -47,7 +47,7 @@ export class RetrySystem {
   private circuitBreakerOpenedAt: Date | null = null;
 
   constructor(logger: Logger) {
-    this.logger = logger.child({ service: "RetrySystem" });
+    this.logger = logger.child ? logger.child({ service: "RetrySystem" }) : logger;
   }
 
   async executeWithRetry<T>(
@@ -78,7 +78,9 @@ export class RetrySystem {
       }
 
       try {
-        this.logger.debug("Executing operation attempt", { operationName, attempt: attempts, totalAttempts: config.maxAttempts });
+        if (this.logger.debug) {
+          this.logger.debug("Executing operation attempt", { operationName, attempt: attempts, totalAttempts: config.maxAttempts });
+        }
 
         const data = await operation();
         
@@ -109,7 +111,9 @@ export class RetrySystem {
           const delay = this.calculateDelay(config, attempts);
           await this.delay(delay);
 
-          this.logger.debug("Waiting before next retry attempt", { operationName, delayMs: delay, nextAttempt: attempts + 1 });
+          if (this.logger.debug) {
+            this.logger.debug("Waiting before next retry attempt", { operationName, delayMs: delay, nextAttempt: attempts + 1 });
+          }
         }
       }
     }
@@ -223,7 +227,7 @@ export class RetrySystem {
     this.consecutiveFailures = 0;
     this.circuitBreakerOpenedAt = null;
     
-    this.logger.info({}, "Circuit breaker manually reset");
+    this.logger.info("Circuit breaker manually reset");
   }
 
   static createDefaultConfig(): RetryConfig {

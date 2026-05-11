@@ -57,8 +57,8 @@ export function filterByCompletionDate(order: any, startDate?: string, endDate?:
   const date = brDateToISO(completionDate)
   if (!date) return false
   
-  if (startDate && date < startDate) return false
-  if (endDate && date > endDate) return false
+  if (startDate && date < new Date(startDate)) return false
+  if (endDate && date > new Date(endDate)) return false
   
   return true
 }
@@ -83,9 +83,9 @@ export function mapProductionOrder(order: any): {
     productCode: identificacao.nCodProduto ? String(identificacao.nCodProduto) : null,
     productIntegrationCode: identificacao.cCodIntProd ? String(identificacao.cCodIntProd) : null,
     quantity: String(identificacao.nQtde ?? 0),
-    forecastDate: brDateToISO(identificacao.dDtPrevisao),
-    startDate: brDateToISO(infAdicionais.dDtInicio),
-    completionDate: brDateToISO(infAdicionais.dDtConclusao),
+    forecastDate: brDateToISO(identificacao.dDtPrevisao)?.toISOString() || null,
+    startDate: brDateToISO(infAdicionais.dDtInicio)?.toISOString() || null,
+    completionDate: brDateToISO(infAdicionais.dDtConclusao)?.toISOString() || null,
     stage: infAdicionais.cEtapa ? String(infAdicionais.cEtapa) : null,
     projectCode: infAdicionais.nCodProjeto ? String(infAdicionais.nCodProjeto) : null,
     completed: String(outrasInf.cConcluida ?? '').trim() === 'S',

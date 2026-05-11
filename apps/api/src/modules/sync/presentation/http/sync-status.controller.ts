@@ -26,11 +26,11 @@ export class SyncStatusController {
       return reply.status(result.success ? 200 : 400).send(validatedResponse);
     } catch (error) {
       // Erro de validação Zod
-      if (error instanceof Error && error.name === "ZodError") {
+      if (error && typeof error === 'object' && 'errors' in error) {
         return reply.status(400).send({
           success: false,
           message: "Erro de validação dos parâmetros",
-          errors: error.errors,
+          errors: (error as any).errors,
           timestamp: new Date().toISOString(),
         });
       }

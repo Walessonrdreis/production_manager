@@ -57,10 +57,12 @@ export class SyncOrdersUseCase {
               // Aqui seria a lógica para atualizar o pedido no banco de dados
               syncedOrders++;
               productionOrders++;
-              logger.debug(`Pedido de produção sincronizado: ${order.codigo_pedido}`, {
-                status: order.status,
-                etapa: order.etapa,
-              });
+              if (logger.debug) {
+                logger.debug(`Pedido de produção sincronizado: ${order.codigo_pedido}`, {
+                  status: order.status,
+                  etapa: order.etapa,
+                });
+              }
             } catch (error) {
               failedOrders++;
               logger.error(`Erro ao sincronizar pedido de produção ${order.codigo_pedido}`, {
@@ -100,10 +102,12 @@ export class SyncOrdersUseCase {
               // Aqui seria a lógica para atualizar o pedido no banco de dados
               syncedOrders++;
               salesOrders++;
-              logger.debug(`Pedido de venda sincronizado: ${order.cabecalho.codigo_pedido}`, {
-                status: order.cabecalho.status,
-                etapa: order.cabecalho.etapa,
-              });
+              if (logger.debug) {
+                logger.debug(`Pedido de venda sincronizado: ${order.cabecalho.codigo_pedido}`, {
+                  status: order.cabecalho.status,
+                  etapa: order.cabecalho.etapa,
+                });
+              }
             } catch (error) {
               failedOrders++;
               logger.error(`Erro ao sincronizar pedido de venda ${order.cabecalho.codigo_pedido}`, {

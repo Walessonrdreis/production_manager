@@ -149,7 +149,9 @@ export class IntelligentPollingService {
         const endTime = Date.now();
         const durationMs = endTime - startTime;
 
-        this.logger.debug("Job execution completed", { jobName, durationMs });
+        if (this.logger.debug) {
+          this.logger.debug("Job execution completed", { jobName, durationMs });
+        }
 
         this.scheduleNextRun(jobName, handler);
       }
@@ -180,7 +182,7 @@ export class IntelligentPollingService {
       this.stopJob(jobName);
     }
 
-    this.logger.info({}, "All jobs stopped");
+    this.logger.info("All jobs stopped");
   }
 
   getJobStatus(jobName: string): PollingJobStatus | null {
@@ -215,7 +217,9 @@ export class IntelligentPollingService {
 
     this.timeouts.set(jobName, timeout);
 
-    this.logger.debug("Next job run scheduled", { jobName, nextRunInMs, nextRunAt: nextRunAt.toISOString() });
+    if (this.logger.debug) {
+      this.logger.debug("Next job run scheduled", { jobName, nextRunInMs, nextRunAt: nextRunAt.toISOString() });
+    }
   }
 
   private async executeJobWithRetry(
@@ -237,8 +241,8 @@ export class IntelligentPollingService {
 
       let retryResult;
       
-      // Se não há retry config ou maxRetries é 0, executa diretamente
-      if (!config.retryConfig || config.retryConfig.maxRetries === 0) {
+      // Se não há retry config ou maxAttempts é 0, executa diretamente
+      if (!config.retryConfig || config.retryConfig.maxAttempts === 0) {
         const startTime = Date.now();
         const result = await handler.execute();
         const durationMs = Date.now() - startTime;
@@ -342,7 +346,9 @@ export class IntelligentPollingService {
     } finally {
       jobStatus.isRunning = false;
 
-      this.logger.debug("Job execution with retry completed", { jobName });
+      if (this.logger.debug) {
+        this.logger.debug("Job execution with retry completed", { jobName });
+      }
 
       this.scheduleNextRun(jobName, handler);
     }

@@ -67,10 +67,12 @@ export class GetSyncStatusUseCase {
         timestamp: new Date().toISOString(),
       };
 
-      logger.debug("Status de sincronização obtido", {
-        totalSyncs: summary.totalSyncs,
-        recentSyncsCount: recentSyncs.length,
-      });
+      if (logger.debug) {
+        logger.debug("Status de sincronização obtido", {
+          totalSyncs: summary.totalSyncs,
+          recentSyncsCount: recentSyncs.length,
+        });
+      }
 
       return response;
     } catch (error) {

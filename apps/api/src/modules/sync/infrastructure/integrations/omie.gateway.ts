@@ -17,12 +17,14 @@ export class OmieGateway implements OmieGatewayPort {
   }> {
     const { page = 1, limit = 100, productCodes, activeOnly = true } = params;
 
-    this.logger.debug("Buscando produtos do Omie", {
-      page,
-      limit,
-      productCodesCount: productCodes?.length,
-      activeOnly,
-    });
+    if (this.logger.debug) {
+      this.logger.debug("Buscando produtos do Omie", {
+        page,
+        limit,
+        productCodesCount: productCodes?.length,
+        activeOnly,
+      });
+    }
 
     // Simulação de integração com API Omie
     // Em produção, aqui seria a chamada real para a API Omie
@@ -93,13 +95,15 @@ export class OmieGateway implements OmieGatewayPort {
   }> {
     const { page = 1, limit = 100, status, dateFrom, dateTo } = params;
 
-    this.logger.debug("Buscando pedidos de produção do Omie", {
-      page,
-      limit,
-      status,
-      dateFrom,
-      dateTo,
-    });
+    if (this.logger.debug) {
+      this.logger.debug("Buscando pedidos de produção do Omie", {
+        page,
+        limit,
+        status,
+        dateFrom,
+        dateTo,
+      });
+    }
 
     // Simulação de integração com API Omie
     const mockOrders: OmieProductionOrder[] = [
@@ -189,13 +193,15 @@ export class OmieGateway implements OmieGatewayPort {
   }> {
     const { page = 1, limit = 100, status, dateFrom, dateTo } = params;
 
-    this.logger.debug("Buscando pedidos de venda do Omie", {
-      page,
-      limit,
-      status,
-      dateFrom,
-      dateTo,
-    });
+    if (this.logger.debug) {
+      this.logger.debug("Buscando pedidos de venda do Omie", {
+        page,
+        limit,
+        status,
+        dateFrom,
+        dateTo,
+      });
+    }
 
     // Simulação de integração com API Omie
     const mockOrders: OmieSalesOrder[] = [
@@ -281,11 +287,13 @@ export class OmieGateway implements OmieGatewayPort {
   }): Promise<boolean> {
     const { productCode, quantity, operation } = params;
 
-    this.logger.debug("Atualizando estoque no Omie", {
-      productCode,
-      quantity,
-      operation,
-    });
+    if (this.logger.debug) {
+      this.logger.debug("Atualizando estoque no Omie", {
+        productCode,
+        quantity,
+        operation,
+      });
+    }
 
     // Simulação de atualização no Omie
     // Em produção, aqui seria a chamada real para a API Omie
@@ -301,12 +309,14 @@ export class OmieGateway implements OmieGatewayPort {
   }): Promise<boolean> {
     const { orderCode, orderType, status, etapa } = params;
 
-    this.logger.debug("Atualizando status de pedido no Omie", {
-      orderCode,
-      orderType,
-      status,
-      etapa,
-    });
+    if (this.logger.debug) {
+      this.logger.debug("Atualizando status de pedido no Omie", {
+        orderCode,
+        orderType,
+        status,
+        etapa,
+      });
+    }
 
     // Simulação de atualização no Omie
     // Em produção, aqui seria a chamada real para a API Omie
