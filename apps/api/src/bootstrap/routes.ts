@@ -152,6 +152,7 @@ export async function registerRoutes(app: FastifyInstance) {
       { method: "GET", path: "/v1/admin/managed-products/:id/stock/history", description: "[Admin] Histórico de estoque por UUID do Product." },
       { method: "DELETE", path: "/v1/admin/managed-products/:id", description: "[Admin] Remove um produto do gerenciador." },
       // ✅ NOVO (malha/estrutura de produtos)
+      { method: "GET", path: "/v1/admin/product-structures", description:"[Admin] Lista estruturas de produtos persistidas (paginado, filtra por hasStructure e q).",},
       { method: "POST", path: "/v1/admin/omie/product-structures/sync", description:"[Admin][Omie] Sincroniza a estrutura (malha) de um produto a partir da Omie. Aceita codProduto, idProduto ou intProduto.",},
       {method: "GET", path: "/v1/admin/product-structures/:codProduto", description:"[Admin] Obtém a estrutura (malha) persistida de um produto pelo codProduto (domínio estável).",},
       // product-sector

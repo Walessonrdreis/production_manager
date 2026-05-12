@@ -76,3 +76,37 @@ export const ProductStructureOutputSchema = {
   },
   required: ["codProduto", "hasStructure", "items", "createdAt", "updatedAt"],
 } as const;
+
+export const ListProductStructuresQuerySchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    page: { type: "string", pattern: "^[0-9]+$" },
+    pageSize: { type: "string", pattern: "^[0-9]+$" },
+    hasStructure: { type: "string", enum: ["true", "false"] },
+    q: { type: "string" },
+  },
+} as const;
+
+export const ListProductStructuresResponseSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    data: {
+      type: "array",
+      items: ProductStructureOutputSchema,
+    },
+    meta: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        page: { type: "number" },
+        pageSize: { type: "number" },
+        total: { type: "number" },
+        totalPages: { type: "number" },
+      },
+      required: ["page", "pageSize", "total", "totalPages"],
+    },
+  },
+  required: ["data", "meta"],
+} as const;
