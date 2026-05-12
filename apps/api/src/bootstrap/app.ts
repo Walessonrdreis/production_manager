@@ -23,7 +23,7 @@ import { startOmieClientSyncJob } from "@/modules/client/infrastructure/jobs/syn
 import { ListOrdersViewUseCase } from "@/modules/orders-view/application/list-orders-view.usecase";
 import type { ListClientsUseCase } from "@/modules/client/application/use-cases/list-clients.usecase";
 import type { ListStage20OrdersEnrichedUseCase } from "@/modules/orders-enriched/application/use-cases/list-stage20-orders-enriched.usecase";
-
+import { startOmieProductStructureSyncJob } from "@/modules/product-structure/infrastructure/jobs/omie-product-structure-sync.job";
 // Documentação OpenAPI simplificada
 import { registerOpenAPIDocumentation } from "./openapi-simple";
 
@@ -183,28 +183,34 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerRoutes(app);
 
   // (opcional) manter enquanto você está validando endpoints
+  
   console.log(app.printRoutes());
 
-  // ---------------------------------------------------------------------------
-  // Jobs (✅ UMA VEZ, ✅ DEPOIS DAS ROTAS)
-  // ---------------------------------------------------------------------------
-  if (env.ENABLE_STOCK_REFRESH_JOB) {
-    startStockRefreshJob(app);
-  }
 
-  if (env.ENABLE_OMIE_PRODUCT_SYNC_JOB) {
-    startOmieProductSyncJob(app);
-  }
+  /// ---------------------------------------------------------------------------
+// Jobs (✅ UMA VEZ, ✅ DEPOIS DAS ROTAS)
+// ---------------------------------------------------------------------------
+if (env.ENABLE_STOCK_REFRESH_JOB) {
+  startStockRefreshJob(app);
+}
 
-  if (env.OMIE_ORDERS_STAGE_SYNC) {
-    startOmieOrdersStage20SyncJob(app);
-  }
+if (env.ENABLE_OMIE_PRODUCT_SYNC_JOB) {
+  startOmieProductSyncJob(app);
+}
 
-  if (env.OMIE_PRODUCTION_ORDERS_SYNC) {
-    startOmieProductionOrdersSyncJob(app);
-  }
+if (env.ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB) {
+  startOmieProductStructureSyncJob(app);
+}
 
-  if (env.ENABLE_OMIE_CLIENT_SYNC_JOB) {
+if (env.OMIE_ORDERS_STAGE_SYNC) {
+  startOmieOrdersStage20SyncJob(app);
+}
+
+if (env.OMIE_PRODUCTION_ORDERS_SYNC) {
+  startOmieProductionOrdersSyncJob(app);
+}
+
+if (env.ENABLE_OMIE_CLIENT_SYNC_JOB) {
   startOmieClientSyncJob(app);
 }
 // ✅ opcional: sync on startup (sem depender de use cases no bootstrap)

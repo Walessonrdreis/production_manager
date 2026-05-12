@@ -29,6 +29,9 @@ const envSchema = z.object({
 
   ENABLE_OMIE_CLIENT_SYNC_JOB: z.coerce.boolean().default(false),
   OMIE_CLIENT_SYNC_CRON: z.string().default("*/10 * * * *"),
+
+  ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB: z.coerce.boolean().default(false),
+  OMIE_PRODUCT_STRUCTURE_SYNC_CRON: z.string().default("*/20 * * * *"),
 });
 
 /**

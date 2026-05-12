@@ -29,6 +29,9 @@ pnpm --filter @production-manager/api start
 # generate module
 pnpm --filter @production-manager/api gen:module -- name-module
 
+# Gerar arquivo com a estrutura da aplicação
+pnpm --filter @production-manager/api gen:structure
+
 # Cria e popula o arquivo de código com o conteúdo interativo em duas etapas o caminho e nome do arquivo e o conteúdo do arquivo
  pnpm --filter @production-manager/api run create:file
 
@@ -65,6 +68,8 @@ pnpm --filter @production-manager/api metrics:update-docs
 ## Rodar os arquivos diretamente (quando não existir script no package.json)
 
 ```powershell
+
+
 cd c:\Users\Dell\Documents\trae_projects\production_manager\apps\api
 
 # TSX (para scripts .ts)
@@ -89,6 +94,9 @@ node scripts/metrics/render-api-contract.mjs
 node scripts/metrics/render-md.mjs
 node scripts/metrics/render-reference.mjs
 node scripts/metrics/render-readme.mjs
+
+# Atualizar a estrutura do projeto
+node scripts/update-estrutura-projeto.mjs
 ```
 
 ## Sugestão de organização (copiar/colar no package.json da raiz)
@@ -113,4 +121,3 @@ Se você quiser ter atalhos na raiz (sem precisar lembrar `--filter`), este bloc
   }
 }
 ```
-

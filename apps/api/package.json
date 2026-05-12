@@ -34,6 +34,7 @@
     "docs:status:history": "node scripts/metrics/render-md.mjs --history",
     "metrics:update-docs": "pnpm metrics:all && pnpm docs:status",
     "gen:module": "ts-node scripts/scaffold/index.ts",
+    "gen:structure": "ts-node scripts/update-estrutura-projeto.mjs",
     "generate:module": "pnpm run gen:module",
     "create:file": "ts-node scripts/create-file-interactive.ts",
     "db:fix:failed": "node scripts/fix-failed-migration.js"

@@ -17,6 +17,8 @@ import { registerSyncModule } from "@/modules/sync/register";
 import { registerAlertsModule } from "@/modules/alerts/register";
 import { registerProductionQueueModule } from "@/modules/production-queue/register";
 import { registerSalesProductionIntegrationModule } from "@/modules/sales-production-integration/register";
+import { registerProductStructureModule } from "@/modules/product-structure/register";
+
 
 export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
@@ -149,7 +151,9 @@ export async function registerRoutes(app: FastifyInstance) {
       { method: "GET", path: "/v1/admin/managed-products/:id/stock", description: "[Admin] Estoque por UUID do Product." },
       { method: "GET", path: "/v1/admin/managed-products/:id/stock/history", description: "[Admin] Histórico de estoque por UUID do Product." },
       { method: "DELETE", path: "/v1/admin/managed-products/:id", description: "[Admin] Remove um produto do gerenciador." },
-
+      // ✅ NOVO (malha/estrutura de produtos)
+      { method: "POST", path: "/v1/admin/omie/product-structures/sync", description:"[Admin][Omie] Sincroniza a estrutura (malha) de um produto a partir da Omie. Aceita codProduto, idProduto ou intProduto.",},
+      {method: "GET", path: "/v1/admin/product-structures/:codProduto", description:"[Admin] Obtém a estrutura (malha) persistida de um produto pelo codProduto (domínio estável).",},
       // product-sector
       { method: "PUT", path: "/v1/admin/managed-products/:productId/sector", description: "[Admin] Define setor padrão de um produto." },
       { method: "GET", path: "/v1/admin/managed-products/:productId/sector", description: "[Admin] Obtém setor padrão de um produto." },
@@ -194,8 +198,7 @@ export async function registerRoutes(app: FastifyInstance) {
       { method: "GET", path: "/v1/admin/omie/products/:id", description: "[Admin][Omie] Detalhe do produto Omie por UUID." },
       { method: "GET", path: "/v1/admin/omie/products/by-code/:omieCode", description: "[Admin][Omie] Detalhe do produto Omie por código." },
       { method: "GET", path: "/v1/admin/omie/products/:id/stock", description: "[Admin][Omie] Estoque por UUID do OmieProduct." },
-      { method: "GET", path: "/v1/admin/omie/products/by-code/:omieCode/stock", description: "[Admin][Omie] Estoque por código do Omie." },
-
+      { method: "GET", path: "/v1/admin/omie/products/by-code/:omieCode/stock", description: "[Admin][Omie] Estoque por código do Omie." },   
       // alerts module (API Core - Fase 2)
       { method: "GET", path: "/api/alerts/stock", description: "[Admin] Listar alertas de estoque com filtros." },
       { method: "GET", path: "/api/alerts/stock/critical", description: "[Admin] Listar alertas críticos de estoque." },
@@ -259,6 +262,9 @@ export async function registerRoutes(app: FastifyInstance) {
   await registerProductSectorModule(app);
   await registerPlansModule(app);
 
+  // ✅ NOVO (malha/estrutura de produtos)
+  await registerProductStructureModule(app);
+
   // omie sales orders
   await registerOmieSalesOrdersModule(app);
   const omieSalesOrders = createOmieSalesOrdersModule(app);
@@ -268,6 +274,10 @@ export async function registerRoutes(app: FastifyInstance) {
   const omieProductionOrders = createOmieProductionOrdersModule(app);
   
   await registerOrdersViewModule(app);
+
+  
+ 
+
   
   // sync module (API Core - Fase 2) - TEMPORARILY DISABLED DUE TO ZOD SCHEMA ERROR
   // registerSyncModule(app);

@@ -1,6 +1,6 @@
 # Production Manager API — Status do Repositório
 
-_Gerado automaticamente em **16/04/2026, 17:10:00**_
+_Gerado automaticamente em **16/04/2026, 17:11:34**_
 
 ---
 
@@ -96,11 +96,11 @@ _Gerado automaticamente em **16/04/2026, 17:10:00**_
 
 ## 💾 Tamanho por pasta/arquivo
 
-- **Tamanho total (escopo)**: 180.52 KB
+- **Tamanho total (escopo)**: 180.64 KB
 
 ### Top pastas (por tamanho)
 - `src\routes` — **59.87 KB** (6 arquivos)
-- `scripts\metrics` — **39.33 KB** (14 arquivos)
+- `scripts\metrics` — **39.45 KB** (14 arquivos)
 - `src\services` — **29.94 KB** (10 arquivos)
 - `src\core` — **9.71 KB** (2 arquivos)
 - `prisma\migrations` — **9.54 KB** (11 arquivos)
