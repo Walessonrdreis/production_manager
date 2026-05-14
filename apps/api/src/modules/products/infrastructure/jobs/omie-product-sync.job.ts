@@ -36,11 +36,10 @@ async function syncOmieProductsLogic(deps: {
   const OMIE_PRODUCTS_MAX_PAGES = 2000;
 
   // Tentar adquirir lock
-  const lockAcquired = await deps.syncLockRepo.acquireLock({
-    key: SYNC_LOCK_KEY,
-    ttlMs: SYNC_LOCK_TTL_MS,
-    owner: deps.requestId,
-  });
+  const lockAcquired = await deps.syncLockRepo.tryAcquire(
+    Date.now(),
+    SYNC_LOCK_TTL_MS
+  );
 
   if (!lockAcquired) {
     throw new AppError("SYNC_IN_PROGRESS", "Sincronização já está em andamento");
@@ -101,10 +100,7 @@ async function syncOmieProductsLogic(deps: {
     };
   } finally {
     // Liberar lock
-    await deps.syncLockRepo.releaseLock({
-      key: SYNC_LOCK_KEY,
-      owner: deps.requestId,
-    });
+    await deps.syncLockRepo.release();
   }
 }
 

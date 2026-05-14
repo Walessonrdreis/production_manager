@@ -36,11 +36,10 @@ async function refreshStockLogic(deps: {
   const MAX_WARN_LOGS = 10;
 
   // Tentar adquirir lock
-  const lockAcquired = await deps.syncLockLeaseRepo.acquireLock({
-    key: STOCK_REFRESH_LOCK_KEY,
-    ttlMs: STOCK_REFRESH_LOCK_TTL_MS,
-    owner: "stock-refresh-job",
-  });
+  const lockAcquired = await deps.syncLockLeaseRepo.acquire(
+    STOCK_REFRESH_LOCK_KEY,
+    STOCK_REFRESH_LOCK_TTL_MS
+  );
 
   if (!lockAcquired) {
     return {
@@ -135,10 +134,7 @@ async function refreshStockLogic(deps: {
     };
   } finally {
     // Liberar lock
-    await deps.syncLockLeaseRepo.releaseLock({
-      key: STOCK_REFRESH_LOCK_KEY,
-      owner: "stock-refresh-job",
-    });
+    await deps.syncLockLeaseRepo.release(STOCK_REFRESH_LOCK_KEY);
   }
 }
 
