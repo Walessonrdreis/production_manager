@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
 import cron from "node-cron";
-import { createOmieStockCache } from "@/shared/integrations/omie";
 import { createSyncLockLeaseRepoPrisma } from "../db/sync-lock-lease.repo.prisma";
 import { createProductStockRepoPrisma } from "../db/product-stock.repo.prisma";
 
@@ -211,12 +210,11 @@ export function startStockRefreshJob(
         );
       }
 
-      // Criar dependências diretamente sem chamar createProductsModule
+      // Usar singleton compartilhado (criado uma vez no bootstrap)
       const prisma = app.prisma;
       const logger = app.log;
-      const omieClient = app.omieClient;
       
-      const omieStockCache = createOmieStockCache(omieClient, { logger });
+      const omieStockCache = app.omieStockCache;
       const syncLockLeaseRepo = createSyncLockLeaseRepoPrisma(prisma);
       const productStockRepo = createProductStockRepoPrisma(prisma);
       

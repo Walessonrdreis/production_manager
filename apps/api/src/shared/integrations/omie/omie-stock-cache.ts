@@ -159,6 +159,7 @@ export function createOmieStockCache(omieClient: OmieClient, options: OmieStockC
 
     /**
      * Força refresh imediatamente (dedup por refreshPromise).
+     * Se a Omie falhar, mantém o cache anterior como fallback.
      */
     async refreshNow(): Promise<Map<string, OmieStockEntry>> {
       if (!refreshPromise) {
@@ -167,7 +168,15 @@ export function createOmieStockCache(omieClient: OmieClient, options: OmieStockC
         });
       }
 
-      await refreshPromise;
+      try {
+        await refreshPromise;
+      } catch (err: any) {
+        logger.warn?.(
+          { scope: "omie-stock-cache", err: err?.message ?? err },
+          "Refresh Omie falhou, usando cache anterior como fallback"
+        );
+      }
+
       return new Map(cache);
     },
   };

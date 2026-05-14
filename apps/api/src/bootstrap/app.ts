@@ -12,6 +12,7 @@ import { prisma } from "@/infra/db";
 
 // ✅ IMPORTAR O CLIENT DA OMIE (ajuste o caminho/nome se necessário)
 import { createOmieClient } from "@/shared/integrations/omie/omie.client";
+import { createOmieStockCache } from "@/shared/integrations/omie/omie-stock-cache";
 
 // jobs (nova arquitetura)
 import { startStockRefreshJob } from "@/modules/products/infrastructure/jobs/stock-refresh.job";
@@ -47,6 +48,7 @@ declare module "fastify" {
     listClientsUseCase: ListClientsUseCase;
     listStage20OrdersEnrichedUseCase: ListStage20OrdersEnrichedUseCase;
     ordersViewUseCase: ListOrdersViewUseCase;
+    omieStockCache: ReturnType<typeof createOmieStockCache>;
   }
 }
 
@@ -82,6 +84,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   retry: { attempts: 5, baseDelayMs: 500, maxDelayMs: 2000 },
   debug: process.env.NODE_ENV !== "production",
 }));
+
+  const omieStockCache = createOmieStockCache(app.omieClient, { logger: app.log });
+  app.decorate("omieStockCache", omieStockCache);
 
   // ---------------------------------------------------------------------------
   // CORS
