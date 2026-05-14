@@ -8,6 +8,7 @@ import { CreateInternalProductionOrderUseCase } from './application/use-cases/cr
 import { UpdateInternalProductionOrderUseCase } from './application/use-cases/update-internal-production-order.usecase'
 import { StartInternalProductionOrderUseCase } from './application/use-cases/start-internal-production-order.usecase'
 import { CompleteInternalProductionOrderUseCase } from './application/use-cases/complete-internal-production-order.usecase'
+import { DeleteInternalProductionOrderUseCase } from './application/use-cases/delete-internal-production-order.usecase'
 import { GetInternalProductionOrdersUseCase } from './application/use-cases/get-internal-production-orders.usecase'
 import { GetInternalProductionOrderByIdUseCase } from './application/use-cases/get-internal-production-order-by-id.usecase'
 import { InternalProductionOrderController } from './presentation/http/internal-production-order.controller'
@@ -43,6 +44,10 @@ export async function registerInternalProductionOrdersModule(app: FastifyInstanc
     auditService,
     logger: app.log,
   })
+  const deleteUseCase = new DeleteInternalProductionOrderUseCase({
+    internalProductionOrderRepository: repository,
+    logger: app.log,
+  })
   const listUseCase = new GetInternalProductionOrdersUseCase({ internalProductionOrderRepository: repository })
   const getByIdUseCase = new GetInternalProductionOrderByIdUseCase({ internalProductionOrderRepository: repository })
 
@@ -53,6 +58,7 @@ export async function registerInternalProductionOrdersModule(app: FastifyInstanc
     completeUseCase,
     listUseCase,
     getByIdUseCase,
+    deleteUseCase,
   )
 
   app.decorate('internalProductionOrderRepository', repository)
@@ -60,6 +66,7 @@ export async function registerInternalProductionOrdersModule(app: FastifyInstanc
   app.decorate('updateInternalProductionOrderUseCase', updateUseCase)
   app.decorate('startInternalProductionOrderUseCase', startUseCase)
   app.decorate('completeInternalProductionOrderUseCase', completeUseCase)
+  app.decorate('deleteInternalProductionOrderUseCase', deleteUseCase)
   app.decorate('getInternalProductionOrdersUseCase', listUseCase)
   app.decorate('getInternalProductionOrderByIdUseCase', getByIdUseCase)
 

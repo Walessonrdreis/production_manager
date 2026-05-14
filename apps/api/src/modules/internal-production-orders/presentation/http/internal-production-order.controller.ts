@@ -6,6 +6,7 @@ import { StartInternalProductionOrderUseCase } from '../../application/use-cases
 import { CompleteInternalProductionOrderUseCase } from '../../application/use-cases/complete-internal-production-order.usecase'
 import { GetInternalProductionOrdersUseCase } from '../../application/use-cases/get-internal-production-orders.usecase'
 import { GetInternalProductionOrderByIdUseCase } from '../../application/use-cases/get-internal-production-order-by-id.usecase'
+import { DeleteInternalProductionOrderUseCase } from '../../application/use-cases/delete-internal-production-order.usecase'
 import { CreateInternalProductionOrderSchema, UpdateInternalProductionOrderSchema, ListInternalProductionOrdersSchema } from '../../application/dtos/internal-production-order.dto'
 
 export class InternalProductionOrderController {
@@ -16,6 +17,7 @@ export class InternalProductionOrderController {
     private readonly completeUseCase: CompleteInternalProductionOrderUseCase,
     private readonly listUseCase: GetInternalProductionOrdersUseCase,
     private readonly getByIdUseCase: GetInternalProductionOrderByIdUseCase,
+    private readonly deleteUseCase: DeleteInternalProductionOrderUseCase,
   ) {}
 
   async create(request: FastifyRequest, reply: FastifyReply) {
@@ -76,6 +78,16 @@ export class InternalProductionOrderController {
       const { id } = request.params as { id: string }
       const result = await this.getByIdUseCase.execute(id)
       return reply.code(200).send({ success: true, data: result })
+    } catch (error) {
+      return this.handleError(error, request, reply)
+    }
+  }
+
+  async delete(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { id } = request.params as { id: string }
+      await this.deleteUseCase.execute(id)
+      return reply.code(200).send({ success: true })
     } catch (error) {
       return this.handleError(error, request, reply)
     }

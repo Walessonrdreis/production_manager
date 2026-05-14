@@ -5,6 +5,8 @@ type Props = {
   orders: InternalProductionOrder[]
   onStart: (id: string) => void
   onComplete: (id: string) => void
+  onEdit: (order: InternalProductionOrder) => void
+  onDelete: (id: string) => void
   isStarting: boolean
   isCompleting: boolean
 }
@@ -13,6 +15,8 @@ export function InternalProductionOrdersTable({
   orders,
   onStart,
   onComplete,
+  onEdit,
+  onDelete,
   isStarting,
   isCompleting,
 }: Props) {
@@ -29,7 +33,7 @@ export function InternalProductionOrdersTable({
         style={{
           width: '100%',
           borderCollapse: 'collapse',
-          minWidth: '1000px',
+          minWidth: '1100px',
         }}
       >
         <thead>
@@ -43,7 +47,7 @@ export function InternalProductionOrdersTable({
             <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Estoque</th>
             <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Início</th>
             <th style={{ padding: '0.75rem', border: '1px solid #ddd' }}>Fim</th>
-            <th style={{ padding: '0.75rem', border: '1px solid #ddd', width: '120px' }}>Ações</th>
+            <th style={{ padding: '0.75rem', border: '1px solid #ddd', width: '150px' }}>Ações</th>
           </tr>
         </thead>
 
@@ -54,6 +58,8 @@ export function InternalProductionOrdersTable({
               order={order}
               onStart={onStart}
               onComplete={onComplete}
+              onEdit={onEdit}
+              onDelete={onDelete}
               isStarting={isStarting}
               isCompleting={isCompleting}
             />

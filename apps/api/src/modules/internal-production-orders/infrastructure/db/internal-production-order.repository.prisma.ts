@@ -117,6 +117,18 @@ export class InternalProductionOrderRepositoryPrisma implements InternalProducti
     return { items: records.map(mapToDomain), total }
   }
 
+  async delete(id: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.internalProductionOrderChange.deleteMany({
+        where: { event: { orderId: id } },
+      })
+      await tx.internalProductionOrderEvent.deleteMany({
+        where: { orderId: id },
+      })
+      await tx.internalProductionOrder.delete({ where: { id } })
+    })
+  }
+
   async createEventWithChanges(event: CreateEventInput, changes: CreateChangeInput[]): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const createdEvent = await tx.internalProductionOrderEvent.create({

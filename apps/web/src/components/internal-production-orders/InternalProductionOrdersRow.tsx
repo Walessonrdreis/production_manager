@@ -1,9 +1,12 @@
+import { Pencil, Trash2 } from 'lucide-react';
 import type { InternalProductionOrder } from '../../hooks/api/useInternalProductionOrders';
 
 type Props = {
   order: InternalProductionOrder
   onStart: (id: string) => void
   onComplete: (id: string) => void
+  onEdit: (order: InternalProductionOrder) => void
+  onDelete: (id: string) => void
   isStarting: boolean
   isCompleting: boolean
 }
@@ -47,6 +50,8 @@ export function InternalProductionOrdersRow({
   order,
   onStart,
   onComplete,
+  onEdit,
+  onDelete,
   isStarting,
   isCompleting,
 }: Props) {
@@ -181,46 +186,85 @@ export function InternalProductionOrdersRow({
       <td style={tdStyle}>{formatDate(order.completedAt)}</td>
 
       <td style={{ ...tdStyle, textAlign: 'center', whiteSpace: 'nowrap' }}>
-        {!order.startedAt && (
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
+          {!order.startedAt && (
+            <button
+              onClick={() => onStart(order.id)}
+              disabled={isStarting}
+              title="Iniciar produção"
+              style={{
+                padding: '0.3rem 0.6rem',
+                fontSize: '0.75rem',
+                backgroundColor: '#2563eb',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: isStarting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Iniciar
+            </button>
+          )}
+          {order.startedAt && !order.completedAt && (
+            <button
+              onClick={() => onComplete(order.id)}
+              disabled={isCompleting}
+              title="Completar produção"
+              style={{
+                padding: '0.3rem 0.6rem',
+                fontSize: '0.75rem',
+                backgroundColor: '#16a34a',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: isCompleting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Completar
+            </button>
+          )}
+          {order.completedAt && (
+            <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>Concluído</span>
+          )}
+
           <button
-            onClick={() => onStart(order.id)}
-            disabled={isStarting}
-            title="Iniciar produção"
+            onClick={() => onEdit(order)}
+            title="Editar"
             style={{
-              padding: '0.3rem 0.6rem',
+              padding: '0.3rem',
               fontSize: '0.75rem',
-              backgroundColor: '#2563eb',
-              color: 'white',
-              border: 'none',
+              backgroundColor: 'transparent',
+              color: '#6b7280',
+              border: '1px solid #d1d5db',
               borderRadius: '4px',
-              cursor: isStarting ? 'not-allowed' : 'pointer',
-              marginRight: '4px',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            Iniciar
+            <Pencil size={14} />
           </button>
-        )}
-        {order.startedAt && !order.completedAt && (
+
           <button
-            onClick={() => onComplete(order.id)}
-            disabled={isCompleting}
-            title="Completar produção"
+            onClick={() => onDelete(order.id)}
+            title="Excluir"
             style={{
-              padding: '0.3rem 0.6rem',
+              padding: '0.3rem',
               fontSize: '0.75rem',
-              backgroundColor: '#16a34a',
-              color: 'white',
-              border: 'none',
+              backgroundColor: 'transparent',
+              color: '#ef4444',
+              border: '1px solid #fca5a5',
               borderRadius: '4px',
-              cursor: isCompleting ? 'not-allowed' : 'pointer',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            Completar
+            <Trash2 size={14} />
           </button>
-        )}
-        {order.completedAt && (
-          <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>Concluído</span>
-        )}
+        </div>
       </td>
     </tr>
   );

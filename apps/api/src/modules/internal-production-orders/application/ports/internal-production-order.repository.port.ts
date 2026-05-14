@@ -26,5 +26,7 @@ export interface InternalProductionOrderRepositoryPort {
   findByTrelloCardId(trelloCardId: string): Promise<InternalProductionOrder | null>
   list(params: ListInternalProductionOrdersInput): Promise<{ items: InternalProductionOrder[]; total: number }>
 
+  delete(id: string): Promise<void>
+
   createEventWithChanges(event: CreateEventInput, changes: CreateChangeInput[]): Promise<void>
 }

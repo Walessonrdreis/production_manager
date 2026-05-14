@@ -22,17 +22,90 @@ export interface InternalProductionOrder {
   updatedAt: string
 }
 
-interface PaginatedResponse<T> {
-  items: T[]
+export interface CreateInternalProductionOrderInput {
+  title: string
+  lote: string
+  quantityValue: number
+  quantityUnit: 'UN' | 'B' | 'G' | 'KG'
+  omieCode?: string | null
+  parsedProductName?: string | null
+  productDescription?: string | null
+  stockQuantity?: number | null
+  minimumStock?: number | null
+  source: 'MANUAL' | 'TRELLO'
+  trelloCardId?: string | null
+  trelloCardUrl?: string | null
+}
+
+export interface UpdateInternalProductionOrderInput {
+  title?: string
+  lote?: string
+  quantityValue?: number
+  quantityUnit?: 'UN' | 'B' | 'G' | 'KG'
+  omieCode?: string | null
+  parsedProductName?: string | null
+  productDescription?: string | null
+  stockQuantity?: number | null
+  minimumStock?: number | null
+}
+
+interface ListResponse {
+  items: InternalProductionOrder[]
   total: number
-  page: number
-  limit: number
+}
+
+interface SingleResponse {
+  data: InternalProductionOrder
 }
 
 export function useInternalProductionOrders() {
-  return useQuery<PaginatedResponse<InternalProductionOrder>>({
+  return useQuery<ListResponse>({
     queryKey: ['internal-production-orders'],
     queryFn: () => apiClient.get('/v1/internal-production-orders'),
+  });
+}
+
+export function useInternalProductionOrder(id: string | null) {
+  return useQuery<SingleResponse>({
+    queryKey: ['internal-production-orders', id],
+    queryFn: () => apiClient.get(`/v1/internal-production-orders/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useCreateInternalProductionOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateInternalProductionOrderInput) =>
+      apiClient.post('/v1/internal-production-orders', input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['internal-production-orders'] });
+    },
+  });
+}
+
+export function useUpdateInternalProductionOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateInternalProductionOrderInput }) =>
+      apiClient.put(`/v1/internal-production-orders/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['internal-production-orders'] });
+    },
+  });
+}
+
+export function useDeleteInternalProductionOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiClient.delete(`/v1/internal-production-orders/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['internal-production-orders'] });
+    },
   });
 }
 
