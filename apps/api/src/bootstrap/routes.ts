@@ -202,6 +202,15 @@ export async function registerRoutes(app: FastifyInstance) {
       { method: "GET", path: "/v1/admin/omie/products/by-code/:omieCode", description: "[Admin][Omie] Detalhe do produto Omie por código." },
       { method: "GET", path: "/v1/admin/omie/products/:id/stock", description: "[Admin][Omie] Estoque por UUID do OmieProduct." },
       { method: "GET", path: "/v1/admin/omie/products/by-code/:omieCode/stock", description: "[Admin][Omie] Estoque por código do Omie." },   
+      // internal-production-orders module (API Avançada - Fase 2)
+      { method: "GET", path: "/v1/internal-production-orders", description: "[Admin] Lista todas as ordens de produção internas." },
+      { method: "POST", path: "/v1/internal-production-orders", description: "[Admin] Cria uma nova ordem de produção interna." },
+      { method: "GET", path: "/v1/internal-production-orders/:id", description: "[Admin] Detalhe de uma OP interna por ID." },
+      { method: "PATCH", path: "/v1/internal-production-orders/:id", description: "[Admin] Atualiza campos de uma OP interna." },
+      { method: "DELETE", path: "/v1/internal-production-orders/:id", description: "[Admin] Exclui uma OP interna (cascade: changes → events → ordem)." },
+      { method: "PATCH", path: "/v1/internal-production-orders/:id/start", description: "[Admin] Inicia a produção de uma OP interna." },
+      { method: "PATCH", path: "/v1/internal-production-orders/:id/complete", description: "[Admin] Completa a produção de uma OP interna." },
+
       // alerts module (API Core - Fase 2)
       { method: "GET", path: "/api/alerts/stock", description: "[Admin] Listar alertas de estoque com filtros." },
       { method: "GET", path: "/api/alerts/stock/critical", description: "[Admin] Listar alertas críticos de estoque." },
