@@ -14,59 +14,70 @@ function looksLikeOmieCode(value: string): boolean {
   return /^\d/.test(value) || /^[A-Z0-9][A-Z0-9._/-]*\d[A-Z0-9._/-]*$/i.test(value)
 }
 
-function splitParts(input: string): string[] {
-  return input.split(/\s+-\s+/).map((p) => p.trim()).filter((p) => p.length > 0)
-}
+function splitBeforeQty(beforeQty: string): string[] {
+  const parts = beforeQty.split(/\s+-\s+/).map(s => s.trim()).filter(Boolean)
+  if (parts.length >= 2) return parts
 
-function tryParseQtyUnit(raw: string): { quantityValue: number; quantityUnit: 'UN' | 'B' | 'G' | 'KG' } | null {
-  const match = /^(\d+(?:\.\d+)?)\s*(UN|UNIDADE|B|G|KG)\s*$/i.exec(raw)
-  if (!match) return null
-  const qty = Number(match[1])
-  if (qty <= 0) return null
-  return { quantityValue: qty, quantityUnit: normalizeUnit(match[2]) }
+  const lastSpaceHyphen = beforeQty.lastIndexOf(' -')
+  const lastHyphenSpace = beforeQty.lastIndexOf('- ')
+  const splitPos = Math.max(
+    lastSpaceHyphen > 0 ? lastSpaceHyphen : -1,
+    lastHyphenSpace > 0 ? lastHyphenSpace : -1,
+  )
+
+  if (splitPos > 0) {
+    const left = beforeQty.slice(0, splitPos).trim()
+    const right = beforeQty.slice(splitPos + 2).trim()
+    if (left && right) return [left, right]
+  }
+
+  return parts
 }
 
 export function parseCardName(cardName: string): ParsedCardName | null {
   const trimmed = cardName.trim()
   if (!trimmed) return null
 
-  const parts = splitParts(trimmed)
-  if (parts.length < 3) return null
+  const qtyRegex = /(\d+(?:\.\d+)?)\s*(UN|UNIDADE|B|G|KG)\s*(?:\([^)]*\))?\s*$/i
+  const qtyMatch = qtyRegex.exec(trimmed)
+  if (!qtyMatch) return null
 
-  const last = parts[parts.length - 1]
-  const qtyParsed = tryParseQtyUnit(last)
-  if (!qtyParsed) return null
+  if (qtyMatch.index > 0 && trimmed[qtyMatch.index - 1] === '-') return null
 
-  const lote = parts[parts.length - 2]
-  const before = parts.slice(0, parts.length - 2)
+  const quantityValue = Number(qtyMatch[1])
+  if (quantityValue <= 0) return null
+  const quantityUnit = normalizeUnit(qtyMatch[2])
+
+  const beforeQty = trimmed.slice(0, qtyMatch.index).trim()
+  if (!beforeQty) return null
+
+  const beforeQtyClean = beforeQty.replace(/-\s*$/, '').trim()
+  if (!beforeQtyClean) return null
+
+  const segments = splitBeforeQty(beforeQtyClean)
+  if (segments.length < 2) return null
+
+  const lote = segments[segments.length - 1]
+  const before = segments.slice(0, -1)
+
+  if (before.length === 1) {
+    const first = before[0]
+    if (!first) {
+      return { parsedProductName: null, omieCode: null, lote, quantityValue, quantityUnit }
+    }
+    if (looksLikeOmieCode(first)) {
+      return { parsedProductName: null, omieCode: first, lote, quantityValue, quantityUnit }
+    }
+    return { parsedProductName: first, omieCode: null, lote, quantityValue, quantityUnit }
+  }
 
   if (before.length === 2) {
     return {
       parsedProductName: before[0],
       omieCode: before[1],
       lote,
-      quantityValue: qtyParsed.quantityValue,
-      quantityUnit: qtyParsed.quantityUnit,
-    }
-  }
-
-  if (before.length === 1) {
-    const first = before[0]
-    if (looksLikeOmieCode(first)) {
-      return {
-        parsedProductName: null,
-        omieCode: first,
-        lote,
-        quantityValue: qtyParsed.quantityValue,
-        quantityUnit: qtyParsed.quantityUnit,
-      }
-    }
-    return {
-      parsedProductName: first,
-      omieCode: null,
-      lote,
-      quantityValue: qtyParsed.quantityValue,
-      quantityUnit: qtyParsed.quantityUnit,
+      quantityValue,
+      quantityUnit,
     }
   }
 
@@ -75,8 +86,8 @@ export function parseCardName(cardName: string): ParsedCardName | null {
       parsedProductName: before.slice(0, -1).join(' - '),
       omieCode: before[before.length - 1],
       lote,
-      quantityValue: qtyParsed.quantityValue,
-      quantityUnit: qtyParsed.quantityUnit,
+      quantityValue,
+      quantityUnit,
     }
   }
 

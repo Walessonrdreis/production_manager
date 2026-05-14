@@ -132,4 +132,43 @@ describe('parseCardName', () => {
       expect(result!.quantityValue).toBe(108)
     })
   })
+
+  describe('Espaçamento flexível (sem espaço após primeiro hífen)', () => {
+    it('deve parsear "teste -260000-0 - 230un"', () => {
+      const result = parseCardName('teste -260000-0 - 230un')
+      expect(result).not.toBeNull()
+      expect(result!.parsedProductName).toBe('teste')
+      expect(result!.omieCode).toBeNull()
+      expect(result!.lote).toBe('260000-0')
+      expect(result!.quantityValue).toBe(230)
+      expect(result!.quantityUnit).toBe('UN')
+    })
+
+    it('deve parsear "teste -260000-0 - 230un (-1)" com sufixo de perda', () => {
+      const result = parseCardName('teste -260000-0 - 230un (-1)')
+      expect(result).not.toBeNull()
+      expect(result!.parsedProductName).toBe('teste')
+      expect(result!.omieCode).toBeNull()
+      expect(result!.lote).toBe('260000-0')
+      expect(result!.quantityValue).toBe(230)
+      expect(result!.quantityUnit).toBe('UN')
+    })
+  })
+
+  describe('Sufixo de perda (-1) após unidade', () => {
+    it('deve ignorar "(-1)" e parsear normalmente', () => {
+      const result = parseCardName('teste - 26000-0 - 230un (-1)')
+      expect(result).not.toBeNull()
+      expect(result!.parsedProductName).toBe('teste')
+      expect(result!.omieCode).toBeNull()
+      expect(result!.lote).toBe('26000-0')
+      expect(result!.quantityValue).toBe(230)
+      expect(result!.quantityUnit).toBe('UN')
+    })
+
+    it('deve rejeitar "130un (-1)" sozinho sem lote', () => {
+      const result = parseCardName('130un (-1)')
+      expect(result).toBeNull()
+    })
+  })
 })
