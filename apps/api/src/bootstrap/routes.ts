@@ -291,6 +291,9 @@ export async function registerRoutes(app: FastifyInstance) {
   
   await registerOrdersViewModule(app);
 
+  // client module (sync Omie clients)
+  await registerClientModule(app);
+
   // internal production orders (API Avançada - Fase 2)
   await registerInternalProductionOrdersModule(app);
 
