@@ -18,6 +18,7 @@ import { registerAlertsModule } from "@/modules/alerts/register";
 import { registerProductionQueueModule } from "@/modules/production-queue/register";
 import { registerSalesProductionIntegrationModule } from "@/modules/sales-production-integration/register";
 import { registerProductStructureModule } from "@/modules/product-structure/register";
+import { registerInternalProductionOrdersModule } from "@/modules/internal-production-orders/register";
 
 
 export async function registerRoutes(app: FastifyInstance) {
@@ -276,8 +277,8 @@ export async function registerRoutes(app: FastifyInstance) {
   
   await registerOrdersViewModule(app);
 
-  
- 
+  // internal production orders (API Avançada - Fase 2)
+  await registerInternalProductionOrdersModule(app);
 
   
   // sync module (API Core - Fase 2) - TEMPORARILY DISABLED DUE TO ZOD SCHEMA ERROR

@@ -353,6 +353,110 @@ model AlertConfig {
   @@map("alert_config")
 }
 
+enum InternalProductionOrderSource {
+  MANUAL
+  TRELLO
+
+  @@map("internal_production_order_source")
+}
+
+enum InternalProductionOrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("internal_production_order_status")
+}
+
+enum InternalProductionOrderQuantityUnit {
+  UN
+  B
+  G
+  KG
+
+  @@map("internal_production_order_quantity_unit")
+}
+
+enum InternalProductionOrderActorType {
+  SYSTEM
+  INTEGRATION
+  USER
+
+  @@map("internal_production_order_actor_type")
+}
+
+enum InternalProductionOrderEventSource {
+  TRELLO
+  MANUAL
+  SYSTEM
+
+  @@map("internal_production_order_event_source")
+}
+
+model InternalProductionOrder {
+  id                String                                @id @default(uuid())
+  trelloCardId      String?                               @unique @db.VarChar(128)
+  trelloCardUrl     String?                               @db.VarChar(1024)
+  source            InternalProductionOrderSource          @default(MANUAL)
+  status            InternalProductionOrderStatus          @default(PENDING)
+
+  lote              String                                @db.VarChar(64)
+  quantityValue     Decimal                               @db.Decimal(18, 4)
+  quantityUnit      InternalProductionOrderQuantityUnit    @default(UN)
+
+  omieCode          String?                               @db.VarChar(64)
+  parsedProductName String?                               @db.VarChar(512)
+  productDescription String?                              @db.Text
+  stockQuantity     Decimal?                              @db.Decimal(18, 4)
+  minimumStock      Decimal?                              @db.Decimal(18, 4)
+
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime                              @default(now())
+  updatedAt         DateTime                              @updatedAt
+
+  events            InternalProductionOrderEvent[]
+
+  @@index([status])
+  @@index([source])
+  @@index([createdAt])
+  @@index([omieCode])
+  @@map("internal_production_order")
+}
+
+model InternalProductionOrderEvent {
+  id        String                            @id @default(uuid())
+  orderId   String
+  type      String                            @db.VarChar(64)
+  actorType InternalProductionOrderActorType
+  actorId   String?                           @db.VarChar(128)
+  source    InternalProductionOrderEventSource
+  message   String                            @db.VarChar(512)
+
+  createdAt DateTime                          @default(now())
+
+  order     InternalProductionOrder           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changes   InternalProductionOrderChange[]
+
+  @@index([orderId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("internal_production_order_event")
+}
+
+model InternalProductionOrderChange {
+  id       String                               @id @default(uuid())
+  eventId  String
+  field    String                               @db.VarChar(128)
+  before   String?                              @db.Text
+  after    String?                              @db.Text
+
+  event    InternalProductionOrderEvent          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("internal_production_order_change")
+}
+
 enum PersonType {
   INDIVIDUAL @map("FISICA")
   COMPANY    @map("JURIDICA")
