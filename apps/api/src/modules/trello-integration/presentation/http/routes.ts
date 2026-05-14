@@ -1,7 +1,7 @@
-// AUTO-GENERATED: module-scaffold
 import { FastifyInstance } from 'fastify'
+import { TrelloWebhookController } from './controllers/trello-webhook.controller'
 
-export async function trelloIntegrationRoutes(app: FastifyInstance) {
-  // rotas do módulo trello-integration
-  // app.get('/', async (req, reply) => reply.send({ ok: true }))
+export function registerTrelloIntegrationRoutes(app: FastifyInstance, controller: TrelloWebhookController) {
+  app.get('/trello/webhook', controller.handleGet.bind(controller))
+  app.post('/trello/webhook', controller.handlePost.bind(controller))
 }

@@ -99,6 +99,11 @@ export function SyncPage() {
               🛠️ OMIE Admin
             </Link>
           </li>
+          <li>
+            <Link to="/internal-production-orders" style={{ textDecoration: 'none', color: '#007bff' }}>
+              🏭 OP Internas
+            </Link>
+          </li>
         </ul>
       </nav>
     </div>

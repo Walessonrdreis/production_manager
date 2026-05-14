@@ -42,7 +42,8 @@ export class InternalProductionOrderController {
   async start(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as { id: string }
-      const result = await this.startUseCase.execute(id)
+      const actorType = this.resolveActorType(request)
+      const result = await this.startUseCase.execute(id, actorType)
       return reply.code(200).send({ success: true, data: result })
     } catch (error) {
       return this.handleError(error, request, reply)
@@ -52,7 +53,8 @@ export class InternalProductionOrderController {
   async complete(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as { id: string }
-      const result = await this.completeUseCase.execute(id)
+      const actorType = this.resolveActorType(request)
+      const result = await this.completeUseCase.execute(id, actorType)
       return reply.code(200).send({ success: true, data: result })
     } catch (error) {
       return this.handleError(error, request, reply)
@@ -96,5 +98,11 @@ export class InternalProductionOrderController {
     }
     request.log.error({ error }, 'Erro interno no módulo internal-production-orders')
     return reply.code(500).send({ success: false, error: 'Erro interno ao processar solicitação' })
+  }
+
+  private resolveActorType(request: FastifyRequest): 'SYSTEM' | 'INTEGRATION' | 'USER' {
+    const header = (request.headers['x-actor-type'] as string) || 'USER'
+    if (header === 'SYSTEM' || header === 'INTEGRATION') return header
+    return 'USER'
   }
 }

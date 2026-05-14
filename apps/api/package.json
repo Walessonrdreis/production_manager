@@ -16,6 +16,7 @@
     "db:studio": "prisma studio",
     "test": "vitest run",
     "backfill:omie-code": "tsx scripts/backfill-omie-code.ts",
+    "trello:register-webhook": "tsx scripts/trello/register-webhook.ts",
     "metrics:all": "node scripts/metrics/all.mjs",
     "metrics:tree": "node scripts/metrics/tree.mjs src 4",
     "metrics:loc": "node scripts/metrics/loc.mjs",

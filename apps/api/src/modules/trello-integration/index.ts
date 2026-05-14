@@ -1,18 +1,15 @@
-// AUTO-GENERATED: module-scaffold
 import { FastifyInstance } from 'fastify'
-import { trelloIntegrationRoutes } from './presentation/http/routes'
+import { registerTrelloIntegrationModule } from './register'
 
 export async function trelloIntegrationModule(app: FastifyInstance) {
-  /**
-   * Composição do módulo trello-integration (único ponto de wiring):
-   * - repositories (Prisma)
-   * - gateways (Omie)
-   * - use cases
-   * - app.decorate(...)
-   */
-
-  app.register(trelloIntegrationRoutes, { prefix: '/trello-integration' })
+  await registerTrelloIntegrationModule(app)
 }
 
-// export opcional (útil para testes/consumo interno)
-export const TrelloIntegration = { module: trelloIntegrationModule }
+export { registerTrelloIntegrationModule } from './register'
+export { ProcessTrelloWebhookUseCase } from './application/use-cases/process-trello-webhook.use-case'
+export { TrelloWebhookController } from './presentation/http/controllers/trello-webhook.controller'
+export { registerTrelloIntegrationRoutes } from './presentation/http/routes'
+export { parseCardName } from './application/utils/parse-card-name'
+export { isCardEnteredTargetList } from './application/utils/trello-event-guards'
+
+export type { TrelloWebhookEvent, ParsedCardName, ProcessWebhookResult } from './application/dtos/trello-webhook-event.dto'

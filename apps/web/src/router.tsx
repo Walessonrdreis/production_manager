@@ -10,6 +10,7 @@ import { OrdersPage } from './pages/Orders';
 import { Stage20TotalsPage } from './pages/Stage20Totals';
 import { Stage20OrdersPage } from './pages/Stage20Orders';
 import { OmieAdminPage } from './pages/OmieAdmin';
+import { InternalProductionOrdersPage } from './pages/InternalProductionOrders';
 
 export const router = createBrowserRouter([
   { path: '/', element: <SyncPage /> },
@@ -23,4 +24,5 @@ export const router = createBrowserRouter([
   { path: '/orders/stage20', element: <Stage20OrdersPage /> },
   { path: '/orders/stage20/totals', element: <Stage20TotalsPage /> },
   { path: '/omie/admin', element: <OmieAdminPage /> },
+  { path: '/internal-production-orders', element: <InternalProductionOrdersPage /> },
 ]);

@@ -8,4 +8,6 @@ export function registerInternalProductionOrderRoutes(app: FastifyInstance, cont
   app.patch('/api/internal-production-orders/:id', controller.update.bind(controller))
   app.post('/api/internal-production-orders/:id/start', controller.start.bind(controller))
   app.post('/api/internal-production-orders/:id/complete', controller.complete.bind(controller))
+  app.patch('/api/internal-production-orders/:id/start', controller.start.bind(controller))
+  app.patch('/api/internal-production-orders/:id/complete', controller.complete.bind(controller))
 }

@@ -7,7 +7,8 @@ import {
   CalendarRange, 
   LogOut,
   X,
-  User
+  User,
+  Factory
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuthStore } from '../../services/auth/authService';
@@ -19,6 +20,12 @@ const navItems = [
   { id: 'sectors', label: 'Setores', path: '/sectors', icon: Layers },
   { id: 'orders', label: 'Ordens Pendentes', path: '/orders', icon: ShoppingCart },
   { id: 'planning', label: 'Gerador de Plano', path: '/planning', icon: CalendarRange },
+  {
+    id: 'internal-production-orders',
+    label: 'OP Internas',
+    path: '/internal-production-orders',
+    icon: Factory,
+  },
 ];
 
 interface SidebarProps {
