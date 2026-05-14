@@ -228,6 +228,10 @@ export async function registerRoutes(app: FastifyInstance) {
       // sales production integration module (API Core - Fase 2)
       { method: "POST", path: "/api/integration/sales-to-production", description: "[Admin] Integrar pedido de venda à fila de produção automaticamente." },
       { method: "GET", path: "/api/integration/sales-to-production/statistics", description: "[Admin] Obter estatísticas da integração vendas→produção." },
+
+      // trello integration module
+      { method: "GET", path: "/v1/trello/webhook", description: "[Trello] GET para validação do webhook (handshake)." },
+      { method: "POST", path: "/v1/trello/webhook", description: "[Trello] POST para receber notificações de ações nos cards." },
     ];
 
     const deprecatedEndpoints = [
