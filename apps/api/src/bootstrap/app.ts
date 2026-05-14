@@ -79,7 +79,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   appKey: env.OMIE_APP_KEY,
   appSecret: env.OMIE_APP_SECRET,
   timeoutMs: 20000,
-  retry: { attempts: 3, baseDelayMs: 250, maxDelayMs: 2000 },
+  retry: { attempts: 5, baseDelayMs: 500, maxDelayMs: 2000 },
   debug: process.env.NODE_ENV !== "production",
 }));
 
