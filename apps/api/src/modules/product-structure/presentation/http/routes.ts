@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { syncProductStructureController } from "./controllers/sync-product-structure.controller";
 import { getProductStructureController } from "./controllers/get-product-structure.controller";
 import { syncProductStructureJobTickController } from "./controllers/sync-product-structure-job-tick.controller";
+import { listProductStructuresController } from "./controllers/list-product-structures.controller";
 
 import {
   SyncProductStructureBodySchema,
@@ -16,6 +17,18 @@ export async function productStructureRoutes(app: FastifyInstance) {
    * - Admin + Omie => /v1/admin/omie/...
    * - Admin local => /v1/admin/...
    */
+
+  // GET /v1/admin/product-structures
+  app.route({
+    method: "GET",
+    url: "/v1/admin/product-structures",
+    schema: {
+      tags: ["admin", "product-structures"],
+      description:
+        "[Admin] Lista as estruturas de produtos persistidas com paginação e filtros.",
+    },
+    handler: listProductStructuresController,
+  });
 
   // POST /v1/admin/omie/product-structures/sync
   app.route({

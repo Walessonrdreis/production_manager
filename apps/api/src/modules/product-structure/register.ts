@@ -3,6 +3,5 @@ import type { FastifyInstance } from "fastify";
 import registerProductStructure from ".";
 
 export async function registerProductStructureModule(app: FastifyInstance) {
-  await app.register(registerProductStructure);
+  await registerProductStructure(app);
 }
-``

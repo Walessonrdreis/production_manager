@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { ProductStructureRepository, UpsertStructureInput, ProductStructurePersistenceModel } from "../../../application/ports/product-structure.repository";
+import { ProductStructureRepository, UpsertStructureInput, ProductStructurePersistenceModel, FindAllStructuresParams, FindAllStructuresResult } from "../../../application/ports/product-structure.repository";
 
 export class ProductStructurePrismaRepository implements ProductStructureRepository {
   constructor(private prisma: PrismaClient) {}
@@ -68,5 +68,42 @@ export class ProductStructurePrismaRepository implements ProductStructureReposit
         });
       }
     });
+  }
+
+  async findAll(params: FindAllStructuresParams): Promise<FindAllStructuresResult> {
+    const page = Math.max(1, params.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 20));
+    const skip = (page - 1) * pageSize;
+
+    const where: any = {};
+
+    if (params.hasStructure !== undefined) {
+      where.hasStructure = params.hasStructure;
+    }
+
+    if (params.q?.trim()) {
+      where.codProduto = { contains: params.q.trim(), mode: "insensitive" };
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.productStructure.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { updatedAt: "desc" },
+        include: { items: true },
+      }),
+      this.prisma.productStructure.count({ where }),
+    ]);
+
+    const totalNumber = Number(total);
+
+    return {
+      data: data as any,
+      total: totalNumber,
+      page,
+      pageSize,
+      totalPages: Math.ceil(totalNumber / pageSize),
+    };
   }
 }

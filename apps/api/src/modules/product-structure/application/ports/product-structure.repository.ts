@@ -60,7 +60,23 @@ export type ProductStructurePersistenceModel = {
   }>;
 };
 
+export type FindAllStructuresParams = {
+  page?: number;
+  pageSize?: number;
+  hasStructure?: boolean;
+  q?: string;
+};
+
+export type FindAllStructuresResult = {
+  data: ProductStructurePersistenceModel[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 export interface ProductStructureRepository {
   findByCodProduto(codProduto: string): Promise<ProductStructurePersistenceModel | null>;
   upsertStructureWithItems(input: UpsertStructureInput): Promise<void>;
+  findAll(params: FindAllStructuresParams): Promise<FindAllStructuresResult>;
 }
