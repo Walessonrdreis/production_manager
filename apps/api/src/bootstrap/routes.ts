@@ -20,6 +20,7 @@ import { registerSalesProductionIntegrationModule } from "@/modules/sales-produc
 import { registerProductStructureModule } from "@/modules/product-structure/register";
 import { registerInternalProductionOrdersModule } from "@/modules/internal-production-orders/register";
 import { registerTrelloIntegrationModule } from "@/modules/trello-integration/register";
+import { registerProductSectorsModule } from "@/modules/product-sectors";
 
 
 export async function registerRoutes(app: FastifyInstance) {
@@ -299,6 +300,9 @@ export async function registerRoutes(app: FastifyInstance) {
 
   // trello integration module
   await registerTrelloIntegrationModule(app);
+
+  // product-sectors module (defaults: Refino, Temperagem, Confeitaria, Embalagem)
+  await registerProductSectorsModule(app);
 
   
   // sync module (API Core - Fase 2) - TEMPORARILY DISABLED DUE TO ZOD SCHEMA ERROR
