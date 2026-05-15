@@ -35,6 +35,9 @@ pnpm --filter @production-manager/api gen:structure
 # Gerar arquivo com a estrutura da aplicação resumida
 pnpm --filter @production-manager/api run docs:estrutura
 
+# Gerar ou atualizar arquivo com o resumo da aplicação
+pnpm --filter @production-manager/api gen:resumo
+
 # Cria e popula o arquivo de código com o conteúdo interativo em duas etapas o caminho e nome do arquivo e o conteúdo do arquivo
  pnpm --filter @production-manager/api run create:file
 

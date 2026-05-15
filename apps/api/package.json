@@ -36,6 +36,7 @@
     "metrics:update-docs": "pnpm metrics:all && pnpm docs:status",
     "gen:module": "ts-node scripts/scaffold/index.ts",
     "gen:structure": "ts-node scripts/update-estrutura-projeto.mjs",
+    "gen:resumo": "ts-node scripts/update-resumo-projeto.mjs",
     "generate:module": "pnpm run gen:module",
     "docs:estrutura": "node scripts/update-estrutura-projeto-dirs-summary.js",
     "create:file": "ts-node scripts/create-file-interactive.ts",
