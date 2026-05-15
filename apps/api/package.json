@@ -37,6 +37,7 @@
     "gen:module": "ts-node scripts/scaffold/index.ts",
     "gen:structure": "ts-node scripts/update-estrutura-projeto.mjs",
     "generate:module": "pnpm run gen:module",
+    "docs:estrutura": "node scripts/update-estrutura-projeto-dirs-summary.js",
     "create:file": "ts-node scripts/create-file-interactive.ts",
     "db:fix:failed": "node scripts/fix-failed-migration.js"
   },

@@ -1,0 +1,361 @@
+```text
+apps/api/
+├─ docs/ # files: API_CONTRACT.md, ARCHITECTURE.md, LEGADO_VS_ATUAL.md, REPO_STATUS.md, TDD_WORKFLOW.md
+│  ├─ ESTRUTURA_PROJETO/
+│  │  ├─ COMPLETO/ # files: ESTRUTURA_PROJETO.md
+│  │  └─ RESUMIDO/ # files: Estrutura_Projeto_Resumido.md
+│  ├─ history/
+│  ├─ prompts/ # files: 00-visao-geral.md, 01-refatoracao-geral.md, 02-arquitetura-e-modulos.md, 03-modulo-template.md, 04-testes-tdd.md, 05-integracao-omie.md, 06-comandos-terminal.md, 07-comandos-scripts-api.md
+│  ├─ reference/
+│  │  └─ files/
+│  ├─ templates/ # files: README.template.md
+│  │  └─ module/ # files: index.ts
+│  │     ├─ application/
+│  │     │  └─ use-cases/ # files: example.usecase.ts
+│  │     ├─ infrastructure/ # files: db
+│  │     └─ presentation/
+│  │        └─ http/ # files: nome-do-modulo.controller.ts, nome-do-modulo.routes.ts
+│  ├─ Terminal/ # files: comandos-importantes.md
+│  └─ typedoc/ # files: README.md
+│     ├─ app/ # files: README.md
+│     │  └─ functions/ # files: buildApp.md
+│     ├─ contracts/
+│     │  └─ publicProducts.contract/ # files: README.md
+│     ├─ core/
+│     │  ├─ errors/
+│     │  │  └─ AppError/ # files: README.md
+│     │  │     └─ classes/ # files: AppError.md
+│     │  └─ SyncOmieProductsService/ # files: README.md
+│     │     └─ classes/ # files: SyncOmieProductsService.md
+│     ├─ db/ # files: README.md
+│     │  └─ variables/ # files: prisma.md
+│     ├─ env/ # files: README.md
+│     │  └─ variables/ # files: env.md
+│     ├─ integrations/
+│     │  └─ omie/
+│     │     ├─ OmieAdapter/ # files: README.md
+│     │     │  ├─ classes/ # files: OmieAdapter.md
+│     │     │  └─ type-aliases/ # files: OmieProductDTO.md
+│     │     ├─ OmieClient/ # files: README.md
+│     │     │  ├─ classes/ # files: OmieClient.md
+│     │     │  └─ variables/ # files: omieClient.md
+│     │     └─ OmieStockCache/ # files: README.md
+│     │        ├─ classes/ # files: OmieStockCache.md
+│     │        └─ variables/ # files: omieStockCache.md
+│     ├─ jobs/
+│     │  ├─ omieProductSync.job/ # files: README.md
+│     │  │  └─ functions/ # files: startOmieProductSyncJob.md
+│     │  └─ stockRefresh.job/ # files: README.md
+│     │     └─ functions/ # files: startStockRefreshJob.md
+│     ├─ lib/
+│     │  ├─ errors/ # files: README.md
+│     │  ├─ http/ # files: README.md
+│     │  │  ├─ functions/ # files: markDeprecated.md, ok.md, paginated.md, sendOk.md, sendPaginated.md, wantsLegacyResponse.md, wantsPrettyResponse.md
+│     │  │  └─ type-aliases/ # files: HttpLinks.md, PaginationMeta.md
+│     │  └─ logger/ # files: README.md
+│     ├─ repositories/
+│     │  ├─ PlanRepository/ # files: README.md
+│     │  │  └─ classes/ # files: PlanRepository.md
+│     │  ├─ ProductRepository/ # files: README.md
+│     │  │  └─ classes/ # files: ProductRepository.md
+│     │  └─ SectorRepository/ # files: README.md
+│     │     └─ classes/ # files: SectorRepository.md
+│     ├─ routes/ # files: README.md
+│     │  ├─ functions/ # files: appRoutes.md
+│     │  ├─ omie/ # files: README.md
+│     │  │  └─ functions/ # files: omieRoutes.md
+│     │  ├─ plans/ # files: README.md
+│     │  │  └─ functions/ # files: plansRoutes.md
+│     │  ├─ product-sector/ # files: README.md
+│     │  │  └─ functions/ # files: productSectorRoutes.md
+│     │  ├─ products/ # files: README.md
+│     │  │  └─ functions/ # files: productsRoutes.md
+│     │  └─ sectors/ # files: README.md
+│     │     └─ functions/ # files: sectorRoutes.md
+│     ├─ server/ # files: README.md
+│     ├─ services/
+│     │  ├─ CreatePlanItemService/ # files: README.md
+│     │  │  └─ classes/ # files: CreatePlanItemService.md
+│     │  ├─ CreatePlanService/ # files: README.md
+│     │  │  └─ classes/ # files: CreatePlanService.md
+│     │  ├─ CreateSectorService/ # files: README.md
+│     │  │  └─ classes/ # files: CreateSectorService.md
+│     │  ├─ jobLock.service/ # files: README.md
+│     │  │  └─ functions/ # files: acquireJobLock.md, releaseJobLock.md
+│     │  ├─ omieProductRead.service/ # files: README.md
+│     │  │  └─ functions/ # files: listOmieProductsWithCurrentStock.md
+│     │  ├─ omieProductSync.service/ # files: README.md
+│     │  │  └─ functions/ # files: runOmieProductSync.md
+│     │  ├─ omieStock.service/ # files: README.md
+│     │  │  └─ functions/ # files: getStockByRawPayload.md
+│     │  ├─ publicProductsRead.service/ # files: README.md
+│     │  │  ├─ functions/ # files: getPublicProductByCode.md, listPublicProducts.md
+│     │  │  └─ type-aliases/ # files: ListPublicProductsParams.md, PublicProduct.md
+│     │  ├─ SetProductDefaultSectorService/ # files: README.md
+│     │  │  └─ classes/ # files: SetProductDefaultSectorService.md
+│     │  └─ stockRefresh.service/ # files: README.md
+│     │     └─ functions/ # files: runStockRefresh.md
+│     └─ utils/
+│        ├─ backoff/ # files: README.md
+│        │  └─ functions/ # files: calculateBackoffWithJitter.md, sleep.md
+│        ├─ domainErrors/ # files: README.md
+│        │  └─ classes/ # files: AppError.md, ConflictError.md, MissingDefaultSectorError.md, NotFoundError.md, ValidationError.md
+│        └─ errors/ # files: README.md
+│           ├─ functions/ # files: sendError.md
+│           ├─ interfaces/ # files: ApiErrorPayload.md
+│           ├─ type-aliases/ # files: ErrorCode.md
+│           └─ variables/ # files: ErrorCodes.md
+├─ prisma/ # files: schema.prisma
+│  └─ migrations/
+│     ├─ 20260410002353_first_migrate/
+│     ├─ 20260410005913_add_sync_lock/
+│     ├─ 20260414125500_add_omie_code_and_family_description/
+│     ├─ 20260414131000_add_product_stock/
+│     ├─ 20260415100605_expand_product_stock_omie_code_64/
+│     ├─ 20260415124006_add_job_lock_table/
+│     ├─ 20260415170012_widen_omie_product_fields/
+│     ├─ 20260415183012_omie_code_identity/
+│     ├─ 20260415190742_unique_product_stock_by_code/
+│     ├─ 20260415190836_/
+│     ├─ 20260417014146_/
+│     ├─ 20260505162545_create_clientes/
+│     ├─ 20260505164924_create_clients/
+│     ├─ 20260506114308_create_client/
+│     ├─ 20260506115215_create_client/
+│     ├─ 20260506120255_create_client/
+│     ├─ 20260506185532_relacionamento_orders_client/
+│     ├─ 20260508213903_add_omie_production_orders/
+│     ├─ 20260510201008_add_sync_record_table/
+│     ├─ 20260510202226_add_alerts_tables/
+│     ├─ 20260512014737_product_structure_migrate/
+│     ├─ 20260512033604_product_structure_bigint_ids/
+│     └─ 20260513120000_add_internal_production_orders_with_audit/
+├─ scripts/ # files: backfill-omie-code.ts, check-env.mjs, Comandos-scripts-api.md, create-file-interactive.ts, fix-failed-migration.js, generate-module.ts, repo-metrics.mjs, resilient-migrate.js (+2)
+│  ├─ metrics/ # files: all.mjs, endpoints-drift.mjs, endpoints.mjs, env-check.mjs, exports.mjs, loc.mjs, migrations.mjs, prisma-schema.mjs (+6)
+│  ├─ scaffold/ # files: index.ts, audit.ts, config.ts, fs-utils.ts, readme-writer.ts, types.ts
+│  └─ trello/ # files: register-webhook.ts
+├─ src/ # files: server.ts
+│  ├─ @types/ # files: fastify-schema.d.ts
+│  ├─ bootstrap/ # files: routes.ts, server.ts, app.ts, openapi-simple.ts, openapi.ts
+│  │  └─ plugins/ # files: error-handler.ts, job-lock.ts, logger.ts, prisma.ts
+│  ├─ config/ # files: index.ts, env.ts
+│  ├─ contracts/ # files: publicProducts.contract.ts
+│  ├─ controllers/
+│  ├─ core/
+│  │  └─ errors/
+│  ├─ dontev/ # files: config.ts
+│  ├─ infra/ # files: db.ts
+│  ├─ integrations/
+│  │  └─ omie/
+│  ├─ legacy/ # Projeto legado (não expandido)
+│  ├─ lib/ # files: http.ts
+│  ├─ middlewares/
+│  ├─ modules/
+│  │  ├─ alerts/ # files: README.md, register.ts
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/ # files: stock-alerts.dto.ts
+│  │  │  │  ├─ entities/ # files: alert-config.entity.ts, stock-alert.entity.ts
+│  │  │  │  ├─ ports/ # files: alerts.repository.port.ts
+│  │  │  │  └─ use-cases/ # files: configure-alerts.usecase.ts, list-stock-alerts.usecase.ts, update-alert-status.usecase.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  └─ db/ # files: alerts.repository.prisma.ts
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: stock-alerts.controller.ts, stock-alerts.openapi.ts, stock-alerts.routes.ts
+│  │  ├─ client/ # files: index.ts, README.md, register.ts
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/ # files: client.dto.ts
+│  │  │  │  ├─ ports/ # files: client-repository.port.ts, omie-client-gateway.port.ts
+│  │  │  │  └─ use-cases/ # files: get-client-by-omie-client-code.usecase.ts, list-clients.usecase.ts, sync-omie-clients.usecase.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/ # files: client.repo.prisma.ts
+│  │  │  │  │  └─ __tests__/ # files: client.repo.smoke.ts
+│  │  │  │  ├─ integrations/
+│  │  │  │  │  └─ omie/ # files: omie-client.gateway.ts
+│  │  │  │  └─ jobs/ # files: sync-omie-clients.job.ts
+│  │  │  ├─ presentation/ # files: client.controller.ts
+│  │  │  │  └─ http/ # files: routes.ts, schemas.ts, client-admin.controller.ts, client-admin.routes.ts, client-admin.schemas.ts, client-list.controller.ts, client-list.routes.ts, client.routes.ts (+1)
+│  │  │  │     └─ controllers/ # files: index.ts
+│  │  │  └─ types/ # files: fastify.d.ts
+│  │  ├─ internal-production-orders/ # files: index.ts, README.md, register.ts
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/ # files: internal-production-order.dto.ts
+│  │  │  │  ├─ entities/ # files: internal-production-order.entity.ts
+│  │  │  │  ├─ ports/ # files: internal-production-order.repository.port.ts, products-catalog.port.ts
+│  │  │  │  ├─ services/ # files: internal-production-order-audit.service.test.ts, internal-production-order-audit.service.ts
+│  │  │  │  ├─ use-cases/ # files: complete-internal-production-order.usecase.ts, create-internal-production-order.usecase.ts, delete-internal-production-order.usecase.ts, get-internal-production-order-by-id.usecase.ts, get-internal-production-orders.usecase.ts, start-internal-production-order.usecase.ts, update-internal-production-order.usecase.ts
+│  │  │  │  └─ utils/ # files: diff.test.ts, diff.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/ # files: internal-production-order.repository.prisma.ts
+│  │  │  │  ├─ integrations/ # files: http-products-catalog.adapter.ts
+│  │  │  │  └─ jobs/
+│  │  │  ├─ presentation/
+│  │  │  │  └─ http/ # files: routes.ts, schemas.ts, internal-production-order.controller.ts
+│  │  │  │     └─ controllers/ # files: index.ts
+│  │  │  └─ types/ # files: fastify.d.ts
+│  │  ├─ omie-production-orders/ # files: index.ts, register.ts
+│  │  │  ├─ application/
+│  │  │  │  └─ use-cases/ # files: get-active-production-orders-count.usecase.ts, get-completed-production-orders-count.usecase.ts, get-production-order-by-code.usecase.ts, get-production-orders-by-product-code.usecase.ts, get-production-orders-by-product-integration-code.usecase.ts, get-production-orders-stats.usecase.ts, list-production-orders-page.usecase.ts, list-production-orders.usecase.ts (+1)
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/ # files: omie-production-orders.repo.prisma.ts
+│  │  │  │  └─ jobs/ # files: omie-production-orders-sync.job.integration.test.ts, omie-production-orders-sync.job.ts
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: omie-production-orders.controller.ts, omie-production-orders.routes.ts
+│  │  ├─ omie-sales-orders/ # files: index.ts, register.ts
+│  │  │  ├─ application/
+│  │  │  │  └─ use-cases/ # files: fetch-omie-products-page.usecase.ts, get-stage20-totals.usecase.ts, list-omie-orders-page.usecase.ts, list-orders.usecase.ts, list-stage20-orders.usecase.ts, sync-omie-products.usecase.ts, sync-stage20-orders.usecase.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/ # files: omie-orders.repo.prisma.ts, omie-product.repo.prisma.ts, sync-lock.repo.prisma.ts
+│  │  │  │  └─ jobs/ # files: omie-orders-stage20.job.integration.test.ts, omie-orders-stage20.job.ts
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: omie-sales-orders.controller.ts, omie-sales-orders.routes.ts
+│  │  ├─ orders-enriched/ # files: index.ts, README.md, register.ts
+│  │  │  ├─ application/
+│  │  │  │  ├─ ports/ # files: client-lookup.port.ts, stage20-orders-fetcher.port.ts
+│  │  │  │  └─ use-cases/ # files: list-stage20-orders-enriched.usecase.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/ # files: client-lookup.prisma.ts
+│  │  │  │  └─ integrations/
+│  │  │  │     └─ internal/ # files: stage20-orders.fetcher.fastify.ts
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: routes.ts, schemas.ts, orders-enriched.controller.ts, orders-enriched.routes.ts, orders-enriched.schemas.ts
+│  │  │        └─ controllers/ # files: index.ts
+│  │  ├─ orders-view/ # files: register.ts
+│  │  │  ├─ application/ # files: list-orders-view.usecase.ts
+│  │  │  ├─ infrastructure/ # files: orders-view.repository.prisma.ts
+│  │  │  └─ presentation/ # files: orders-view.controller.ts, orders-view.routes.ts
+│  │  ├─ plans/ # files: index.ts
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/ # files: product.dto.ts
+│  │  │  │  └─ use-cases/ # files: add-plan-item.usecase.ts, create-plan.usecase.ts, export-plan-csv.usecase.ts, get-plan-by-id.usecase.ts, get-product.usecase.ts, list-plan-items-by-sector.usecase.ts, list-plans.usecase.ts, list-products.usecase.ts (+3)
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/ # files: plan.repo.prisma.ts, product.repo.prisma.ts
+│  │  │  │  ├─ integrations/
+│  │  │  │  │  └─ omie/ # files: omie-product.gateway.ts, omie-stock-cache.ts, omie.adapter.ts, omie.client.ts
+│  │  │  │  └─ jobs/ # files: refresh-stock.job.ts, sync-omie-products.job.ts
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: plans.controller.ts, plans.routes.ts, plans.schemas.ts
+│  │  ├─ product-sector/ # files: index.ts
+│  │  │  ├─ application/ # files: set-product-default-sector.usecase.ts
+│  │  │  │  └─ use-cases/ # files: get-product-default-sector.usecase.ts, set-product-default-sector.usecase.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  └─ db/ # files: product-sector.repo.prisma.ts
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: product-sector.controller.ts, product-sector.routes.ts, product-sector.schemas.ts
+│  │  ├─ product-sectors/ # files: index.ts, README.md
+│  │  │  ├─ application/
+│  │  │  │  └─ use-cases/ # files: delete-sector.usecase.ts, list-sectors.usecase.ts, seed-default-sectors.usecase.ts, update-sector.usecase.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  └─ db/ # files: product-sectors.repo.prisma.ts
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: product-sectors.controller.ts, product-sectors.routes.ts, product-sectors.schemas.ts
+│  │  │        └─ controllers/
+│  │  ├─ product-structure/ # files: index.ts, README.md, register.ts
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/ # files: product-structure.output.ts, sync-product-structure.input.ts
+│  │  │  │  ├─ ports/ # files: omie-product-structure.gateway.ts, product-structure.repository.ts
+│  │  │  │  ├─ use-cases/ # files: get-product-structure-by-codproduto.usecase.ts, list-product-structures.usecase.ts, sync-omie-product-structure.usecase.ts
+│  │  │  │  └─ utils/ # files: compute-structure-hash.ts, omie-mappers.ts, resolve-product-identifier.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/
+│  │  │  │  │  └─ prisma/ # files: product-structure.prisma-repository.ts
+│  │  │  │  ├─ integrations/
+│  │  │  │  │  └─ omie/ # files: omie-client.ts, omie-product-structure.contracts.ts, omie-product-structure.gateway.ts
+│  │  │  │  └─ jobs/ # files: omie-product-structure-sync.job.ts
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: routes.ts, schemas.ts
+│  │  │        └─ controllers/ # files: index.ts, get-product-structure.controller.ts, list-product-structures.controller.ts, sync-product-structure-job-tick.controller.ts, sync-product-structure.controller.ts
+│  │  ├─ production-queue/ # files: index.ts, register.ts
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/ # files: production-queue.dto.ts
+│  │  │  │  ├─ entities/ # files: production-queue.entity.ts
+│  │  │  │  ├─ ports/ # files: production-queue.repository.port.ts
+│  │  │  │  └─ use-cases/ # files: add-to-queue.usecase.ts, list-queue.usecase.ts, queue-statistics.usecase.ts, reorder-queue.usecase.ts, update-queue-status.usecase.ts
+│  │  │  │     └─ __tests__/ # files: add-to-queue.usecase.test.ts, list-queue.usecase.test.ts, update-queue-status.usecase.test.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  └─ db/ # files: production-queue.repository.prisma.ts
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: production-queue.controller.ts, production-queue.routes.ts
+│  │  │        └─ __tests__/ # files: production-queue.integration.test.ts
+│  │  ├─ products/ # files: index.ts
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/ # files: product.dto.ts, public-product.dto.ts
+│  │  │  │  ├─ use-cases/ # files: create-managed-product.usecase.ts, create-managed-products-bulk.usecase.ts, delete-managed-product.usecase.ts, fetch-omie-products-page.usecase.ts, get-managed-product-stock-history.usecase.ts, get-managed-product-stock.usecase.ts, get-managed-product.usecase.ts, get-products.usecase.ts (+11)
+│  │  │  │  │  └─ admin-omie/ # files: get-omie-product-by-code.usecase.ts, get-omie-product-by-id.usecase.ts, get-omie-product-stock.usecase.ts, get-omie-stock-info.usecase.ts, list-omie-categories.usecase.ts, search-omie-products.usecase.ts
+│  │  │  │  └─ utils/ # files: to-number.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/ # files: omie-product-read.repo.prisma.ts, omie-product.repo.prisma.ts, product-stock.repo.prisma.ts, product.repo.prisma.ts, public-products.repo.prisma.ts, sync-lock-lease.repo.prisma.ts, sync-lock.repo.prisma.ts
+│  │  │  │  ├─ integrations/
+│  │  │  │  │  └─ omie/ # files: index.ts, omie-product.gateway.ts, omie-stock-cache.ts, omie.adapter.ts, omie.client.ts
+│  │  │  │  └─ jobs/ # files: omie-product-sync.job.ts, stock-refresh.job.ts
+│  │  │  ├─ presentation/
+│  │  │  │  └─ http/ # files: products.controller.ts, products.routes.ts, products.schemas.ts
+│  │  │  └─ utils/ # files: to-number.ts
+│  │  ├─ sales-production-integration/ # files: index.ts, README.md, register.ts
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/ # files: sales-production-integration.dto.ts
+│  │  │  │  └─ use-cases/ # files: integration-statistics.usecase.ts, sales-to-production.usecase.ts
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: sales-production-integration.controller.ts, sales-production-integration.routes.ts
+│  │  ├─ sectors/ # files: index.ts
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/ # files: product.dto.ts
+│  │  │  │  └─ use-cases/ # files: create-sector.usecase.ts, delete-sector.usecase.ts, get-product.usecase.ts, list-products.usecase.ts, list-sectors.usecase.ts, refresh-stock.usecase.ts, set-default-sector.usecase.ts, sync-omie-products.usecase.ts (+1)
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/ # files: product.repo.prisma.ts, sector.repo.prisma.ts
+│  │  │  │  ├─ integrations/
+│  │  │  │  │  └─ omie/ # files: omie-product.gateway.ts, omie-stock-cache.ts, omie.adapter.ts, omie.client.ts
+│  │  │  │  └─ jobs/ # files: refresh-stock.job.ts, sync-omie-products.job.ts
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: sectors.controller.ts, sectors.routes.ts, sectors.schemas.ts
+│  │  ├─ selected-products/ # files: index.ts, README.md
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: routes.ts, schemas.ts
+│  │  │        └─ controllers/ # files: index.ts
+│  │  ├─ stock-monitor/ # files: index.ts, README.md, register.ts
+│  │  │  └─ infrastructure/
+│  │  │     └─ jobs/ # files: stock-monitor.job.integration.test.ts, stock-monitor.job.ts
+│  │  ├─ sync/ # files: index.ts, README.md, register.ts
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/ # files: sync-orders.dto.ts, sync-status.dto.ts, sync-stock.dto.ts
+│  │  │  │  ├─ ports/ # files: omie.gateway.port.ts, sync.repository.port.ts
+│  │  │  │  └─ use-cases/ # files: get-sync-status.usecase.ts, sync-orders.usecase.ts, sync-stock.usecase.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/ # files: sync.repository.prisma.ts
+│  │  │  │  ├─ integrations/ # files: omie.gateway.ts
+│  │  │  │  └─ jobs/
+│  │  │  └─ presentation/
+│  │  │     └─ http/ # files: sync-orders.controller.ts, sync-status.controller.ts, sync-stock.controller.ts, sync.routes.ts
+│  │  └─ trello-integration/ # files: index.ts, README.md, register.ts
+│  │     ├─ application/
+│  │     │  ├─ dtos/ # files: trello-webhook-event.dto.ts
+│  │     │  ├─ ports/
+│  │     │  ├─ use-cases/ # files: process-trello-webhook.use-case.test.ts, process-trello-webhook.use-case.ts
+│  │     │  └─ utils/ # files: parse-card-name.test.ts, parse-card-name.ts, trello-event-guards.ts
+│  │     ├─ infrastructure/
+│  │     │  ├─ db/
+│  │     │  ├─ integrations/
+│  │     │  └─ jobs/
+│  │     └─ presentation/
+│  │        └─ http/ # files: routes.ts
+│  │           └─ controllers/ # files: trello-webhook.controller.ts
+│  ├─ plugins/
+│  ├─ repositories/
+│  ├─ routes/
+│  ├─ services/
+│  ├─ shared/
+│  │  ├─ errors/ # files: index.ts, AppError.ts, domain-errors.ts, http-errors.ts
+│  │  ├─ http/ # files: response.ts, validate.ts
+│  │  ├─ integrations/
+│  │  │  └─ omie/ # files: index.ts, omie-orders.adapter.ts, omie-stock-cache.ts, omie.adapter.ts, omie.client.ts, omie.constants.ts, omie.utils.ts, OmieProductionOrdersAdapter.ts
+│  │  ├─ logger/ # files: index.ts, logger.ts
+│  │  ├─ services/ # files: index.ts, IntelligentPollingService.test.ts, IntelligentPollingService.ts, polling.config.test.ts, polling.config.ts, retry.config.test.ts, retry.config.ts, RetrySystem.test.ts (+1)
+│  │  └─ utils/ # files: backoff.ts, job-lock.ts
+│  └─ utils/
+└─ tests/ # files: CreatePlanItemService.spec.ts, frontend-stock-consumption.spec.ts, informative-endpoints.spec.ts, omie-categories.spec.ts, omie-product-sync-idempotent.spec.ts, omie-product-sync-long-fields.spec.ts, omie-products-detail.spec.ts, omie-products-search.spec.ts (+10)
+   ├─ integration/
+   │  └─ modules/
+   │     └─ sync/ # files: sync-module.test.ts, sync-repository.test.ts
+   └─ unit/
+      └─ modules/
+         └─ sync/ # files: get-sync-status.usecase.test.ts, sync-orders.usecase.test.ts, sync-stock.usecase.test.ts
+```

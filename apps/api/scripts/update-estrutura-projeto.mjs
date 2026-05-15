@@ -120,7 +120,15 @@ function splitBlockLines(textBlock) {
 
 function main() {
   const apiRoot = process.cwd()
-  const mdPath = path.join(apiRoot, 'ESTRUTURA_PROJETO.md')
+
+const docsBase = path.join(
+    apiRoot,
+    'docs',
+    'ESTRUTURA_PROJETO',
+    'COMPLETO',
+  )
+
+  const mdPath = path.join(docsBase, 'ESTRUTURA_PROJETO.md')
 
   if (!fs.existsSync(mdPath)) {
     console.error(`Arquivo não encontrado: ${mdPath}`)

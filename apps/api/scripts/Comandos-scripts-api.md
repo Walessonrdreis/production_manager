@@ -29,8 +29,11 @@ pnpm --filter @production-manager/api start
 # generate module
 pnpm --filter @production-manager/api gen:module -- name-module
 
-# Gerar arquivo com a estrutura da aplicação
+# Gerar arquivo com a estrutura da aplicação completa
 pnpm --filter @production-manager/api gen:structure
+
+# Gerar arquivo com a estrutura da aplicação resumida
+pnpm --filter @production-manager/api run docs:estrutura
 
 # Cria e popula o arquivo de código com o conteúdo interativo em duas etapas o caminho e nome do arquivo e o conteúdo do arquivo
  pnpm --filter @production-manager/api run create:file
