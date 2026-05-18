@@ -7,6 +7,7 @@ export async function registerOmieSalesOrdersRoutes(app: FastifyInstance, contro
   // stage 20
   app.get("/v1/admin/orders/stage20", controller.listStage20);
   app.get("/v1/admin/orders/stage20/totals", controller.getStage20Totals);
+  app.get("/v1/admin/orders/stage20/totals/detailed", controller.getStage20TotalsDetailed);
 
   // omie stage20 controls
   app.post("/v1/admin/omie/orders/stage20/sync", controller.syncStage20);

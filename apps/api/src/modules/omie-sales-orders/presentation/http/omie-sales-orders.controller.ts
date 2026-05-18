@@ -85,5 +85,10 @@ export function createOmieSalesOrdersController(useCases: any) {
       const data = await useCases.getStage20Totals.execute();
       return reply.send(ok(data));
     },
+
+    async getStage20TotalsDetailed(_request: any, reply: any) {
+      const data = await useCases.getStage20TotalsDetailed.execute();
+      return reply.send(ok(data));
+    },
   };
 }

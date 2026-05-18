@@ -15,6 +15,7 @@ import { createSyncLockRepoPrisma } from "./infrastructure/db/sync-lock.repo.pri
 import { createListOrdersUseCase } from "./application/use-cases/list-orders.usecase";
 import { createListStage20OrdersUseCase } from "./application/use-cases/list-stage20-orders.usecase";
 import { createGetStage20TotalsUseCase } from "./application/use-cases/get-stage20-totals.usecase";
+import { createGetStage20TotalsDetailedUseCase } from "./application/use-cases/get-stage20-totals-detailed.usecase";
 
 // estado em memória para sync de produtos
 const state = {
@@ -70,6 +71,7 @@ export function createOmieSalesOrdersModule(app: any) {
   const listOrders = createListOrdersUseCase({ prisma });
   const listStage20Orders = createListStage20OrdersUseCase({ prisma });
   const getStage20Totals = createGetStage20TotalsUseCase({ prisma });
+  const getStage20TotalsDetailed = createGetStage20TotalsDetailedUseCase({ prisma });
 
   // ---------------------------------------------------------------------------
   // expose use cases
@@ -84,6 +86,7 @@ export function createOmieSalesOrdersModule(app: any) {
       listOrders,
       listStage20Orders,
       getStage20Totals,
+      getStage20TotalsDetailed,
     },
   };
 }
