@@ -94,10 +94,28 @@ export class ListStage20OrdersEnrichedUseCase {
         ? (client.tradeName || client.legalName)
         : null;
 
-      return {
-        ...order,
-        // Adiciona nomeCliente diretamente no objeto do pedido
-        nomeCliente,
+      // DEBUG: Log para verificar se encontrou o cliente
+      console.log(`DEBUG: Pedido ${order.numeroPedido} - Código cliente: ${code ? code.toString() : 'null'} - Cliente encontrado: ${client ? 'SIM' : 'NÃO'} - Nome: ${nomeCliente}`);
+
+      // Cria um novo objeto com nomeCliente logo após codigoCliente
+      // Extraímos os campos que queremos em ordem específica
+      const { id, omieCode, numeroPedido, codigoCliente, codigoEmpresa, etapa, cancelado, encerrado, dataPrevisao, rawPayload, ...otherFields } = order;
+      
+      const enrichedOrder = {
+        id,
+        omieClientCode: omieCode, // Mantém compatibilidade
+        omieCode,
+        numeroPedido,
+        codigoCliente,
+        nomeCliente, // Adiciona nomeCliente logo após codigoCliente
+        codigoEmpresa,
+        etapa,
+        cancelado,
+        encerrado,
+        dataPrevisao,
+        rawPayload,
+        // Outros campos que podem existir
+        ...otherFields,
         client: client
           ? {
               omieClientCode: client.omieClientCode.toString(), // JSON-safe
@@ -107,12 +125,19 @@ export class ListStage20OrdersEnrichedUseCase {
             }
           : null,
       };
+
+      // DEBUG: Verificar estrutura do pedido enriquecido
+      console.log(`DEBUG: Estrutura do pedido ${order.numeroPedido}:`, Object.keys(enrichedOrder));
+      
+      return enrichedOrder;
     });
 
-    // mantém o payload original, só troca o array
-    return {
-      ...ordersPayload,
-      enrichedOrders,
-    };
+    // DEBUG: Log do primeiro pedido enriquecido
+    if (enrichedOrders.length > 0) {
+      console.log('DEBUG: Primeiro pedido enriquecido completo:', JSON.stringify(enrichedOrders[0], null, 2));
+    }
+
+    // Retorna apenas os pedidos enriquecidos
+    return enrichedOrders;
   }
 }

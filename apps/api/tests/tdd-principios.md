@@ -14,6 +14,7 @@ scene: development
 - Nunca escrever código sem teste primeiro
 - Testes definem comportamento esperado
 - Código existe apenas para passar testes
+- Todos os arquivos de testes devem ficar no diretório raiz especifico se for a aplicação API: apps/api/tests/ se for a aplicação Web: apps/web/tests/
 
 ## REGRA 3: TESTES UNITÁRIOS PRIMEIRO
 1. Testes unitários para lógica de negócio

@@ -70,3 +70,4 @@ docs(dashboard): update API reference
 - Pré-commit hook valida formato
 - Rejeita commits sem tipo válido
 - Garante consistência no histórico
+- Deve ser sempre o usuario que fará o commit e push
