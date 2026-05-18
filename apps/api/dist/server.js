@@ -5,8 +5,8 @@ var Fastify = require('fastify');
 var cors = require('@fastify/cors');
 var crypto = require('crypto');
 var zod = require('zod');
-var contracts = require('@shared/contracts');
 var client = require('@prisma/client');
+var contracts = require('@shared/contracts');
 var cron = require('node-cron');
 
 function _interopDefault (e) { return e && e.__esModule ? e : { default: e }; }
@@ -36,7 +36,9 @@ var envSchema = zod.z.object({
   OMIE_PRODUCTION_ORDERS_SYNC: zod.z.coerce.boolean().default(false),
   OMIE_PRODUCTION_ORDERS_CRON: zod.z.string().default("*/15 * * * *"),
   ENABLE_OMIE_CLIENT_SYNC_JOB: zod.z.coerce.boolean().default(false),
-  OMIE_CLIENT_SYNC_CRON: zod.z.string().default("*/10 * * * *")
+  OMIE_CLIENT_SYNC_CRON: zod.z.string().default("*/10 * * * *"),
+  ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB: zod.z.coerce.boolean().default(false),
+  OMIE_PRODUCT_STRUCTURE_SYNC_CRON: zod.z.string().default("*/20 * * * *")
 });
 var parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
@@ -79,6 +81,14 @@ function sendOk(request, reply, data, meta, links) {
   }
   return reply.send(payload);
 }
+function sendPaginated(request, reply, data, meta, links) {
+  const payload = paginated(data, meta, links);
+  if (wantsPrettyResponse(request)) {
+    reply.type("application/json; charset=utf-8");
+    return reply.send(JSON.stringify(payload, null, 2));
+  }
+  return reply.send(payload);
+}
 function markDeprecated(request, reply, legacyPath, replacementPath, sunsetIso) {
   reply.header("Deprecation", "true");
   const resolvedSunset = process.env.DEPRECATION_SUNSET ?? "2026-12-31T00:00:00.000Z";
@@ -92,6 +102,466 @@ function markDeprecated(request, reply, legacyPath, replacementPath, sunsetIso) 
     },
     `deprecated endpoint used: ${legacyPath}`
   );
+}
+var ClientPrismaRepository = class {
+  constructor(prisma2) {
+    this.prisma = prisma2;
+  }
+  prisma;
+  async upsert(client) {
+    await this.prisma.client.upsert({
+      where: {
+        omieClientCode: client.omieClientCode
+      },
+      create: {
+        omieClientCode: client.omieClientCode,
+        legalName: client.legalName,
+        tradeName: client.tradeName,
+        document: client.document,
+        personType: client.personType,
+        email: client.email,
+        phone: client.phone,
+        isActive: client.isActive,
+        isBlocked: client.isBlocked,
+        isBillingBlocked: client.isBillingBlocked,
+        createdAtOmie: client.createdAtOmie,
+        updatedAtOmie: client.updatedAtOmie
+      },
+      update: {
+        legalName: client.legalName,
+        tradeName: client.tradeName,
+        document: client.document,
+        personType: client.personType,
+        email: client.email,
+        phone: client.phone,
+        isActive: client.isActive,
+        isBlocked: client.isBlocked,
+        isBillingBlocked: client.isBillingBlocked,
+        updatedAtOmie: client.updatedAtOmie
+      }
+    });
+  }
+  async findByOmieClientCode(omieClientCode) {
+    const record = await this.prisma.client.findUnique({
+      where: { omieClientCode }
+    });
+    if (!record) return null;
+    return {
+      omieClientCode: record.omieClientCode,
+      legalName: record.legalName,
+      tradeName: record.tradeName,
+      document: record.document,
+      personType: record.personType,
+      email: record.email,
+      phone: record.phone,
+      isActive: record.isActive,
+      isBlocked: record.isBlocked,
+      isBillingBlocked: record.isBillingBlocked,
+      createdAtOmie: record.createdAtOmie,
+      updatedAtOmie: record.updatedAtOmie
+    };
+  }
+  async list(params) {
+    const { page, pageSize, q } = params;
+    const where = q ? {
+      OR: [
+        {
+          legalName: {
+            contains: q,
+            mode: client.Prisma.QueryMode.insensitive
+          }
+        },
+        {
+          tradeName: {
+            contains: q,
+            mode: client.Prisma.QueryMode.insensitive
+          }
+        },
+        {
+          document: {
+            contains: q
+          }
+        }
+      ]
+    } : void 0;
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.client.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { legalName: "asc" }
+      }),
+      this.prisma.client.count({ where })
+    ]);
+    return {
+      total,
+      data: data.map((record) => ({
+        omieClientCode: record.omieClientCode,
+        legalName: record.legalName,
+        tradeName: record.tradeName,
+        document: record.document,
+        personType: record.personType,
+        email: record.email,
+        phone: record.phone,
+        isActive: record.isActive,
+        isBlocked: record.isBlocked,
+        isBillingBlocked: record.isBillingBlocked,
+        createdAtOmie: record.createdAtOmie,
+        updatedAtOmie: record.updatedAtOmie
+      }))
+    };
+  }
+};
+
+// src/shared/errors/AppError.ts
+var AppError = class extends Error {
+  code;
+  statusCode;
+  details;
+  constructor(code, statusCode, message, details) {
+    super(message);
+    this.name = "AppError";
+    this.code = code;
+    this.statusCode = statusCode;
+    this.details = details;
+    Object.setPrototypeOf(this, new.target.prototype);
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    }
+  }
+};
+
+// src/modules/client/presentation/http/client-admin.controller.ts
+function isOmieRedundantError(err) {
+  const sample = err?.details?.sample;
+  if (typeof sample !== "string") return false;
+  return sample.includes("REDUNDANT") || sample.includes("Consumo redundante");
+}
+var ClientAdminController = class {
+  async syncFromOmie(request, reply) {
+    const state2 = request.server.clientSyncState;
+    if (state2.running) {
+      return reply.code(409).send({
+        error: {
+          code: "CLIENT_SYNC_RUNNING",
+          message: "Client sync is already running.",
+          requestId: request.requestId
+        }
+      });
+    }
+    const now = Date.now();
+    const last = state2.lastStartedAt?.getTime() ?? 0;
+    const cooldownMs = 65e3;
+    if (last && now - last < cooldownMs) {
+      return reply.code(429).send({
+        error: {
+          code: "CLIENT_SYNC_COOLDOWN",
+          message: "Client sync was triggered recently. Try again later.",
+          requestId: request.requestId
+        }
+      });
+    }
+    state2.running = true;
+    state2.lastStartedAt = /* @__PURE__ */ new Date();
+    try {
+      request.log.info("[ClientAdmin] Omie client sync started");
+      await request.server.syncOmieClientsUseCase.execute();
+      request.log.info("[ClientAdmin] Omie client sync finished");
+      state2.lastFinishedAt = /* @__PURE__ */ new Date();
+      return reply.code(204).send();
+    } catch (err) {
+      if (isOmieRedundantError(err)) {
+        request.log.warn({ err }, "[ClientAdmin] Omie redundant consumption detected");
+        return reply.code(429).send({
+          error: {
+            code: "OMIE_REDUNDANT",
+            message: "Omie refused the request due to redundant consumption. Try again later.",
+            requestId: request.requestId
+          }
+        });
+      }
+      if (err instanceof AppError) {
+        throw err;
+      }
+      throw new AppError("CLIENT_SYNC_FAILED", 500, "Falha ao sincronizar clientes no Omie", {
+        message: err?.message
+      });
+    } finally {
+      state2.running = false;
+    }
+  }
+};
+
+// src/modules/client/presentation/http/client-admin.schemas.ts
+var syncClientsFromOmieSchema = {
+  tags: ["client"],
+  summary: "Sync clients from Omie into local database (admin)",
+  response: {
+    204: { type: "null" }
+  }
+};
+
+// src/modules/client/presentation/http/client-admin.routes.ts
+async function clientAdminRoutes(app) {
+  const controller = new ClientAdminController();
+  app.post(
+    "/admin/omie/clients/sync",
+    { schema: syncClientsFromOmieSchema },
+    controller.syncFromOmie.bind(controller)
+  );
+}
+
+// src/modules/client/infrastructure/integrations/omie/omie-client.gateway.ts
+var OmieClientGatewayImpl = class {
+  constructor(omieClient) {
+    this.omieClient = omieClient;
+  }
+  omieClient;
+  async listClients(page) {
+    const response = await this.omieClient.post(
+      "/api/v1/geral/clientes/",
+      {
+        // ✅ Envelope padrão Omie v1
+        call: "ListarClientes",
+        param: [
+          {
+            pagina: page,
+            registros_por_pagina: 50
+          }
+        ]
+      }
+    );
+    return response.clientes ?? response.clientes_cadastro ?? [];
+  }
+};
+
+// src/modules/client/application/use-cases/sync-omie-clients.usecase.ts
+function parseOmieDate(date, time) {
+  if (!date) return null;
+  const [day, month, year] = date.split("/").map(Number);
+  if (!day || !month || !year) return null;
+  if (time) {
+    const [hour, minute, second] = time.split(":").map(Number);
+    return new Date(year, month - 1, day, hour || 0, minute || 0, second || 0);
+  }
+  return new Date(year, month - 1, day);
+}
+var SyncOmieClientsUseCase = class {
+  constructor(clientRepository, omieGateway) {
+    this.clientRepository = clientRepository;
+    this.omieGateway = omieGateway;
+  }
+  clientRepository;
+  omieGateway;
+  async execute() {
+    let page = 1;
+    while (true) {
+      const rawClients = await this.omieGateway.listClients(page);
+      if (rawClients.length === 0) {
+        break;
+      }
+      for (const raw of rawClients) {
+        const client = {
+          omieClientCode: BigInt(raw.codigo_cliente_omie),
+          legalName: raw.razao_social,
+          tradeName: raw.nome_fantasia ?? null,
+          document: raw.cnpj_cpf,
+          personType: raw.pessoa_fisica === "S" ? "INDIVIDUAL" : "COMPANY",
+          email: raw.email ?? null,
+          phone: raw.telefone1_ddd && raw.telefone1_numero ? `${raw.telefone1_ddd}${raw.telefone1_numero}` : null,
+          isActive: raw.inativo !== "S",
+          isBlocked: raw.bloqueado === "S",
+          isBillingBlocked: raw.bloquear_faturamento === "S",
+          createdAtOmie: parseOmieDate(
+            raw.info?.dInc,
+            raw.info?.hInc
+          ),
+          updatedAtOmie: parseOmieDate(
+            raw.info?.dAlt,
+            raw.info?.hAlt
+          )
+        };
+        await this.clientRepository.upsert(client);
+      }
+      page++;
+    }
+  }
+};
+
+// src/modules/client/application/use-cases/get-client-by-omie-client-code.usecase.ts
+var GetClientByOmieClientCodeUseCase = class {
+  constructor(clientRepository) {
+    this.clientRepository = clientRepository;
+  }
+  clientRepository;
+  async execute(omieClientCode) {
+    return this.clientRepository.findByOmieClientCode(omieClientCode);
+  }
+};
+
+// src/modules/client/presentation/client.controller.ts
+var ClientController = class {
+  async getByOmieClientCode(request, reply) {
+    const { omieClientCode } = request.params;
+    if (!/^\d+$/.test(omieClientCode)) {
+      return reply.code(400).send({
+        message: "Invalid omieClientCode. Must be a numeric string."
+      });
+    }
+    const code = BigInt(omieClientCode);
+    const client = await request.server.getClientByOmieClientCodeUseCase.execute(
+      code
+    );
+    if (!client) {
+      return reply.code(404).send({ message: "Client not found" });
+    }
+    return reply.code(200).send({
+      omieClientCode: client.omieClientCode.toString(),
+      legalName: client.legalName,
+      tradeName: client.tradeName ?? null,
+      document: client.document,
+      personType: client.personType,
+      email: client.email ?? null,
+      phone: client.phone ?? null,
+      isActive: client.isActive,
+      isBlocked: client.isBlocked,
+      isBillingBlocked: client.isBillingBlocked,
+      createdAtOmie: client.createdAtOmie ? client.createdAtOmie.toISOString() : null,
+      updatedAtOmie: client.updatedAtOmie ? client.updatedAtOmie.toISOString() : null
+    });
+  }
+};
+
+// src/modules/client/presentation/http/client.schemas.ts
+var getClientByOmieClientCodeSchema = {
+  tags: ["client"],
+  summary: "Get client by Omie client code (local DB)",
+  params: {
+    type: "object",
+    required: ["omieClientCode"],
+    properties: {
+      omieClientCode: { type: "string", pattern: "^\\d+$" }
+    }
+  },
+  response: {
+    200: {
+      type: "object",
+      properties: {
+        omieClientCode: { type: "string" },
+        // bigint -> string (JSON-safe)
+        legalName: { type: "string" },
+        tradeName: { type: ["string", "null"] },
+        document: { type: "string" },
+        personType: { type: "string", enum: ["INDIVIDUAL", "COMPANY"] },
+        email: { type: ["string", "null"] },
+        phone: { type: ["string", "null"] },
+        isActive: { type: "boolean" },
+        isBlocked: { type: "boolean" },
+        isBillingBlocked: { type: "boolean" },
+        createdAtOmie: { type: ["string", "null"] },
+        updatedAtOmie: { type: ["string", "null"] }
+      }
+    },
+    400: {
+      type: "object",
+      properties: {
+        message: { type: "string" }
+      }
+    },
+    404: {
+      type: "object",
+      properties: {
+        message: { type: "string" }
+      }
+    }
+  }
+};
+
+// src/modules/client/presentation/http/client.routes.ts
+async function clientRoutes(app) {
+  const controller = new ClientController();
+  app.get(
+    "/clients/:omieClientCode",
+    { schema: getClientByOmieClientCodeSchema },
+    controller.getByOmieClientCode.bind(controller)
+  );
+}
+
+// src/modules/client/application/use-cases/list-clients.usecase.ts
+var ListClientsUseCase = class {
+  constructor(clientRepository) {
+    this.clientRepository = clientRepository;
+  }
+  clientRepository;
+  async execute(input) {
+    return this.clientRepository.list(input);
+  }
+};
+
+// src/modules/client/presentation/http/client-list.controller.ts
+var ClientListController = class {
+  async list(request, reply) {
+    const page = Math.max(Number(request.query.page ?? 1), 1);
+    const pageSize = Math.min(Number(request.query.pageSize ?? 20), 100);
+    const q = request.query.q?.trim();
+    const result = await request.server.listClientsUseCase.execute({
+      page,
+      pageSize,
+      q
+    });
+    return reply.send({
+      page,
+      pageSize,
+      total: result.total,
+      data: result.data.map((c) => ({
+        omieClientCode: c.omieClientCode.toString(),
+        legalName: c.legalName,
+        tradeName: c.tradeName,
+        document: c.document,
+        personType: c.personType,
+        email: c.email,
+        phone: c.phone,
+        isActive: c.isActive,
+        isBlocked: c.isBlocked
+      }))
+    });
+  }
+};
+
+// src/modules/client/presentation/http/client-list.routes.ts
+async function clientListRoutes(app) {
+  const controller = new ClientListController();
+  app.get("/clients", controller.list.bind(controller));
+}
+
+// src/modules/client/register.ts
+async function registerClientModule(app) {
+  const prisma2 = app.prisma;
+  const omieClient = app.omieClient;
+  const clientRepository = new ClientPrismaRepository(prisma2);
+  const listClientsUseCase = new ListClientsUseCase(clientRepository);
+  const omieClientGateway = new OmieClientGatewayImpl(omieClient);
+  const syncOmieClientsUseCase = new SyncOmieClientsUseCase(
+    clientRepository,
+    omieClientGateway
+  );
+  const getClientByOmieClientCodeUseCase = new GetClientByOmieClientCodeUseCase(clientRepository);
+  app.decorate("clientRepository", clientRepository);
+  app.decorate("listClientsUseCase", listClientsUseCase);
+  app.decorate("omieClientGateway", omieClientGateway);
+  app.decorate("syncOmieClientsUseCase", syncOmieClientsUseCase);
+  app.decorate(
+    "getClientByOmieClientCodeUseCase",
+    getClientByOmieClientCodeUseCase
+  );
+  app.decorate("clientSyncState", {
+    running: false,
+    lastStartedAt: null,
+    lastFinishedAt: null
+  });
+  await app.register(clientRoutes, { prefix: "/v1" });
+  await app.register(clientAdminRoutes, { prefix: "/v1" });
+  await app.register(clientListRoutes, { prefix: "/v1" });
 }
 
 // src/modules/products/presentation/http/products.routes.ts
@@ -262,24 +732,6 @@ var stockHistoryQuerySchema = zod.z.object({
   page: zod.z.coerce.number().min(1).default(1),
   pageSize: zod.z.coerce.number().min(1).default(50)
 });
-
-// src/shared/errors/AppError.ts
-var AppError = class extends Error {
-  code;
-  statusCode;
-  details;
-  constructor(code, statusCode, message, details) {
-    super(message);
-    this.name = "AppError";
-    this.code = code;
-    this.statusCode = statusCode;
-    this.details = details;
-    Object.setPrototypeOf(this, new.target.prototype);
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, this.constructor);
-    }
-  }
-};
 
 // src/shared/errors/http-errors.ts
 var ErrorCodes = {
@@ -1014,6 +1466,7 @@ function createOmieStockCache(omieClient, options = {}) {
     },
     /**
      * Força refresh imediatamente (dedup por refreshPromise).
+     * Se a Omie falhar, mantém o cache anterior como fallback.
      */
     async refreshNow() {
       if (!refreshPromise) {
@@ -1021,7 +1474,14 @@ function createOmieStockCache(omieClient, options = {}) {
           refreshPromise = null;
         });
       }
-      await refreshPromise;
+      try {
+        await refreshPromise;
+      } catch (err) {
+        logger.warn?.(
+          { scope: "omie-stock-cache", err: err?.message ?? err },
+          "Refresh Omie falhou, usando cache anterior como fallback"
+        );
+      }
       return new Map(cache);
     }
   };
@@ -3728,6 +4188,69 @@ function createGetStage20TotalsUseCase(deps) {
   };
 }
 
+// src/modules/omie-sales-orders/application/use-cases/get-stage20-totals-detailed.usecase.ts
+function createGetStage20TotalsDetailedUseCase(deps) {
+  return {
+    async execute() {
+      const orders = await deps.prisma.omieOrder.findMany({
+        where: {
+          etapa: "20",
+          cancelado: "N",
+          encerrado: "N"
+        },
+        include: {
+          items: true
+        }
+      });
+      const productMap = /* @__PURE__ */ new Map();
+      for (const order of orders) {
+        let clientName = null;
+        if (order.codigoCliente) {
+          try {
+            const client = await deps.prisma.client.findFirst({
+              where: {
+                omieClientCode: BigInt(order.codigoCliente)
+              },
+              select: {
+                tradeName: true,
+                legalName: true
+              }
+            });
+            if (client) {
+              clientName = client.tradeName || client.legalName;
+            }
+          } catch (error) {
+            console.warn(`Erro ao buscar cliente ${order.codigoCliente}:`, error);
+          }
+        }
+        for (const item of order.items) {
+          const description = item.description;
+          const quantity = Number(item.quantity);
+          if (!productMap.has(description)) {
+            productMap.set(description, {
+              description,
+              totalQuantity: 0,
+              orders: []
+            });
+          }
+          const productData = productMap.get(description);
+          productData.totalQuantity += quantity;
+          productData.orders.push({
+            orderId: order.id,
+            orderNumber: order.numeroPedido,
+            clientCode: order.codigoCliente,
+            clientName,
+            quantity,
+            productCode: item.omieProductCode
+          });
+        }
+      }
+      const result = Array.from(productMap.values()).sort((a, b) => b.totalQuantity - a.totalQuantity);
+      return result;
+    }
+  };
+}
+
 // src/modules/omie-sales-orders/index.ts
 var state = {
   lastGlobalSyncAt: 0,
@@ -3762,6 +4285,7 @@ function createOmieSalesOrdersModule(app) {
   const listOrders = createListOrdersUseCase({ prisma: prisma2 });
   const listStage20Orders = createListStage20OrdersUseCase({ prisma: prisma2 });
   const getStage20Totals = createGetStage20TotalsUseCase({ prisma: prisma2 });
+  const getStage20TotalsDetailed = createGetStage20TotalsDetailedUseCase({ prisma: prisma2 });
   return {
     useCases: {
       // sync
@@ -3770,7 +4294,8 @@ function createOmieSalesOrdersModule(app) {
       // leitura (controller depende disso)
       listOrders,
       listStage20Orders,
-      getStage20Totals
+      getStage20Totals,
+      getStage20TotalsDetailed
     }
   };
 }
@@ -3842,6 +4367,10 @@ function createOmieSalesOrdersController(useCases) {
     async getStage20Totals(_request, reply) {
       const data = await useCases.getStage20Totals.execute();
       return reply.send(ok(data));
+    },
+    async getStage20TotalsDetailed(_request, reply) {
+      const data = await useCases.getStage20TotalsDetailed.execute();
+      return reply.send(ok(data));
     }
   };
 }
@@ -3851,6 +4380,7 @@ async function registerOmieSalesOrdersRoutes(app, controller) {
   app.get("/v1/admin/orders", controller.listOrders);
   app.get("/v1/admin/orders/stage20", controller.listStage20);
   app.get("/v1/admin/orders/stage20/totals", controller.getStage20Totals);
+  app.get("/v1/admin/orders/stage20/totals/detailed", controller.getStage20TotalsDetailed);
   app.post("/v1/admin/omie/orders/stage20/sync", controller.syncStage20);
   app.get("/v1/admin/omie/orders/stage20/sync", controller.syncStage20Info);
   app.get("/v1/admin/omie/orders/stage20/ping", controller.ping);
@@ -3921,9 +4451,9 @@ function mapProductionOrder(order) {
     productCode: identificacao.nCodProduto ? String(identificacao.nCodProduto) : null,
     productIntegrationCode: identificacao.cCodIntProd ? String(identificacao.cCodIntProd) : null,
     quantity: String(identificacao.nQtde ?? 0),
-    forecastDate: brDateToISO(identificacao.dDtPrevisao),
-    startDate: brDateToISO(infAdicionais.dDtInicio),
-    completionDate: brDateToISO(infAdicionais.dDtConclusao),
+    forecastDate: brDateToISO(identificacao.dDtPrevisao)?.toISOString() || null,
+    startDate: brDateToISO(infAdicionais.dDtInicio)?.toISOString() || null,
+    completionDate: brDateToISO(infAdicionais.dDtConclusao)?.toISOString() || null,
     stage: infAdicionais.cEtapa ? String(infAdicionais.cEtapa) : null,
     projectCode: infAdicionais.nCodProjeto ? String(infAdicionais.nCodProjeto) : null,
     completed: String(outrasInf.cConcluida ?? "").trim() === "S",
@@ -4608,6 +5138,34 @@ function extractOmieClientCode(order) {
   if (parsedSnake) return parsedSnake;
   return null;
 }
+function filterFinancialData(rawPayload) {
+  if (!rawPayload) return rawPayload;
+  console.log("DEBUG: Filtrando dados financeiros do rawPayload");
+  const filteredPayload = JSON.parse(JSON.stringify(rawPayload));
+  if (filteredPayload.det && Array.isArray(filteredPayload.det)) {
+    console.log(`DEBUG: Encontrado ${filteredPayload.det.length} itens no array det`);
+    filteredPayload.det = filteredPayload.det.map((item, index) => {
+      const { imposto, ...itemWithoutTax } = item;
+      if (imposto) {
+        console.log(`DEBUG: Removido 'imposto' do item ${index}`);
+      }
+      return itemWithoutTax;
+    });
+  }
+  const financialSections = [
+    "total_pedido",
+    "lista_parcelas",
+    "frete"
+  ];
+  financialSections.forEach((section) => {
+    if (filteredPayload[section]) {
+      console.log(`DEBUG: Removida se\xE7\xE3o financeira '${section}'`);
+      delete filteredPayload[section];
+    }
+  });
+  console.log("DEBUG: Filtragem de dados financeiros conclu\xEDda");
+  return filteredPayload;
+}
 var ListStage20OrdersEnrichedUseCase = class {
   constructor(ordersFetcher, clientLookup) {
     this.ordersFetcher = ordersFetcher;
@@ -4629,8 +5187,27 @@ var ListStage20OrdersEnrichedUseCase = class {
     const enrichedOrders = orders.map((order) => {
       const code = extractOmieClientCode(order);
       const client = code ? clientMap.get(code.toString()) ?? null : null;
-      return {
-        ...order,
+      const nomeCliente = client ? client.tradeName || client.legalName : null;
+      console.log(`DEBUG: Pedido ${order.numeroPedido} - C\xF3digo cliente: ${code ? code.toString() : "null"} - Cliente encontrado: ${client ? "SIM" : "N\xC3O"} - Nome: ${nomeCliente}`);
+      const { id, omieCode, numeroPedido, codigoCliente, codigoEmpresa, etapa, cancelado, encerrado, dataPrevisao, rawPayload, ...otherFields } = order;
+      const filteredRawPayload = filterFinancialData(rawPayload);
+      const enrichedOrder = {
+        id,
+        omieClientCode: omieCode,
+        // Mantém compatibilidade
+        omieCode,
+        numeroPedido,
+        codigoCliente,
+        nomeCliente,
+        // Adiciona nomeCliente logo após codigoCliente
+        codigoEmpresa,
+        etapa,
+        cancelado,
+        encerrado,
+        dataPrevisao,
+        rawPayload: filteredRawPayload,
+        // Outros campos que podem existir
+        ...otherFields,
         client: client ? {
           omieClientCode: client.omieClientCode.toString(),
           // JSON-safe
@@ -4639,11 +5216,13 @@ var ListStage20OrdersEnrichedUseCase = class {
           document: client.document
         } : null
       };
+      console.log(`DEBUG: Estrutura do pedido ${order.numeroPedido}:`, Object.keys(enrichedOrder));
+      return enrichedOrder;
     });
-    return {
-      ...ordersPayload,
-      enrichedOrders
-    };
+    if (enrichedOrders.length > 0) {
+      console.log("DEBUG: Primeiro pedido enriquecido completo:", JSON.stringify(enrichedOrders[0], null, 2));
+    }
+    return enrichedOrders;
   }
 };
 
@@ -5814,10 +6393,10 @@ function getLogger(context) {
     return baseLogger;
   }
   return {
-    info: (obj, msg) => console.log(msg ?? "", obj),
-    warn: (obj, msg) => console.warn(msg ?? "", obj),
-    error: (obj, msg) => console.error(msg ?? "", obj),
-    debug: (obj, msg) => console.debug(msg ?? "", obj)
+    info: (msg, obj) => console.log(msg, obj ?? ""),
+    warn: (msg, obj) => console.warn(msg, obj ?? ""),
+    error: (msg, obj) => console.error(msg, obj ?? ""),
+    debug: (msg, obj) => console.debug(msg, obj ?? "")
   };
 }
 
@@ -6429,6 +7008,1892 @@ function registerSalesProductionIntegrationModule(app) {
   logger.info("M\xF3dulo de integra\xE7\xE3o vendas\u2192produ\xE7\xE3o registrado");
 }
 
+// src/modules/product-structure/presentation/http/controllers/sync-product-structure.controller.ts
+function resolveInFlightKey(body) {
+  const cod = body?.codProduto?.trim();
+  if (cod) return `cod:${cod}`;
+  if (typeof body?.idProduto === "number" && !Number.isNaN(body.idProduto)) {
+    return `id:${body.idProduto}`;
+  }
+  const intp = body?.intProduto?.trim();
+  if (intp) return `int:${intp}`;
+  return null;
+}
+function secondsUntil(tsMs) {
+  const now = Date.now();
+  if (tsMs <= now) return 0;
+  return Math.ceil((tsMs - now) / 1e3);
+}
+async function syncProductStructureController(req, reply) {
+  const blockedUntil = req.server.omieMalhaRateLimit.blockedUntil ?? 0;
+  const remaining = secondsUntil(blockedUntil);
+  if (remaining > 0) {
+    return reply.header("Retry-After", String(remaining)).code(429).send({
+      message: "Omie temporariamente bloqueada para consulta de malha (janela de rate-limit).",
+      code: "OMIE_REDUNDANT",
+      retryAfterSeconds: remaining
+    });
+  }
+  const key = resolveInFlightKey(req.body);
+  if (key) {
+    const inFlight = req.server.productStructureInFlight;
+    const running = inFlight.get(key);
+    if (running) {
+      try {
+        const result = await running;
+        return reply.code(200).send(result);
+      } catch (e) {
+      }
+    }
+    const promise = req.server.productStructure.syncUseCase.execute(req.body ?? {});
+    inFlight.set(key, promise);
+    try {
+      const result = await promise;
+      return reply.code(200).send(result);
+    } catch (e) {
+      const code = e?.code;
+      if (code === "VALIDATION_ERROR") {
+        return reply.code(400).send({ message: e.message, code });
+      }
+      if (code === "OMIE_REDUNDANT") {
+        const retryAfter = e?.retryAfterSeconds ?? 60;
+        req.server.omieMalhaRateLimit.blockedUntil = Date.now() + retryAfter * 1e3;
+        return reply.header("Retry-After", String(retryAfter)).code(429).send({
+          message: e.message,
+          code,
+          retryAfterSeconds: retryAfter,
+          details: e?.details
+        });
+      }
+      if (code === "OMIE_NOT_FOUND") {
+        return reply.code(404).send({ message: e.message, code });
+      }
+      if (code === "OMIE_HTTP_ERROR" || code === "OMIE_FAULT" || code === "INTEGRATION_ERROR") {
+        return reply.code(502).send({ message: e.message, code, details: e?.details });
+      }
+      req.log?.error?.({ err: e }, "sync product-structure failed");
+      return reply.code(500).send({ message: "Erro interno", code: "INTERNAL_ERROR" });
+    } finally {
+      inFlight.delete(key);
+    }
+  }
+  try {
+    const result = await req.server.productStructure.syncUseCase.execute(req.body ?? {});
+    return reply.code(200).send(result);
+  } catch (e) {
+    const code = e?.code;
+    if (code === "VALIDATION_ERROR") {
+      return reply.code(400).send({ message: e.message, code });
+    }
+    if (code === "OMIE_REDUNDANT") {
+      const retryAfter = e?.retryAfterSeconds ?? 60;
+      req.server.omieMalhaRateLimit.blockedUntil = Date.now() + retryAfter * 1e3;
+      return reply.header("Retry-After", String(retryAfter)).code(429).send({
+        message: e.message,
+        code,
+        retryAfterSeconds: retryAfter,
+        details: e?.details
+      });
+    }
+    if (code === "OMIE_NOT_FOUND") {
+      return reply.code(404).send({ message: e.message, code });
+    }
+    if (code === "OMIE_HTTP_ERROR" || code === "OMIE_FAULT" || code === "INTEGRATION_ERROR") {
+      return reply.code(502).send({ message: e.message, code, details: e?.details });
+    }
+    req.log?.error?.({ err: e }, "sync product-structure failed");
+    return reply.code(500).send({ message: "Erro interno", code: "INTERNAL_ERROR" });
+  }
+}
+
+// src/modules/product-structure/presentation/http/controllers/get-product-structure.controller.ts
+async function getProductStructureController(req, reply) {
+  try {
+    const result = await req.server.productStructure.getByCodProdutoUseCase.execute(req.params.codProduto);
+    return reply.code(200).send(result);
+  } catch (e) {
+    const code = e?.code;
+    if (code === "VALIDATION_ERROR") {
+      return reply.code(400).send({ message: e.message, code });
+    }
+    if (code === "NOT_FOUND") {
+      return reply.code(404).send({ message: e.message, code });
+    }
+    req.log?.error?.({ err: e }, "get product-structure failed");
+    return reply.code(500).send({ message: "Erro interno", code: "INTERNAL_ERROR" });
+  }
+}
+
+// src/modules/product-structure/presentation/http/controllers/sync-product-structure-job-tick.controller.ts
+async function syncProductStructureJobTickController(req, reply) {
+  try {
+    const gateway = req.server.productStructureGateway;
+    const repo = req.server.productStructureRepository;
+    const state2 = req.server.productStructureSyncJobState;
+    const now = Date.now();
+    if (state2.blockedUntil && now < state2.blockedUntil) {
+      const remaining = Math.ceil((state2.blockedUntil - now) / 1e3);
+      return reply.header("Retry-After", String(remaining)).code(429).send({ code: "OMIE_REDUNDANT", retryAfterSeconds: remaining });
+    }
+    const page = state2.page ?? 1;
+    const pageSize = state2.pageSize ?? 100;
+    const r = await gateway.listStructuresPage(page, pageSize);
+    let persisted = 0;
+    let skipped = 0;
+    for (const estrutura of r.estruturas) {
+      const codProduto = estrutura?.ident?.codProduto?.trim();
+      if (!codProduto) continue;
+      const upsertBase = req.server.productStructureMapOmieToUpsert(estrutura);
+      const structureHash = req.server.productStructureComputeHash(upsertBase);
+      const existing = await repo.findByCodProduto(upsertBase.codProduto);
+      if (existing?.structureHash && existing.structureHash === structureHash) {
+        skipped++;
+        continue;
+      }
+      await repo.upsertStructureWithItems({ ...upsertBase, structureHash });
+      persisted++;
+    }
+    if (typeof r.totalPages === "number" && r.totalPages > 0) {
+      state2.page = page >= r.totalPages ? 1 : page + 1;
+    } else {
+      state2.page = page + 1;
+    }
+    return reply.code(200).send({
+      pageProcessed: page,
+      nextPage: state2.page,
+      persisted,
+      skipped,
+      count: r.estruturas.length
+    });
+  } catch (e) {
+    if (e?.code === "OMIE_REDUNDANT") {
+      const retryAfter = e?.retryAfterSeconds ?? 60;
+      const state2 = req.server.productStructureSyncJobState;
+      state2.blockedUntil = Date.now() + retryAfter * 1e3;
+      return reply.header("Retry-After", String(retryAfter)).code(429).send({ code: "OMIE_REDUNDANT", retryAfterSeconds: retryAfter, message: e.message });
+    }
+    req.log?.error?.({ err: e }, "[product-structure] job tick failed");
+    return reply.code(500).send({ code: "INTERNAL_ERROR", message: "Erro interno" });
+  }
+}
+
+// src/modules/product-structure/presentation/http/controllers/list-product-structures.controller.ts
+async function listProductStructuresController(req, reply) {
+  if (!req.server.productStructure) {
+    req.log.error("[list-product-structures] productStructure module NOT registered");
+    return reply.code(500).send({
+      message: "M\xF3dulo product-structure n\xE3o registrado",
+      code: "MODULE_NOT_REGISTERED"
+    });
+  }
+  try {
+    const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
+    const pageSize = req.query.pageSize ? Math.min(100, Math.max(1, Number(req.query.pageSize))) : 20;
+    const hasStructure = req.query.hasStructure !== void 0 ? req.query.hasStructure === "true" : void 0;
+    const q = req.query.q?.trim() || void 0;
+    const result = await req.server.productStructure.listUseCase.execute({
+      page,
+      pageSize,
+      hasStructure,
+      q
+    });
+    return sendPaginated(req, reply, result.data, {
+      page: result.page,
+      pageSize: result.pageSize,
+      total: result.total,
+      totalPages: result.totalPages
+    });
+  } catch (e) {
+    req.log?.error?.({ err: e, message: e?.message }, "list product-structures failed");
+    return reply.code(500).send({
+      message: e?.message || "Erro interno ao listar estruturas de produtos",
+      code: "INTERNAL_ERROR",
+      error: process.env.NODE_ENV !== "production" ? e?.message : void 0
+    });
+  }
+}
+
+// src/modules/product-structure/presentation/http/schemas.ts
+var SyncProductStructureBodySchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    codProduto: { type: "string", minLength: 1 },
+    idProduto: { type: "number" },
+    intProduto: { type: "string", minLength: 1 }
+  }
+};
+var SyncProductStructureResponseSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    codProduto: { type: "string" },
+    hasStructure: { type: "boolean" },
+    updated: { type: "boolean" },
+    itemsCount: { type: "number" }
+  },
+  required: ["codProduto", "hasStructure", "updated", "itemsCount"]
+};
+var GetProductStructureParamsSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    codProduto: { type: "string", minLength: 1 }
+  },
+  required: ["codProduto"]
+};
+var ProductStructureOutputSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    codProduto: { type: "string" },
+    descrProduto: { type: ["string", "null"] },
+    codFamilia: { type: ["string", "null"] },
+    descrFamilia: { type: ["string", "null"] },
+    tipoProduto: { type: ["string", "null"] },
+    unidProduto: { type: ["string", "null"] },
+    pesoBruto: { type: ["number", "null"] },
+    pesoLiquido: { type: ["number", "null"] },
+    hasStructure: { type: "boolean" },
+    idProdutoOmie: { type: ["number", "null"] },
+    intProdutoOmie: { type: ["string", "null"] },
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          codProdutoComponente: { type: "string" },
+          descrProdutoComponente: { type: ["string", "null"] },
+          codFamiliaComponente: { type: ["string", "null"] },
+          descrFamiliaComponente: { type: ["string", "null"] },
+          quantidade: { type: "number" },
+          unidade: { type: ["string", "null"] },
+          tipoProdutoComponente: { type: ["string", "null"] },
+          percentualPerda: { type: ["number", "null"] },
+          idMalhaOmie: { type: ["number", "null"] }
+        },
+        required: ["codProdutoComponente", "quantidade"]
+      }
+    },
+    createdAt: { type: "string" },
+    updatedAt: { type: "string" }
+  },
+  required: ["codProduto", "hasStructure", "items", "createdAt", "updatedAt"]
+};
+
+// src/modules/product-structure/presentation/http/routes.ts
+async function productStructureRoutes(app) {
+  app.route({
+    method: "GET",
+    url: "/v1/admin/product-structures",
+    schema: {
+      tags: ["admin", "product-structures"],
+      description: "[Admin] Lista as estruturas de produtos persistidas com pagina\xE7\xE3o e filtros."
+    },
+    handler: listProductStructuresController
+  });
+  app.route({
+    method: "POST",
+    url: "/v1/admin/omie/product-structures/sync",
+    schema: {
+      tags: ["admin", "omie", "product-structures"],
+      description: "[Admin][Omie] Sincroniza a estrutura (malha) de um produto. Aceita codProduto, idProduto ou intProduto.",
+      body: SyncProductStructureBodySchema,
+      response: {
+        200: SyncProductStructureResponseSchema
+      }
+    },
+    handler: syncProductStructureController
+  });
+  app.route({
+    method: "GET",
+    url: "/v1/admin/product-structures/:codProduto",
+    schema: {
+      tags: ["admin", "product-structures"],
+      description: "[Admin] Obt\xE9m a estrutura (malha) persistida pelo codProduto (dom\xEDnio est\xE1vel).",
+      params: GetProductStructureParamsSchema,
+      response: {
+        200: ProductStructureOutputSchema
+      }
+    },
+    handler: getProductStructureController
+  });
+  app.route({
+    method: "POST",
+    url: "/v1/admin/omie/product-structures/sync-job-tick",
+    schema: {
+      description: "[Admin][Omie][Job] Executa 1 tick de sincroniza\xE7\xE3o por p\xE1gina (interno)."
+    },
+    handler: syncProductStructureJobTickController
+  });
+}
+
+// src/modules/product-structure/infrastructure/db/prisma/product-structure.prisma-repository.ts
+var ProductStructurePrismaRepository = class {
+  constructor(prisma2) {
+    this.prisma = prisma2;
+  }
+  prisma;
+  async findByCodProduto(codProduto) {
+    return await this.prisma.productStructure.findUnique({
+      where: { codProduto },
+      include: { items: true }
+    });
+  }
+  async upsertStructureWithItems(input) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.productStructure.upsert({
+        where: { codProduto: input.codProduto },
+        create: {
+          codProduto: input.codProduto,
+          descrProduto: input.descrProduto ?? null,
+          codFamilia: input.codFamilia ?? null,
+          descrFamilia: input.descrFamilia ?? null,
+          tipoProduto: input.tipoProduto ?? null,
+          unidProduto: input.unidProduto ?? null,
+          pesoBruto: input.pesoBruto ?? null,
+          pesoLiquido: input.pesoLiquido ?? null,
+          hasStructure: input.hasStructure,
+          idProdutoOmie: input.idProdutoOmie ?? null,
+          intProdutoOmie: input.intProdutoOmie ?? null,
+          structureHash: input.structureHash ?? null
+        },
+        update: {
+          descrProduto: input.descrProduto ?? null,
+          codFamilia: input.codFamilia ?? null,
+          descrFamilia: input.descrFamilia ?? null,
+          tipoProduto: input.tipoProduto ?? null,
+          unidProduto: input.unidProduto ?? null,
+          pesoBruto: input.pesoBruto ?? null,
+          pesoLiquido: input.pesoLiquido ?? null,
+          hasStructure: input.hasStructure,
+          idProdutoOmie: input.idProdutoOmie ?? null,
+          intProdutoOmie: input.intProdutoOmie ?? null,
+          structureHash: input.structureHash ?? null
+        }
+      });
+      await tx.productStructureItem.deleteMany({
+        where: { codProdutoPai: input.codProduto }
+      });
+      if (input.items.length > 0) {
+        await tx.productStructureItem.createMany({
+          data: input.items.map((i) => ({
+            codProdutoPai: input.codProduto,
+            codProdutoComponente: i.codProdutoComponente,
+            descrProdutoComponente: i.descrProdutoComponente ?? null,
+            codFamiliaComponente: i.codFamiliaComponente ?? null,
+            descrFamiliaComponente: i.descrFamiliaComponente ?? null,
+            quantidade: i.quantidade,
+            unidade: i.unidade ?? null,
+            tipoProdutoComponente: i.tipoProdutoComponente ?? null,
+            percentualPerda: i.percentualPerda ?? null,
+            idMalhaOmie: i.idMalhaOmie ?? null
+          })),
+          skipDuplicates: true
+        });
+      }
+    });
+  }
+  async findAll(params) {
+    const page = Math.max(1, params.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 20));
+    const skip = (page - 1) * pageSize;
+    const where = {};
+    if (params.hasStructure !== void 0) {
+      where.hasStructure = params.hasStructure;
+    }
+    if (params.q?.trim()) {
+      where.codProduto = { contains: params.q.trim(), mode: "insensitive" };
+    }
+    const [data, total] = await Promise.all([
+      this.prisma.productStructure.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { updatedAt: "desc" },
+        include: { items: true }
+      }),
+      this.prisma.productStructure.count({ where })
+    ]);
+    const totalNumber = Number(total);
+    return {
+      data,
+      total: totalNumber,
+      page,
+      pageSize,
+      totalPages: Math.ceil(totalNumber / pageSize)
+    };
+  }
+};
+
+// src/modules/product-structure/infrastructure/integrations/omie/omie-product-structure.gateway.ts
+function extractEstruturas(resp) {
+  return resp.produtosEncontrados ?? resp.listaEstruturas ?? resp.estruturas ?? resp.lista ?? [];
+}
+function isOmieErrorResponse(resp) {
+  return Boolean(resp?.faultstring) || resp?.status === "error";
+}
+function safeJsonParse(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+function parseRetryAfterSecondsFromFault(faultstring) {
+  if (!faultstring) return null;
+  const m = faultstring.match(/Aguarde\s+(\d+)\s+segundos/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : null;
+}
+function isRedundantFault(faultstring) {
+  return typeof faultstring === "string" && /REDUNDANT/i.test(faultstring);
+}
+function buildOmieFaultError(message, details) {
+  const err = new Error(message);
+  err.code = "OMIE_FAULT";
+  err.details = details;
+  return err;
+}
+function buildOmieRedundantError(faultstring, details) {
+  const retryAfterSeconds = parseRetryAfterSecondsFromFault(faultstring) ?? 60;
+  const err = new Error(faultstring);
+  err.code = "OMIE_REDUNDANT";
+  err.retryAfterSeconds = retryAfterSeconds;
+  err.details = details;
+  return err;
+}
+var OmieProductStructureGatewayImpl = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /**
+   * ✅ Método para JOB: lista UMA página de estruturas
+   * - 1 chamada Omie por execução
+   * - reduz chance de REDUNDANT
+   */
+  async listStructuresPage(page, pageSize) {
+    const payload = {
+      call: "ListarEstruturas",
+      param: [{ nPagina: page, nRegPorPagina: pageSize }]
+    };
+    let resp;
+    try {
+      resp = await this.client.post("/api/v1/geral/malha/", payload);
+    } catch (e) {
+      if (e?.code === "OMIE_HTTP_ERROR" && e?.details?.sample) {
+        const parsed2 = safeJsonParse(String(e.details.sample));
+        const faultstring = parsed2?.faultstring ?? parsed2?.message;
+        if (isRedundantFault(faultstring)) {
+          throw buildOmieRedundantError(faultstring, {
+            httpStatus: e?.details?.httpStatus,
+            url: e?.details?.url,
+            call: "ListarEstruturas",
+            faultcode: parsed2?.faultcode,
+            faultstring
+          });
+        }
+        if (parsed2?.faultstring || parsed2?.status === "error") {
+          throw buildOmieFaultError(
+            parsed2?.faultstring || parsed2?.message || "Erro Omie ao listar estruturas",
+            { httpStatus: e?.details?.httpStatus, url: e?.details?.url, call: "ListarEstruturas", sample: parsed2 }
+          );
+        }
+      }
+      throw e;
+    }
+    if (isOmieErrorResponse(resp)) {
+      const faultstring = resp?.faultstring || resp?.message || "Erro Omie ao listar estruturas";
+      if (isRedundantFault(faultstring)) {
+        throw buildOmieRedundantError(faultstring, {
+          call: "ListarEstruturas",
+          faultcode: resp?.faultcode,
+          faultstring,
+          nPagina: resp?.nPagina
+        });
+      }
+      throw buildOmieFaultError(faultstring, resp);
+    }
+    const estruturas = extractEstruturas(resp);
+    const totalPages = typeof resp.nTotPaginas === "number" ? resp.nTotPaginas : null;
+    return {
+      page: typeof resp.nPagina === "number" ? resp.nPagina : page,
+      totalPages,
+      estruturas
+    };
+  }
+  /**
+   * ✅ Método do endpoint manual (continua existindo)
+   * Busca uma estrutura específica via listagem + filtro em memória.
+   */
+  async fetchStructure(input) {
+    const maxPages = 50;
+    const pageSize = 100;
+    let page = 1;
+    const wantedCod = input.codProduto?.trim();
+    const wantedId = typeof input.idProduto === "number" ? input.idProduto : void 0;
+    const wantedInt = input.intProduto?.trim();
+    while (page <= maxPages) {
+      const { estruturas, totalPages } = await this.listStructuresPage(page, pageSize);
+      const found = estruturas.find((e) => {
+        const ident = e.ident;
+        if (!ident) return false;
+        if (wantedCod) return (ident.codProduto ?? "").trim() === wantedCod;
+        if (wantedId) return ident.idProduto === wantedId;
+        if (wantedInt) return ident.intProduto?.trim?.() === wantedInt;
+        return false;
+      });
+      if (found) {
+        const ident = found.ident;
+        const itens = found.itens ?? [];
+        return {
+          parent: {
+            codProduto: ident.codProduto,
+            descrProduto: ident.descrProduto,
+            codFamilia: ident.codFamilia,
+            descrFamilia: ident.descrFamilia,
+            idProduto: ident.idProduto,
+            idFamilia: ident.idFamilia,
+            tipoProduto: ident.tipoProduto,
+            unidProduto: ident.unidProduto,
+            pesoBrutoProduto: ident.pesoBrutoProduto,
+            pesoLiqProduto: ident.pesoLiqProduto,
+            intProduto: ident.intProduto
+          },
+          items: itens.map((i) => ({
+            codProdMalha: i.codProdMalha,
+            descrProdMalha: i.descrProdMalha,
+            codFamMalha: i.codFamMalha,
+            descrFamMalha: i.descrFamMalha,
+            quantProdMalha: i.quantProdMalha,
+            unidProdMalha: i.unidProdMalha,
+            tipoProdMalha: i.tipoProdMalha,
+            percPerdaProdMalha: i.percPerdaProdMalha,
+            idMalha: i.idMalha,
+            idProdMalha: i.idProdMalha,
+            idFamMalha: i.idFamMalha
+          }))
+        };
+      }
+      if (typeof totalPages === "number" && page >= totalPages) break;
+      if (!totalPages && estruturas.length === 0) break;
+      page++;
+    }
+    const err = new Error(
+      wantedCod ? `Estrutura n\xE3o encontrada na Omie para codProduto=${wantedCod}` : wantedId ? `Estrutura n\xE3o encontrada na Omie para idProduto=${wantedId}` : `Estrutura n\xE3o encontrada na Omie para intProduto=${wantedInt}`
+    );
+    err.code = "OMIE_NOT_FOUND";
+    throw err;
+  }
+};
+
+// src/modules/product-structure/application/utils/resolve-product-identifier.ts
+function resolveProductIdentifier(input) {
+  const codProduto = input.codProduto?.trim();
+  const intProduto = input.intProduto?.trim();
+  const idProduto = input.idProduto;
+  if (!codProduto && (idProduto === void 0 || idProduto === null) && !intProduto) {
+    const err = new Error("Informe ao menos um identificador: codProduto, idProduto ou intProduto.");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  if (codProduto) return { kind: "codProduto", codProduto };
+  if (typeof idProduto === "number" && !Number.isNaN(idProduto)) return { kind: "idProduto", idProduto };
+  return { kind: "intProduto", intProduto };
+}
+
+// src/modules/product-structure/application/utils/omie-mappers.ts
+function mapOmieToUpsertInput(omie) {
+  const parent = omie.parent;
+  const codProduto = (parent.codProduto ?? "").trim();
+  if (!codProduto) {
+    const err = new Error("Omie retornou estrutura sem codProduto no ident.");
+    err.code = "INTEGRATION_ERROR";
+    throw err;
+  }
+  const items = (omie.items ?? []).filter((i) => (i.codProdMalha ?? "").trim().length > 0).map((i) => ({
+    codProdutoComponente: i.codProdMalha.trim(),
+    descrProdutoComponente: i.descrProdMalha,
+    codFamiliaComponente: i.codFamMalha,
+    descrFamiliaComponente: i.descrFamMalha,
+    quantidade: Number(i.quantProdMalha ?? 0),
+    unidade: i.unidProdMalha,
+    tipoProdutoComponente: i.tipoProdMalha,
+    percentualPerda: i.percPerdaProdMalha,
+    idMalhaOmie: i.idMalha ?? null
+  }));
+  return {
+    codProduto,
+    descrProduto: parent.descrProduto,
+    codFamilia: parent.codFamilia,
+    descrFamilia: parent.descrFamilia,
+    tipoProduto: parent.tipoProduto,
+    unidProduto: parent.unidProduto,
+    pesoBruto: parent.pesoBrutoProduto,
+    pesoLiquido: parent.pesoLiqProduto,
+    hasStructure: items.length > 0,
+    idProdutoOmie: parent.idProduto ?? null,
+    intProdutoOmie: parent.intProduto ?? null,
+    items
+  };
+}
+function computeStructureHash(payload) {
+  const normalizedItems = [...payload.items].map((i) => ({
+    codProdutoComponente: (i.codProdutoComponente ?? "").trim(),
+    quantidade: Number(i.quantidade),
+    unidade: i.unidade?.trim() ?? null,
+    percentualPerda: i.percentualPerda ?? null,
+    idMalhaOmie: i.idMalhaOmie ?? null
+  })).sort((a, b) => {
+    const ka = `${a.codProdutoComponente}:${a.idMalhaOmie ?? ""}`;
+    const kb = `${b.codProdutoComponente}:${b.idMalhaOmie ?? ""}`;
+    return ka.localeCompare(kb);
+  });
+  const raw = JSON.stringify({
+    codProduto: payload.codProduto.trim(),
+    items: normalizedItems
+  });
+  return crypto__default.default.createHash("sha256").update(raw).digest("hex");
+}
+
+// src/modules/product-structure/application/use-cases/sync-omie-product-structure.usecase.ts
+var SyncOmieProductStructureUseCase = class {
+  constructor(deps) {
+    this.deps = deps;
+  }
+  deps;
+  async execute(input) {
+    const resolved = resolveProductIdentifier(input);
+    const omieResult = await this.deps.gateway.fetchStructure({
+      codProduto: resolved.kind === "codProduto" ? resolved.codProduto : void 0,
+      idProduto: resolved.kind === "idProduto" ? resolved.idProduto : void 0,
+      intProduto: resolved.kind === "intProduto" ? resolved.intProduto : void 0
+    });
+    const upsertBase = mapOmieToUpsertInput(omieResult);
+    const structureHash = computeStructureHash({
+      codProduto: upsertBase.codProduto,
+      items: upsertBase.items.map((i) => ({
+        codProdutoComponente: i.codProdutoComponente,
+        quantidade: i.quantidade,
+        unidade: i.unidade,
+        percentualPerda: i.percentualPerda,
+        idMalhaOmie: i.idMalhaOmie ?? null
+      }))
+    });
+    const existing = await this.deps.repository.findByCodProduto(upsertBase.codProduto);
+    if (existing?.structureHash && existing.structureHash === structureHash) {
+      return {
+        codProduto: upsertBase.codProduto,
+        hasStructure: upsertBase.hasStructure,
+        updated: false,
+        itemsCount: upsertBase.items.length
+      };
+    }
+    await this.deps.repository.upsertStructureWithItems({
+      ...upsertBase,
+      structureHash
+    });
+    return {
+      codProduto: upsertBase.codProduto,
+      hasStructure: upsertBase.hasStructure,
+      updated: true,
+      itemsCount: upsertBase.items.length
+    };
+  }
+};
+
+// src/modules/product-structure/application/use-cases/get-product-structure-by-codproduto.usecase.ts
+var GetProductStructureByCodProdutoUseCase = class {
+  constructor(deps) {
+    this.deps = deps;
+  }
+  deps;
+  async execute(codProduto) {
+    const normalized = (codProduto ?? "").trim();
+    if (!normalized) {
+      const err = new Error("codProduto \xE9 obrigat\xF3rio.");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    const found = await this.deps.repository.findByCodProduto(normalized);
+    if (!found) {
+      const err = new Error(`Estrutura n\xE3o encontrada para codProduto: ${normalized}`);
+      err.code = "NOT_FOUND";
+      throw err;
+    }
+    return {
+      codProduto: found.codProduto,
+      descrProduto: found.descrProduto,
+      codFamilia: found.codFamilia,
+      descrFamilia: found.descrFamilia,
+      tipoProduto: found.tipoProduto,
+      unidProduto: found.unidProduto,
+      pesoBruto: found.pesoBruto ? Number(found.pesoBruto) : null,
+      pesoLiquido: found.pesoLiquido ? Number(found.pesoLiquido) : null,
+      hasStructure: found.hasStructure,
+      idProdutoOmie: found.idProdutoOmie,
+      intProdutoOmie: found.intProdutoOmie,
+      items: (found.items ?? []).map((i) => ({
+        codProdutoComponente: i.codProdutoComponente,
+        descrProdutoComponente: i.descrProdutoComponente,
+        codFamiliaComponente: i.codFamiliaComponente,
+        descrFamiliaComponente: i.descrFamiliaComponente,
+        quantidade: i.quantidade ? Number(i.quantidade) : 0,
+        unidade: i.unidade,
+        tipoProdutoComponente: i.tipoProdutoComponente,
+        percentualPerda: i.percentualPerda ? Number(i.percentualPerda) : null,
+        idMalhaOmie: i.idMalhaOmie
+      })),
+      createdAt: found.createdAt.toISOString(),
+      updatedAt: found.updatedAt.toISOString()
+    };
+  }
+};
+
+// src/modules/product-structure/application/use-cases/list-product-structures.usecase.ts
+var ListProductStructuresUseCase = class {
+  constructor(deps) {
+    this.deps = deps;
+  }
+  deps;
+  async execute(input) {
+    const result = await this.deps.repository.findAll({
+      page: input.page,
+      pageSize: input.pageSize,
+      hasStructure: input.hasStructure,
+      q: input.q
+    });
+    const data = result.data.map((found) => ({
+      codProduto: found.codProduto,
+      descrProduto: found.descrProduto,
+      codFamilia: found.codFamilia,
+      descrFamilia: found.descrFamilia,
+      tipoProduto: found.tipoProduto,
+      unidProduto: found.unidProduto,
+      pesoBruto: found.pesoBruto ? Number(found.pesoBruto) : null,
+      pesoLiquido: found.pesoLiquido ? Number(found.pesoLiquido) : null,
+      hasStructure: found.hasStructure,
+      idProdutoOmie: found.idProdutoOmie ? Number(found.idProdutoOmie) : null,
+      intProdutoOmie: found.intProdutoOmie,
+      items: (found.items ?? []).map((i) => ({
+        codProdutoComponente: i.codProdutoComponente,
+        descrProdutoComponente: i.descrProdutoComponente,
+        codFamiliaComponente: i.codFamiliaComponente,
+        descrFamiliaComponente: i.descrFamiliaComponente,
+        quantidade: i.quantidade ? Number(i.quantidade) : 0,
+        unidade: i.unidade,
+        tipoProdutoComponente: i.tipoProdutoComponente,
+        percentualPerda: i.percentualPerda ? Number(i.percentualPerda) : null,
+        idMalhaOmie: i.idMalhaOmie ? Number(i.idMalhaOmie) : null
+      })),
+      createdAt: found.createdAt.toISOString(),
+      updatedAt: found.updatedAt.toISOString()
+    }));
+    return {
+      data,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages
+    };
+  }
+};
+
+// src/modules/product-structure/index.ts
+async function registerProductStructureModule(app) {
+  app.log.info("[product-structure] registering module...");
+  try {
+    const repository = new ProductStructurePrismaRepository(app.prisma);
+    const gateway = new OmieProductStructureGatewayImpl(app.omieClient);
+    const syncUseCase = new SyncOmieProductStructureUseCase({ gateway, repository });
+    const getByCodProdutoUseCase = new GetProductStructureByCodProdutoUseCase({ repository });
+    const listUseCase = new ListProductStructuresUseCase({ repository });
+    app.decorate("productStructure", { syncUseCase, getByCodProdutoUseCase, listUseCase });
+    app.decorate("productStructureInFlight", /* @__PURE__ */ new Map());
+    app.decorate("omieMalhaRateLimit", { blockedUntil: 0 });
+    app.decorate("productStructureSyncJobState", {
+      page: 1,
+      blockedUntil: 0,
+      pageSize: 100,
+      maxPages: 50
+    });
+    app.decorate("productStructureGateway", gateway);
+    app.decorate("productStructureRepository", repository);
+    app.decorate("productStructureMapOmieToUpsert", (estrutura) => {
+      const omieResult = {
+        parent: estrutura.ident,
+        items: estrutura.itens ?? []
+      };
+      return mapOmieToUpsertInput(omieResult);
+    });
+    app.decorate("productStructureComputeHash", (upsertBase) => {
+      return computeStructureHash({
+        codProduto: upsertBase.codProduto,
+        items: upsertBase.items.map((it) => ({
+          codProdutoComponente: it.codProdutoComponente,
+          quantidade: it.quantidade,
+          unidade: it.unidade,
+          percentualPerda: it.percentualPerda,
+          idMalhaOmie: it.idMalhaOmie ?? null
+        }))
+      });
+    });
+    app.log.info("[product-structure] module decorated successfully");
+    await productStructureRoutes(app);
+    app.log.info("[product-structure] routes registered successfully");
+  } catch (err) {
+    app.log.error({ err }, "[product-structure] FAILED to register module");
+    throw err;
+  }
+}
+
+// src/modules/product-structure/register.ts
+async function registerProductStructureModule2(app) {
+  await registerProductStructureModule(app);
+}
+
+// src/modules/internal-production-orders/infrastructure/db/internal-production-order.repository.prisma.ts
+function mapToDomain(record) {
+  return {
+    id: record.id,
+    trelloCardId: record.trelloCardId,
+    trelloCardUrl: record.trelloCardUrl,
+    source: record.source,
+    status: record.status,
+    lote: record.lote,
+    quantityValue: Number(record.quantityValue),
+    quantityUnit: record.quantityUnit,
+    omieCode: record.omieCode,
+    parsedProductName: record.parsedProductName,
+    productDescription: record.productDescription,
+    stockQuantity: record.stockQuantity ? Number(record.stockQuantity) : null,
+    minimumStock: record.minimumStock ? Number(record.minimumStock) : null,
+    startedAt: record.startedAt,
+    completedAt: record.completedAt,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt
+  };
+}
+var InternalProductionOrderRepositoryPrisma = class {
+  constructor(prisma2) {
+    this.prisma = prisma2;
+  }
+  prisma;
+  async create(data) {
+    const record = await this.prisma.internalProductionOrder.create({
+      data: {
+        lote: data.lote,
+        quantityValue: data.quantityValue,
+        quantityUnit: data.quantityUnit ?? "UN",
+        omieCode: data.omieCode ?? null,
+        parsedProductName: data.parsedProductName ?? null,
+        productDescription: data.productDescription ?? null,
+        stockQuantity: data.stockQuantity ?? null,
+        minimumStock: data.minimumStock ?? null,
+        source: data.source ?? "MANUAL",
+        trelloCardId: data.trelloCardId ?? null,
+        trelloCardUrl: data.trelloCardUrl ?? null
+      }
+    });
+    return mapToDomain(record);
+  }
+  async update(id, data) {
+    const record = await this.prisma.internalProductionOrder.update({
+      where: { id },
+      data: {
+        ...data.lote !== void 0 && { lote: data.lote },
+        ...data.quantityValue !== void 0 && { quantityValue: data.quantityValue },
+        ...data.quantityUnit !== void 0 && { quantityUnit: data.quantityUnit },
+        ...data.omieCode !== void 0 && { omieCode: data.omieCode },
+        ...data.parsedProductName !== void 0 && { parsedProductName: data.parsedProductName },
+        ...data.productDescription !== void 0 && { productDescription: data.productDescription },
+        ...data.stockQuantity !== void 0 && { stockQuantity: data.stockQuantity },
+        ...data.minimumStock !== void 0 && { minimumStock: data.minimumStock }
+      }
+    });
+    return mapToDomain(record);
+  }
+  async start(id) {
+    const record = await this.prisma.internalProductionOrder.update({
+      where: { id },
+      data: { status: "IN_PROGRESS", startedAt: /* @__PURE__ */ new Date() }
+    });
+    return mapToDomain(record);
+  }
+  async complete(id) {
+    const record = await this.prisma.internalProductionOrder.update({
+      where: { id },
+      data: { status: "COMPLETED", completedAt: /* @__PURE__ */ new Date() }
+    });
+    return mapToDomain(record);
+  }
+  async findById(id) {
+    const record = await this.prisma.internalProductionOrder.findUnique({ where: { id } });
+    return record ? mapToDomain(record) : null;
+  }
+  async findByTrelloCardId(trelloCardId) {
+    const record = await this.prisma.internalProductionOrder.findUnique({ where: { trelloCardId } });
+    return record ? mapToDomain(record) : null;
+  }
+  async list(params) {
+    const { page = 1, pageSize = 20, status, source, dateFrom, dateTo } = params;
+    const skip = (page - 1) * pageSize;
+    const where = {};
+    if (status) where.status = status;
+    if (source) where.source = source;
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+      if (dateTo) where.createdAt.lte = new Date(dateTo);
+    }
+    const [records, total] = await Promise.all([
+      this.prisma.internalProductionOrder.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { createdAt: "desc" }
+      }),
+      this.prisma.internalProductionOrder.count({ where })
+    ]);
+    return { items: records.map(mapToDomain), total };
+  }
+  async delete(id) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.internalProductionOrderChange.deleteMany({
+        where: { event: { orderId: id } }
+      });
+      await tx.internalProductionOrderEvent.deleteMany({
+        where: { orderId: id }
+      });
+      await tx.internalProductionOrder.delete({ where: { id } });
+    });
+  }
+  async createEventWithChanges(event, changes) {
+    await this.prisma.$transaction(async (tx) => {
+      const createdEvent = await tx.internalProductionOrderEvent.create({
+        data: {
+          orderId: event.orderId,
+          type: event.type,
+          actorType: event.actorType,
+          actorId: event.actorId,
+          source: event.source,
+          message: event.message
+        }
+      });
+      if (changes.length > 0) {
+        await tx.internalProductionOrderChange.createMany({
+          data: changes.map((c) => ({
+            eventId: createdEvent.id,
+            field: c.field,
+            before: c.before,
+            after: c.after
+          }))
+        });
+      }
+    });
+  }
+};
+
+// src/modules/internal-production-orders/infrastructure/integrations/http-products-catalog.adapter.ts
+var HttpProductsCatalogAdapter = class {
+  constructor(baseUrl, logger) {
+    this.baseUrl = baseUrl;
+    this.logger = logger;
+  }
+  baseUrl;
+  logger;
+  cache = /* @__PURE__ */ new Map();
+  cacheTtlMs = 5 * 60 * 1e3;
+  async findByOmieCode(omieCode) {
+    const cacheKey = `product:${omieCode}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.cacheTtlMs) {
+      this.logger?.info("Cat\xE1logo: cache hit para omieCode", { omieCode });
+      return cached.data;
+    }
+    this.logger?.info("Cat\xE1logo: consultando produto", { omieCode });
+    try {
+      const response = await fetch(`${this.baseUrl}/v1/products`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(1e4)
+      });
+      if (!response.ok) {
+        this.logger?.error("Cat\xE1logo: resposta n\xE3o OK", { status: response.status, omieCode });
+        return null;
+      }
+      const body = await response.json();
+      const products = body.products ?? body.data ?? [];
+      const found = products.find(
+        (p) => p.codigo_do_produto === omieCode || p.codigo === omieCode
+      );
+      if (!found) {
+        this.logger?.info("Cat\xE1logo: produto n\xE3o encontrado", { omieCode });
+        return null;
+      }
+      const result = {
+        productDescription: found.descricao ?? null,
+        stockQuantity: found.estoque ?? null,
+        minimumStock: found.estoque_minimo ?? null
+      };
+      this.cache.set(cacheKey, { data: result, timestamp: Date.now() });
+      this.logger?.info("Cat\xE1logo: produto enriquecido", { omieCode });
+      return result;
+    } catch (error) {
+      this.logger?.error("Cat\xE1logo: erro na consulta", { omieCode, error: error.message });
+      return null;
+    }
+  }
+};
+
+// src/modules/internal-production-orders/application/utils/diff.ts
+function normalizeValue(value) {
+  if (value === null || value === void 0) return null;
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
+}
+function computeDiff(before, after) {
+  const changes = [];
+  const allKeys = /* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)]);
+  for (const key of allKeys) {
+    if (key === "updatedAt") continue;
+    const beforeVal = normalizeValue(before[key]);
+    const afterVal = normalizeValue(after[key]);
+    if (beforeVal !== afterVal) {
+      changes.push({ field: key, before: beforeVal, after: afterVal });
+    }
+  }
+  return changes;
+}
+
+// src/modules/internal-production-orders/application/services/internal-production-order-audit.service.ts
+var InternalProductionOrderAuditService = class {
+  constructor(repository, catalog, logger) {
+    this.repository = repository;
+    this.catalog = catalog;
+    this.logger = logger;
+  }
+  repository;
+  catalog;
+  logger;
+  async recordEvent(orderId, type, actorType, actorId, source, message, changes = []) {
+    await this.repository.createEventWithChanges(
+      { orderId, type, actorType, actorId, source, message },
+      changes
+    );
+    this.logger?.info(`Audit: ${type}`, { orderId, actorType, changesCount: changes.length });
+  }
+  async recordEventFromDiff(orderId, type, actorType, actorId, source, message, before, after) {
+    const changes = computeDiff(before, after);
+    if (changes.length === 0) {
+      this.logger?.info("Audit: diff vazio, evento n\xE3o gerado", { orderId, type });
+      return;
+    }
+    await this.recordEvent(orderId, type, actorType, actorId, source, message, changes);
+  }
+  async enrichFromCatalog(order, actorType, actorId, source) {
+    if (!order.omieCode) {
+      await this.recordEvent(
+        order.id,
+        "LOOKUP_SKIPPED_NO_CODE",
+        actorType,
+        actorId,
+        source,
+        "OP interna sem omieCode, enriquecimento ignorado"
+      );
+      return order;
+    }
+    const product = await this.catalog.findByOmieCode(order.omieCode);
+    if (!product) {
+      await this.recordEvent(
+        order.id,
+        "PRODUCT_NOT_FOUND",
+        actorType,
+        actorId,
+        source,
+        `Produto com omieCode ${order.omieCode} n\xE3o encontrado no cat\xE1logo`
+      );
+      return order;
+    }
+    const updateInput = {
+      productDescription: product.productDescription,
+      stockQuantity: product.stockQuantity,
+      minimumStock: product.minimumStock
+    };
+    const updated = await this.repository.update(order.id, updateInput);
+    await this.recordEventFromDiff(
+      order.id,
+      "ENRICHED_FROM_OMIECODE",
+      actorType,
+      actorId,
+      source,
+      `OP enriquecida com dados do cat\xE1logo para omieCode ${order.omieCode}`,
+      {
+        productDescription: order.productDescription,
+        stockQuantity: order.stockQuantity,
+        minimumStock: order.minimumStock
+      },
+      {
+        productDescription: updated.productDescription,
+        stockQuantity: updated.stockQuantity,
+        minimumStock: updated.minimumStock
+      }
+    );
+    return updated;
+  }
+};
+var CreateInternalProductionOrderSchema = zod.z.object({
+  lote: zod.z.string().min(1).max(64),
+  quantityValue: zod.z.number().positive(),
+  quantityUnit: zod.z.enum(["UN", "B", "G", "KG"]).default("UN"),
+  omieCode: zod.z.string().max(64).optional().nullable(),
+  parsedProductName: zod.z.string().max(512).optional().nullable(),
+  productDescription: zod.z.string().optional().nullable(),
+  stockQuantity: zod.z.number().optional().nullable(),
+  minimumStock: zod.z.number().optional().nullable(),
+  source: zod.z.enum(["MANUAL", "TRELLO"]).default("MANUAL"),
+  trelloCardId: zod.z.string().max(128).optional().nullable(),
+  trelloCardUrl: zod.z.string().max(1024).optional().nullable()
+});
+var UpdateInternalProductionOrderSchema = zod.z.object({
+  lote: zod.z.string().min(1).max(64).optional(),
+  quantityValue: zod.z.number().positive().optional(),
+  quantityUnit: zod.z.enum(["UN", "B", "G", "KG"]).optional(),
+  omieCode: zod.z.string().max(64).optional().nullable(),
+  parsedProductName: zod.z.string().max(512).optional().nullable(),
+  productDescription: zod.z.string().optional().nullable(),
+  stockQuantity: zod.z.number().optional().nullable(),
+  minimumStock: zod.z.number().optional().nullable()
+});
+var ListInternalProductionOrdersSchema = zod.z.object({
+  page: zod.z.coerce.number().int().positive().optional().default(1),
+  pageSize: zod.z.coerce.number().int().positive().max(100).optional().default(20),
+  status: zod.z.enum(["PENDING", "IN_PROGRESS", "COMPLETED"]).optional(),
+  source: zod.z.enum(["MANUAL", "TRELLO"]).optional(),
+  dateFrom: zod.z.string().datetime().optional(),
+  dateTo: zod.z.string().datetime().optional()
+});
+function toOutput(order) {
+  return {
+    id: order.id,
+    trelloCardId: order.trelloCardId,
+    trelloCardUrl: order.trelloCardUrl,
+    source: order.source,
+    status: order.status,
+    lote: order.lote,
+    quantityValue: Number(order.quantityValue),
+    quantityUnit: order.quantityUnit,
+    omieCode: order.omieCode,
+    parsedProductName: order.parsedProductName,
+    productDescription: order.productDescription,
+    stockQuantity: order.stockQuantity != null ? Number(order.stockQuantity) : null,
+    minimumStock: order.minimumStock != null ? Number(order.minimumStock) : null,
+    startedAt: order.startedAt?.toISOString() ?? null,
+    completedAt: order.completedAt?.toISOString() ?? null,
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString()
+  };
+}
+
+// src/modules/internal-production-orders/application/use-cases/create-internal-production-order.usecase.ts
+var CreateInternalProductionOrderUseCase = class {
+  constructor(deps) {
+    this.deps = deps;
+  }
+  deps;
+  async execute(input, actorType = "SYSTEM", actorId = null) {
+    const { internalProductionOrderRepository, auditService, logger } = this.deps;
+    const validated = CreateInternalProductionOrderSchema.parse(input);
+    if (validated.trelloCardId) {
+      const existing = await internalProductionOrderRepository.findByTrelloCardId(validated.trelloCardId);
+      if (existing) {
+        throw new Error(`OP interna com trelloCardId ${validated.trelloCardId} j\xE1 existe`);
+      }
+    }
+    const created = await internalProductionOrderRepository.create(validated);
+    logger?.info("OP interna criada", { id: created.id, lote: created.lote });
+    await auditService.recordEvent(
+      created.id,
+      "CREATED",
+      actorType,
+      actorId,
+      validated.source === "TRELLO" ? "TRELLO" : "MANUAL",
+      `OP interna criada via ${validated.source}`
+    );
+    const enriched = await auditService.enrichFromCatalog(created, actorType, actorId, "SYSTEM");
+    return toOutput(enriched);
+  }
+};
+
+// src/modules/internal-production-orders/application/use-cases/update-internal-production-order.usecase.ts
+var UpdateInternalProductionOrderUseCase = class {
+  constructor(deps) {
+    this.deps = deps;
+  }
+  deps;
+  async execute(id, input, actorType = "SYSTEM", actorId = null) {
+    const { internalProductionOrderRepository, auditService, logger } = this.deps;
+    const validated = UpdateInternalProductionOrderSchema.parse(input);
+    const before = await internalProductionOrderRepository.findById(id);
+    if (!before) {
+      throw new Error(`OP interna ${id} n\xE3o encontrada`);
+    }
+    const updated = await internalProductionOrderRepository.update(id, validated);
+    logger?.info("OP interna atualizada", { id });
+    await auditService.recordEventFromDiff(
+      id,
+      "UPDATED",
+      actorType,
+      actorId,
+      "SYSTEM",
+      `OP interna atualizada`,
+      before,
+      updated
+    );
+    if (updated.omieCode) {
+      const enriched = await auditService.enrichFromCatalog(updated, actorType, actorId, "SYSTEM");
+      return toOutput(enriched);
+    }
+    return toOutput(updated);
+  }
+};
+
+// src/modules/internal-production-orders/application/use-cases/start-internal-production-order.usecase.ts
+var StartInternalProductionOrderUseCase = class {
+  constructor(deps) {
+    this.deps = deps;
+  }
+  deps;
+  async execute(id, actorType = "SYSTEM", actorId = null) {
+    const { internalProductionOrderRepository, auditService, logger } = this.deps;
+    const before = await internalProductionOrderRepository.findById(id);
+    if (!before) {
+      throw new Error(`OP interna ${id} n\xE3o encontrada`);
+    }
+    if (before.status !== "PENDING") {
+      throw new Error(`OP interna ${id} n\xE3o pode ser iniciada. Status atual: ${before.status}`);
+    }
+    const updated = await internalProductionOrderRepository.start(id);
+    logger?.info("OP interna iniciada", { id });
+    await auditService.recordEventFromDiff(
+      id,
+      "STARTED",
+      actorType,
+      actorId,
+      "SYSTEM",
+      `OP interna iniciada`,
+      { status: before.status, startedAt: before.startedAt },
+      { status: updated.status, startedAt: updated.startedAt }
+    );
+    return toOutput(updated);
+  }
+};
+
+// src/modules/internal-production-orders/application/use-cases/complete-internal-production-order.usecase.ts
+var CompleteInternalProductionOrderUseCase = class {
+  constructor(deps) {
+    this.deps = deps;
+  }
+  deps;
+  async execute(id, actorType = "SYSTEM", actorId = null) {
+    const { internalProductionOrderRepository, auditService, logger } = this.deps;
+    const before = await internalProductionOrderRepository.findById(id);
+    if (!before) {
+      throw new Error(`OP interna ${id} n\xE3o encontrada`);
+    }
+    if (before.status !== "IN_PROGRESS") {
+      throw new Error(`OP interna ${id} n\xE3o pode ser conclu\xEDda. Status atual: ${before.status}`);
+    }
+    const updated = await internalProductionOrderRepository.complete(id);
+    logger?.info("OP interna conclu\xEDda", { id });
+    await auditService.recordEventFromDiff(
+      id,
+      "COMPLETED",
+      actorType,
+      actorId,
+      "SYSTEM",
+      `OP interna conclu\xEDda`,
+      { status: before.status, completedAt: before.completedAt },
+      { status: updated.status, completedAt: updated.completedAt }
+    );
+    return toOutput(updated);
+  }
+};
+
+// src/modules/internal-production-orders/application/use-cases/delete-internal-production-order.usecase.ts
+var DeleteInternalProductionOrderUseCase = class {
+  constructor(deps) {
+    this.deps = deps;
+  }
+  deps;
+  async execute(id) {
+    const { internalProductionOrderRepository, logger } = this.deps;
+    const existing = await internalProductionOrderRepository.findById(id);
+    if (!existing) {
+      throw new Error(`OP interna ${id} n\xE3o encontrada`);
+    }
+    await internalProductionOrderRepository.delete(id);
+    logger?.info("OP interna deletada", { id });
+  }
+};
+
+// src/modules/internal-production-orders/application/use-cases/get-internal-production-orders.usecase.ts
+var GetInternalProductionOrdersUseCase = class {
+  constructor(deps) {
+    this.deps = deps;
+  }
+  deps;
+  async execute(input) {
+    const { internalProductionOrderRepository } = this.deps;
+    const validated = ListInternalProductionOrdersSchema.parse(input);
+    const result = await internalProductionOrderRepository.list(validated);
+    return {
+      items: result.items.map(toOutput),
+      total: result.total
+    };
+  }
+};
+
+// src/modules/internal-production-orders/application/use-cases/get-internal-production-order-by-id.usecase.ts
+var GetInternalProductionOrderByIdUseCase = class {
+  constructor(deps) {
+    this.deps = deps;
+  }
+  deps;
+  async execute(id) {
+    const { internalProductionOrderRepository } = this.deps;
+    const existing = await internalProductionOrderRepository.findById(id);
+    if (!existing) {
+      throw new Error(`OP interna ${id} n\xE3o encontrada`);
+    }
+    return toOutput(existing);
+  }
+};
+var InternalProductionOrderController = class {
+  constructor(createUseCase, updateUseCase, startUseCase, completeUseCase, listUseCase, getByIdUseCase, deleteUseCase) {
+    this.createUseCase = createUseCase;
+    this.updateUseCase = updateUseCase;
+    this.startUseCase = startUseCase;
+    this.completeUseCase = completeUseCase;
+    this.listUseCase = listUseCase;
+    this.getByIdUseCase = getByIdUseCase;
+    this.deleteUseCase = deleteUseCase;
+  }
+  createUseCase;
+  updateUseCase;
+  startUseCase;
+  completeUseCase;
+  listUseCase;
+  getByIdUseCase;
+  deleteUseCase;
+  async create(request, reply) {
+    try {
+      const validated = CreateInternalProductionOrderSchema.parse(request.body);
+      const result = await this.createUseCase.execute(validated);
+      return reply.code(201).send({ success: true, data: result });
+    } catch (error) {
+      return this.handleError(error, request, reply);
+    }
+  }
+  async update(request, reply) {
+    try {
+      const { id } = request.params;
+      const validated = UpdateInternalProductionOrderSchema.parse(request.body);
+      const result = await this.updateUseCase.execute(id, validated);
+      return reply.code(200).send({ success: true, data: result });
+    } catch (error) {
+      return this.handleError(error, request, reply);
+    }
+  }
+  async start(request, reply) {
+    try {
+      const { id } = request.params;
+      const actorType = this.resolveActorType(request);
+      const result = await this.startUseCase.execute(id, actorType);
+      return reply.code(200).send({ success: true, data: result });
+    } catch (error) {
+      return this.handleError(error, request, reply);
+    }
+  }
+  async complete(request, reply) {
+    try {
+      const { id } = request.params;
+      const actorType = this.resolveActorType(request);
+      const result = await this.completeUseCase.execute(id, actorType);
+      return reply.code(200).send({ success: true, data: result });
+    } catch (error) {
+      return this.handleError(error, request, reply);
+    }
+  }
+  async list(request, reply) {
+    try {
+      const validated = ListInternalProductionOrdersSchema.parse(request.query);
+      const result = await this.listUseCase.execute(validated);
+      return reply.code(200).send({ success: true, ...result });
+    } catch (error) {
+      return this.handleError(error, request, reply);
+    }
+  }
+  async getById(request, reply) {
+    try {
+      const { id } = request.params;
+      const result = await this.getByIdUseCase.execute(id);
+      return reply.code(200).send({ success: true, data: result });
+    } catch (error) {
+      return this.handleError(error, request, reply);
+    }
+  }
+  async delete(request, reply) {
+    try {
+      const { id } = request.params;
+      await this.deleteUseCase.execute(id);
+      return reply.code(200).send({ success: true });
+    } catch (error) {
+      return this.handleError(error, request, reply);
+    }
+  }
+  handleError(error, request, reply) {
+    if (error instanceof zod.ZodError) {
+      return reply.code(400).send({ success: false, error: "Dados inv\xE1lidos", details: error.errors });
+    }
+    if (error instanceof Error) {
+      if (error.message.includes("n\xE3o encontrada")) {
+        return reply.code(404).send({ success: false, error: error.message });
+      }
+      if (error.message.includes("j\xE1 existe")) {
+        return reply.code(409).send({ success: false, error: error.message });
+      }
+      if (error.message.includes("n\xE3o pode ser")) {
+        return reply.code(422).send({ success: false, error: error.message });
+      }
+    }
+    request.log.error({ error }, "Erro interno no m\xF3dulo internal-production-orders");
+    return reply.code(500).send({ success: false, error: "Erro interno ao processar solicita\xE7\xE3o" });
+  }
+  resolveActorType(request) {
+    const header = request.headers["x-actor-type"] || "USER";
+    if (header === "SYSTEM" || header === "INTEGRATION") return header;
+    return "USER";
+  }
+};
+
+// src/modules/internal-production-orders/presentation/http/routes.ts
+function registerInternalProductionOrderRoutes(app, controller) {
+  app.post("/v1/internal-production-orders", controller.create.bind(controller));
+  app.get("/v1/internal-production-orders", controller.list.bind(controller));
+  app.get("/v1/internal-production-orders/:id", controller.getById.bind(controller));
+  app.patch("/v1/internal-production-orders/:id", controller.update.bind(controller));
+  app.post("/v1/internal-production-orders/:id/start", controller.start.bind(controller));
+  app.post("/v1/internal-production-orders/:id/complete", controller.complete.bind(controller));
+  app.patch("/v1/internal-production-orders/:id/start", controller.start.bind(controller));
+  app.patch("/v1/internal-production-orders/:id/complete", controller.complete.bind(controller));
+  app.delete("/v1/internal-production-orders/:id", controller.delete.bind(controller));
+}
+
+// src/modules/internal-production-orders/register.ts
+var CATALOG_BASE_URL = "https://production-manager-api.onrender.com";
+async function registerInternalProductionOrdersModule(app) {
+  const prisma2 = app.prisma;
+  const repository = new InternalProductionOrderRepositoryPrisma(prisma2);
+  const productsCatalog = new HttpProductsCatalogAdapter(CATALOG_BASE_URL, app.log);
+  const auditService = new InternalProductionOrderAuditService(repository, productsCatalog, app.log);
+  const createUseCase = new CreateInternalProductionOrderUseCase({
+    internalProductionOrderRepository: repository,
+    productsCatalog,
+    auditService,
+    logger: app.log
+  });
+  const updateUseCase = new UpdateInternalProductionOrderUseCase({
+    internalProductionOrderRepository: repository,
+    auditService,
+    logger: app.log
+  });
+  const startUseCase = new StartInternalProductionOrderUseCase({
+    internalProductionOrderRepository: repository,
+    auditService,
+    logger: app.log
+  });
+  const completeUseCase = new CompleteInternalProductionOrderUseCase({
+    internalProductionOrderRepository: repository,
+    auditService,
+    logger: app.log
+  });
+  const deleteUseCase = new DeleteInternalProductionOrderUseCase({
+    internalProductionOrderRepository: repository,
+    logger: app.log
+  });
+  const listUseCase = new GetInternalProductionOrdersUseCase({ internalProductionOrderRepository: repository });
+  const getByIdUseCase = new GetInternalProductionOrderByIdUseCase({ internalProductionOrderRepository: repository });
+  const controller = new InternalProductionOrderController(
+    createUseCase,
+    updateUseCase,
+    startUseCase,
+    completeUseCase,
+    listUseCase,
+    getByIdUseCase,
+    deleteUseCase
+  );
+  app.decorate("internalProductionOrderRepository", repository);
+  app.decorate("createInternalProductionOrderUseCase", createUseCase);
+  app.decorate("updateInternalProductionOrderUseCase", updateUseCase);
+  app.decorate("startInternalProductionOrderUseCase", startUseCase);
+  app.decorate("completeInternalProductionOrderUseCase", completeUseCase);
+  app.decorate("deleteInternalProductionOrderUseCase", deleteUseCase);
+  app.decorate("getInternalProductionOrdersUseCase", listUseCase);
+  app.decorate("getInternalProductionOrderByIdUseCase", getByIdUseCase);
+  registerInternalProductionOrderRoutes(app, controller);
+}
+
+// src/modules/trello-integration/application/utils/parse-card-name.ts
+var VALID_UNITS = /* @__PURE__ */ new Set(["UN", "B", "G", "KG"]);
+var UNIT_ALIASES = { UNIDADE: "UN" };
+function normalizeUnit(raw) {
+  const upper = raw.toUpperCase();
+  if (upper in UNIT_ALIASES) return UNIT_ALIASES[upper];
+  if (VALID_UNITS.has(upper)) return upper;
+  return "UN";
+}
+function looksLikeOmieCode(value) {
+  return /^\d/.test(value) || /^[A-Z0-9][A-Z0-9._/-]*\d[A-Z0-9._/-]*$/i.test(value);
+}
+function splitBeforeQty(beforeQty) {
+  const parts = beforeQty.split(/\s+-\s+/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length >= 2) return parts;
+  const lastSpaceHyphen = beforeQty.lastIndexOf(" -");
+  const lastHyphenSpace = beforeQty.lastIndexOf("- ");
+  const splitPos = Math.max(
+    lastSpaceHyphen > 0 ? lastSpaceHyphen : -1,
+    lastHyphenSpace > 0 ? lastHyphenSpace : -1
+  );
+  if (splitPos > 0) {
+    const left = beforeQty.slice(0, splitPos).trim();
+    const right = beforeQty.slice(splitPos + 2).trim();
+    if (left && right) return [left, right];
+  }
+  return parts;
+}
+function parseCardName(cardName) {
+  const trimmed = cardName.trim();
+  if (!trimmed) return null;
+  const qtyRegex = /(\d+(?:\.\d+)?)\s*(UN|UNIDADE|B|G|KG)\s*(?:\([^)]*\))?\s*$/i;
+  const qtyMatch = qtyRegex.exec(trimmed);
+  if (!qtyMatch) return null;
+  if (qtyMatch.index > 0 && trimmed[qtyMatch.index - 1] === "-") return null;
+  const quantityValue = Number(qtyMatch[1]);
+  if (quantityValue <= 0) return null;
+  const quantityUnit = normalizeUnit(qtyMatch[2]);
+  const beforeQty = trimmed.slice(0, qtyMatch.index).trim();
+  if (!beforeQty) return null;
+  const beforeQtyClean = beforeQty.replace(/-\s*$/, "").trim();
+  if (!beforeQtyClean) return null;
+  const segments = splitBeforeQty(beforeQtyClean);
+  if (segments.length < 2) return null;
+  const lote = segments[segments.length - 1];
+  const before = segments.slice(0, -1);
+  if (before.length === 1) {
+    const first = before[0];
+    if (!first) {
+      return { parsedProductName: null, omieCode: null, lote, quantityValue, quantityUnit };
+    }
+    if (looksLikeOmieCode(first)) {
+      return { parsedProductName: null, omieCode: first, lote, quantityValue, quantityUnit };
+    }
+    return { parsedProductName: first, omieCode: null, lote, quantityValue, quantityUnit };
+  }
+  if (before.length === 2) {
+    return {
+      parsedProductName: before[0],
+      omieCode: before[1],
+      lote,
+      quantityValue,
+      quantityUnit
+    };
+  }
+  if (before.length > 2) {
+    return {
+      parsedProductName: before.slice(0, -1).join(" - "),
+      omieCode: before[before.length - 1],
+      lote,
+      quantityValue,
+      quantityUnit
+    };
+  }
+  return null;
+}
+
+// src/modules/trello-integration/application/utils/trello-event-guards.ts
+function isCardEnteredTargetList(event, targetListId) {
+  const { action } = event;
+  if (action.type === "createCard" || action.type === "copyCard") {
+    return action.data.list?.id === targetListId;
+  }
+  if (action.type === "updateCard") {
+    const listBefore = action.data.listBefore?.id;
+    const listAfter = action.data.listAfter?.id;
+    return listBefore !== targetListId && listAfter === targetListId;
+  }
+  return false;
+}
+
+// src/modules/trello-integration/application/use-cases/process-trello-webhook.use-case.ts
+var ProcessTrelloWebhookUseCase = class {
+  constructor(deps) {
+    this.deps = deps;
+  }
+  deps;
+  async execute(event) {
+    const { createInternalProductionOrderUseCase, targetListId, logger } = this.deps;
+    logger?.info("Webhook recebido", { type: event.action.type, cardId: event.action.data.card.id });
+    if (!isCardEnteredTargetList(event, targetListId)) {
+      logger?.info("Evento ignorado - n\xE3o entrou na lista alvo", {
+        type: event.action.type,
+        cardId: event.action.data.card.id
+      });
+      return { handled: false, created: false, reason: "not-target-list" };
+    }
+    const cardName = event.action.data.card.name;
+    const parsed2 = parseCardName(cardName);
+    if (!parsed2) {
+      logger?.info("Evento ignorado - falha no parsing do nome", {
+        cardId: event.action.data.card.id,
+        cardName
+      });
+      return { handled: true, created: false, reason: "parse-failed" };
+    }
+    const input = {
+      lote: parsed2.lote,
+      quantityValue: parsed2.quantityValue,
+      quantityUnit: parsed2.quantityUnit,
+      omieCode: parsed2.omieCode ?? null,
+      parsedProductName: parsed2.parsedProductName ?? null,
+      source: "TRELLO",
+      trelloCardId: event.action.data.card.id,
+      trelloCardUrl: event.action.data.card.url ?? null
+    };
+    try {
+      const result = await createInternalProductionOrderUseCase.execute(input, "INTEGRATION", null);
+      logger?.info("OP interna criada via Trello", {
+        productionOrderId: result.id,
+        lote: result.lote
+      });
+      return { handled: true, created: true, productionOrderId: result.id };
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("j\xE1 existe")) {
+        logger?.info("OP interna j\xE1 existe para este card", { cardId: event.action.data.card.id });
+        return { handled: true, created: false, reason: "already-exists" };
+      }
+      logger?.error("Erro ao criar OP interna via Trello", {
+        cardId: event.action.data.card.id,
+        error: error instanceof Error ? error.message : "unknown"
+      });
+      return { handled: true, created: false, reason: "internal-error" };
+    }
+  }
+};
+
+// src/modules/trello-integration/presentation/http/controllers/trello-webhook.controller.ts
+var TrelloWebhookController = class {
+  constructor(processWebhook) {
+    this.processWebhook = processWebhook;
+  }
+  processWebhook;
+  async handlePost(request, reply) {
+    try {
+      const event = request.body;
+      const result = await this.processWebhook.execute(event);
+      return reply.code(200).send(result);
+    } catch (error) {
+      request.log.error({ error: error instanceof Error ? error.message : "unknown" }, "Erro no webhook POST");
+      return reply.code(200).send({ handled: false, created: false, reason: "internal-error" });
+    }
+  }
+  async handleGet(request, reply) {
+    const challenge = request.query["hub.challenge"];
+    if (challenge) {
+      return reply.code(200).send(Number(challenge));
+    }
+    return reply.code(200).send({ ok: true, message: "Webhook endpoint ativo" });
+  }
+};
+
+// src/modules/trello-integration/presentation/http/routes.ts
+function registerTrelloIntegrationRoutes(app, controller) {
+  app.get("/v1/trello/webhook", controller.handleGet.bind(controller));
+  app.post("/v1/trello/webhook", controller.handlePost.bind(controller));
+}
+
+// src/modules/trello-integration/register.ts
+var DEFAULT_TARGET_LIST_ID = "";
+async function registerTrelloIntegrationModule(app) {
+  const targetListId = process.env["TRELLO_LISTA_PRODUCAO_ID"] || DEFAULT_TARGET_LIST_ID;
+  const createInternalProductionOrderUseCase = app.createInternalProductionOrderUseCase;
+  if (!createInternalProductionOrderUseCase) {
+    app.log.error("createInternalProductionOrderUseCase n\xE3o encontrado - trello-integration n\xE3o ser\xE1 registrado");
+    return;
+  }
+  const processWebhook = new ProcessTrelloWebhookUseCase({
+    createInternalProductionOrderUseCase,
+    targetListId,
+    logger: app.log
+  });
+  const controller = new TrelloWebhookController(processWebhook);
+  registerTrelloIntegrationRoutes(app, controller);
+}
+
+// src/modules/product-sectors/presentation/http/product-sectors.routes.ts
+function registerProductSectorsRoutes(app, controller) {
+  const prefix = "/v1/product-sectors";
+  app.get(`${prefix}`, controller.list.bind(controller));
+  app.put(`${prefix}/:id`, controller.update.bind(controller));
+  app.delete(`${prefix}/:id`, controller.delete.bind(controller));
+}
+var listSectorsQuerySchema2 = zod.z.object({
+  includeInactive: zod.z.string().optional().transform((v) => v === "true")
+});
+var sectorIdParamsSchema2 = zod.z.object({
+  id: zod.z.string().min(1, "id \xE9 obrigat\xF3rio")
+});
+var updateSectorBodySchema2 = zod.z.object({
+  name: zod.z.string().min(1, "nome \xE9 obrigat\xF3rio").optional(),
+  order: zod.z.number().int().optional(),
+  active: zod.z.boolean().optional()
+});
+
+// src/modules/product-sectors/presentation/http/product-sectors.controller.ts
+function createProductSectorsController(deps) {
+  return {
+    async list(request, reply) {
+      const query = listSectorsQuerySchema2.parse(request.query);
+      const sectors = await deps.listSectorsUseCase.execute({ includeInactive: query.includeInactive });
+      return reply.code(200).send({ data: sectors });
+    },
+    async update(request, reply) {
+      const params = sectorIdParamsSchema2.parse(request.params);
+      const body = updateSectorBodySchema2.parse(request.body);
+      const sector = await deps.updateSectorUseCase.execute({ id: params.id, data: body });
+      return reply.code(200).send({ data: sector });
+    },
+    async delete(request, reply) {
+      const params = sectorIdParamsSchema2.parse(request.params);
+      await deps.deleteSectorUseCase.execute({ id: params.id });
+      return reply.code(204).send();
+    }
+  };
+}
+
+// src/modules/product-sectors/infrastructure/db/product-sectors.repo.prisma.ts
+var DEFAULT_SECTORS = ["Refino", "Temperagem", "Confeitaria", "Embalagem"];
+function createProductSectorsRepoPrisma(prisma2) {
+  return {
+    findById(id) {
+      return prisma2.sector.findUnique({ where: { id } });
+    },
+    findByName(name) {
+      return prisma2.sector.findUnique({ where: { name } });
+    },
+    list(includeInactive = false) {
+      return prisma2.sector.findMany({
+        where: includeInactive ? void 0 : { active: true },
+        orderBy: [{ order: "asc" }, { name: "asc" }]
+      });
+    },
+    create(data) {
+      return prisma2.sector.create({ data });
+    },
+    update(id, data) {
+      return prisma2.sector.update({ where: { id }, data });
+    },
+    softDelete(id) {
+      return prisma2.sector.update({ where: { id }, data: { active: false } });
+    },
+    upsertDefault(name) {
+      return prisma2.sector.upsert({
+        where: { name },
+        update: { active: true },
+        create: { name, active: true }
+      });
+    }
+  };
+}
+
+// src/modules/product-sectors/application/use-cases/list-sectors.usecase.ts
+function createListSectorsUseCase2(deps) {
+  return {
+    async execute(input) {
+      return deps.repo.list(input.includeInactive);
+    }
+  };
+}
+
+// src/modules/product-sectors/application/use-cases/update-sector.usecase.ts
+function createUpdateSectorUseCase2(deps) {
+  return {
+    async execute(input) {
+      const existing = await deps.repo.findById(input.id);
+      if (!existing) {
+        const err = new Error("Setor n\xE3o encontrado");
+        err.statusCode = 404;
+        throw err;
+      }
+      return deps.repo.update(input.id, input.data);
+    }
+  };
+}
+
+// src/modules/product-sectors/application/use-cases/delete-sector.usecase.ts
+function createDeleteSectorUseCase2(deps) {
+  return {
+    async execute(input) {
+      const existing = await deps.repo.findById(input.id);
+      if (!existing) {
+        const err = new Error("Setor n\xE3o encontrado");
+        err.statusCode = 404;
+        throw err;
+      }
+      if (DEFAULT_SECTORS.includes(existing.name)) {
+        const err = new Error(`Setor padr\xE3o "${existing.name}" n\xE3o pode ser deletado`);
+        err.statusCode = 403;
+        throw err;
+      }
+      return deps.repo.softDelete(input.id);
+    }
+  };
+}
+
+// src/modules/product-sectors/application/use-cases/seed-default-sectors.usecase.ts
+function createSeedDefaultSectorsUseCase(deps) {
+  return {
+    async execute() {
+      const results = await Promise.all(
+        DEFAULT_SECTORS.map(
+          (name, index) => deps.repo.upsertDefault(name).then((sector) => ({ ...sector, defaultOrder: index }))
+        )
+      );
+      return results;
+    }
+  };
+}
+
+// src/modules/product-sectors/index.ts
+async function registerProductSectorsModule(app) {
+  const prisma2 = app.prisma;
+  const logger = app.log;
+  const repo = createProductSectorsRepoPrisma(prisma2);
+  const useCases = {
+    listSectorsUseCase: createListSectorsUseCase2({ repo }),
+    updateSectorUseCase: createUpdateSectorUseCase2({ repo }),
+    deleteSectorUseCase: createDeleteSectorUseCase2({ repo })
+  };
+  const controller = createProductSectorsController(useCases);
+  await registerProductSectorsRoutes(app, controller);
+  const seedUseCase = createSeedDefaultSectorsUseCase({ repo });
+  const seeded = await seedUseCase.execute();
+  logger.info({ count: seeded.length }, "[ProductSectors] setores padr\xE3o sincronizados");
+}
+
 // src/bootstrap/routes.ts
 async function registerRoutes(app) {
   app.get("/", async (request, reply) => {
@@ -6542,6 +9007,10 @@ async function registerRoutes(app) {
       { method: "GET", path: "/v1/admin/managed-products/:id/stock", description: "[Admin] Estoque por UUID do Product." },
       { method: "GET", path: "/v1/admin/managed-products/:id/stock/history", description: "[Admin] Hist\xF3rico de estoque por UUID do Product." },
       { method: "DELETE", path: "/v1/admin/managed-products/:id", description: "[Admin] Remove um produto do gerenciador." },
+      // ✅ NOVO (malha/estrutura de produtos)
+      { method: "GET", path: "/v1/admin/product-structures", description: "[Admin] Lista estruturas de produtos persistidas (paginado, filtra por hasStructure e q)." },
+      { method: "POST", path: "/v1/admin/omie/product-structures/sync", description: "[Admin][Omie] Sincroniza a estrutura (malha) de um produto a partir da Omie. Aceita codProduto, idProduto ou intProduto." },
+      { method: "GET", path: "/v1/admin/product-structures/:codProduto", description: "[Admin] Obt\xE9m a estrutura (malha) persistida de um produto pelo codProduto (dom\xEDnio est\xE1vel)." },
       // product-sector
       { method: "PUT", path: "/v1/admin/managed-products/:productId/sector", description: "[Admin] Define setor padr\xE3o de um produto." },
       { method: "GET", path: "/v1/admin/managed-products/:productId/sector", description: "[Admin] Obt\xE9m setor padr\xE3o de um produto." },
@@ -6580,6 +9049,14 @@ async function registerRoutes(app) {
       { method: "GET", path: "/v1/admin/omie/products/by-code/:omieCode", description: "[Admin][Omie] Detalhe do produto Omie por c\xF3digo." },
       { method: "GET", path: "/v1/admin/omie/products/:id/stock", description: "[Admin][Omie] Estoque por UUID do OmieProduct." },
       { method: "GET", path: "/v1/admin/omie/products/by-code/:omieCode/stock", description: "[Admin][Omie] Estoque por c\xF3digo do Omie." },
+      // internal-production-orders module (API Avançada - Fase 2)
+      { method: "GET", path: "/v1/internal-production-orders", description: "[Admin] Lista todas as ordens de produ\xE7\xE3o internas." },
+      { method: "POST", path: "/v1/internal-production-orders", description: "[Admin] Cria uma nova ordem de produ\xE7\xE3o interna." },
+      { method: "GET", path: "/v1/internal-production-orders/:id", description: "[Admin] Detalhe de uma OP interna por ID." },
+      { method: "PATCH", path: "/v1/internal-production-orders/:id", description: "[Admin] Atualiza campos de uma OP interna." },
+      { method: "DELETE", path: "/v1/internal-production-orders/:id", description: "[Admin] Exclui uma OP interna (cascade: changes \u2192 events \u2192 ordem)." },
+      { method: "PATCH", path: "/v1/internal-production-orders/:id/start", description: "[Admin] Inicia a produ\xE7\xE3o de uma OP interna." },
+      { method: "PATCH", path: "/v1/internal-production-orders/:id/complete", description: "[Admin] Completa a produ\xE7\xE3o de uma OP interna." },
       // alerts module (API Core - Fase 2)
       { method: "GET", path: "/api/alerts/stock", description: "[Admin] Listar alertas de estoque com filtros." },
       { method: "GET", path: "/api/alerts/stock/critical", description: "[Admin] Listar alertas cr\xEDticos de estoque." },
@@ -6594,7 +9071,10 @@ async function registerRoutes(app) {
       { method: "POST", path: "/api/production/queue/reorder", description: "[Admin] Reordenar a fila de produ\xE7\xE3o." },
       // sales production integration module (API Core - Fase 2)
       { method: "POST", path: "/api/integration/sales-to-production", description: "[Admin] Integrar pedido de venda \xE0 fila de produ\xE7\xE3o automaticamente." },
-      { method: "GET", path: "/api/integration/sales-to-production/statistics", description: "[Admin] Obter estat\xEDsticas da integra\xE7\xE3o vendas\u2192produ\xE7\xE3o." }
+      { method: "GET", path: "/api/integration/sales-to-production/statistics", description: "[Admin] Obter estat\xEDsticas da integra\xE7\xE3o vendas\u2192produ\xE7\xE3o." },
+      // trello integration module
+      { method: "GET", path: "/v1/trello/webhook", description: "[Trello] GET para valida\xE7\xE3o do webhook (handshake)." },
+      { method: "POST", path: "/v1/trello/webhook", description: "[Trello] POST para receber notifica\xE7\xF5es de a\xE7\xF5es nos cards." }
     ];
     const deprecatedEndpoints = [
       { method: "GET", path: "/v1/products/stock", replacement: "/v1/products", description: "[Deprecated] Alias do cat\xE1logo p\xFAblico." },
@@ -6633,11 +9113,16 @@ async function registerRoutes(app) {
   await registerSectorsModule(app);
   await registerProductSectorModule(app);
   await registerPlansModule(app);
+  await registerProductStructureModule2(app);
   await registerOmieSalesOrdersModule(app);
   createOmieSalesOrdersModule(app);
   await registerOmieProductionOrdersModule(app);
   createOmieProductionOrdersModule(app);
   await registerOrdersViewModule(app);
+  await registerClientModule(app);
+  await registerInternalProductionOrdersModule(app);
+  await registerTrelloIntegrationModule(app);
+  await registerProductSectorsModule(app);
   registerAlertsModule(app);
   registerSalesProductionIntegrationModule(app);
 }
@@ -6667,11 +9152,10 @@ async function refreshStockLogic(deps) {
   const MAX_DECIMAL_INTEGER_DIGITS2 = 14;
   const BATCH_SIZE2 = 200;
   const MAX_WARN_LOGS2 = 10;
-  const lockAcquired = await deps.syncLockLeaseRepo.acquireLock({
-    key: STOCK_REFRESH_LOCK_KEY2,
-    ttlMs: STOCK_REFRESH_LOCK_TTL_MS2,
-    owner: "stock-refresh-job"
-  });
+  const lockAcquired = await deps.syncLockLeaseRepo.acquire(
+    STOCK_REFRESH_LOCK_KEY2,
+    STOCK_REFRESH_LOCK_TTL_MS2
+  );
   if (!lockAcquired) {
     return {
       insertedCount: 0,
@@ -6742,10 +9226,7 @@ async function refreshStockLogic(deps) {
       }
     };
   } finally {
-    await deps.syncLockLeaseRepo.releaseLock({
-      key: STOCK_REFRESH_LOCK_KEY2,
-      owner: "stock-refresh-job"
-    });
+    await deps.syncLockLeaseRepo.release(STOCK_REFRESH_LOCK_KEY2);
   }
 }
 function startStockRefreshJob(appOrLogger) {
@@ -6789,8 +9270,7 @@ function startStockRefreshJob(appOrLogger) {
       }
       const prisma2 = app.prisma;
       const logger = app.log;
-      const omieClient = app.omieClient;
-      const omieStockCache = createOmieStockCache(omieClient, { logger });
+      const omieStockCache = app.omieStockCache;
       const syncLockLeaseRepo = createSyncLockLeaseRepoPrisma(prisma2);
       const productStockRepo = createProductStockRepoPrisma(prisma2);
       const result = await refreshStockLogic({
@@ -6839,15 +9319,13 @@ function resolveLogger2(input) {
   return maybeLogger;
 }
 async function syncOmieProductsLogic(deps) {
-  const SYNC_LOCK_KEY3 = "omie_products_sync";
   const SYNC_LOCK_TTL_MS = 30 * 60 * 1e3;
   const OMIE_PRODUCTS_PAGE_SIZE3 = 100;
   const OMIE_PRODUCTS_MAX_PAGES3 = 2e3;
-  const lockAcquired = await deps.syncLockRepo.acquireLock({
-    key: SYNC_LOCK_KEY3,
-    ttlMs: SYNC_LOCK_TTL_MS,
-    owner: deps.requestId
-  });
+  const lockAcquired = await deps.syncLockRepo.tryAcquire(
+    Date.now(),
+    SYNC_LOCK_TTL_MS
+  );
   if (!lockAcquired) {
     throw new AppError("SYNC_IN_PROGRESS", "Sincroniza\xE7\xE3o j\xE1 est\xE1 em andamento");
   }
@@ -6892,10 +9370,7 @@ async function syncOmieProductsLogic(deps) {
       }
     };
   } finally {
-    await deps.syncLockRepo.releaseLock({
-      key: SYNC_LOCK_KEY3,
-      owner: deps.requestId
-    });
+    await deps.syncLockRepo.release();
   }
 }
 function startOmieProductSyncJob(appOrLogger) {
@@ -7005,23 +9480,17 @@ var RetrySystem = class {
   consecutiveFailures = 0;
   circuitBreakerOpenedAt = null;
   constructor(logger) {
-    this.logger = logger.child({ service: "RetrySystem" });
+    this.logger = logger.child ? logger.child({ service: "RetrySystem" }) : logger;
   }
   async executeWithRetry(operation, config, operationName) {
     const startTime = Date.now();
     let lastError = null;
     let attempts = 0;
-    this.logger.info(
-      { operationName, config },
-      "Starting retry operation"
-    );
+    this.logger.info("Starting retry operation", { operationName, config });
     while (attempts < config.maxAttempts) {
       attempts++;
       if (this.shouldBlockOperation(config)) {
-        this.logger.warn(
-          { operationName, attempts, circuitBreakerState: this.circuitBreakerState },
-          "Operation blocked by circuit breaker"
-        );
+        this.logger.warn("Operation blocked by circuit breaker", { operationName, attempts, circuitBreakerState: this.circuitBreakerState });
         return {
           success: false,
           error: "Circuit breaker is open",
@@ -7032,10 +9501,9 @@ var RetrySystem = class {
         };
       }
       try {
-        this.logger.debug(
-          { operationName, attempt: attempts, totalAttempts: config.maxAttempts },
-          "Executing operation attempt"
-        );
+        if (this.logger.debug) {
+          this.logger.debug("Executing operation attempt", { operationName, attempt: attempts, totalAttempts: config.maxAttempts });
+        }
         const data = await operation();
         this.handleSuccess(config);
         this.updateMetrics(true, Date.now() - startTime);
@@ -7050,23 +9518,19 @@ var RetrySystem = class {
       } catch (error) {
         lastError = error;
         this.handleFailure(config);
-        this.logger.warn(
-          {
-            operationName,
-            attempt: attempts,
-            error: error.message,
-            consecutiveFailures: this.consecutiveFailures,
-            circuitBreakerState: this.circuitBreakerState
-          },
-          "Operation attempt failed"
-        );
+        this.logger.warn("Operation attempt failed", {
+          operationName,
+          attempt: attempts,
+          error: error.message,
+          consecutiveFailures: this.consecutiveFailures,
+          circuitBreakerState: this.circuitBreakerState
+        });
         if (attempts < config.maxAttempts) {
           const delay = this.calculateDelay(config, attempts);
           await this.delay(delay);
-          this.logger.debug(
-            { operationName, delayMs: delay, nextAttempt: attempts + 1 },
-            "Waiting before next retry attempt"
-          );
+          if (this.logger.debug) {
+            this.logger.debug("Waiting before next retry attempt", { operationName, delayMs: delay, nextAttempt: attempts + 1 });
+          }
         }
       }
     }
@@ -7091,10 +9555,7 @@ var RetrySystem = class {
           this.circuitBreakerState = "half-open";
           this.circuitBreakerOpenedAt = null;
           this.metrics.circuitBreakerResets++;
-          this.logger.info(
-            { timeSinceOpenMs: timeSinceOpen },
-            "Circuit breaker moved to half-open state"
-          );
+          this.logger.info("Circuit breaker moved to half-open state", { timeSinceOpenMs: timeSinceOpen });
         } else {
           return true;
         }
@@ -7106,10 +9567,7 @@ var RetrySystem = class {
     if (this.circuitBreakerState === "half-open") {
       this.circuitBreakerState = "closed";
       this.consecutiveFailures = 0;
-      this.logger.info(
-        { consecutiveFailures: this.consecutiveFailures },
-        "Circuit breaker closed after successful operation"
-      );
+      this.logger.info("Circuit breaker closed after successful operation", { consecutiveFailures: this.consecutiveFailures });
     } else {
       this.consecutiveFailures = 0;
     }
@@ -7120,13 +9578,10 @@ var RetrySystem = class {
       this.circuitBreakerState = "open";
       this.circuitBreakerOpenedAt = /* @__PURE__ */ new Date();
       this.metrics.circuitBreakerTrips++;
-      this.logger.error(
-        {
-          consecutiveFailures: this.consecutiveFailures,
-          threshold: config.circuitBreakerThreshold
-        },
-        "Circuit breaker tripped to open state"
-      );
+      this.logger.error("Circuit breaker tripped to open state", {
+        consecutiveFailures: this.consecutiveFailures,
+        threshold: config.circuitBreakerThreshold
+      });
     }
   }
   calculateDelay(config, attempt) {
@@ -7162,7 +9617,7 @@ var RetrySystem = class {
     this.circuitBreakerState = "closed";
     this.consecutiveFailures = 0;
     this.circuitBreakerOpenedAt = null;
-    this.logger.info({}, "Circuit breaker manually reset");
+    this.logger.info("Circuit breaker manually reset");
   }
   static createDefaultConfig() {
     return {
@@ -7255,7 +9710,7 @@ var IntelligentPollingService = class {
     averageJobDurationMs: 0
   };
   constructor(logger) {
-    this.logger = logger.child({ service: "IntelligentPollingService" });
+    this.logger = logger.child ? logger.child({ service: "IntelligentPollingService" }) : logger;
     this.retrySystem = new RetrySystem(logger);
   }
   registerJob(config) {
@@ -7284,7 +9739,7 @@ var IntelligentPollingService = class {
       averageDurationMs: 0,
       lastDurationMs: null
     });
-    this.logger.info({ jobName: config.name }, "Job registered");
+    this.logger.info("Job registered", { jobName: config.name });
   }
   async startJob(jobName, handler) {
     const config = this.jobs.get(jobName);
@@ -7292,12 +9747,12 @@ var IntelligentPollingService = class {
       throw new Error(`Job ${jobName} not registered`);
     }
     if (!config.enabled) {
-      this.logger.info({ jobName }, "Job disabled, not starting");
+      this.logger.info("Job disabled, not starting", { jobName });
       return;
     }
     this.status.get(jobName);
     this.scheduleNextRun(jobName, handler);
-    this.logger.info({ jobName }, "Job started");
+    this.logger.info("Job started", { jobName });
   }
   stopJob(jobName) {
     const timeout = this.timeouts.get(jobName);
@@ -7310,13 +9765,13 @@ var IntelligentPollingService = class {
       jobStatus.isRunning = false;
       jobStatus.nextRunAt = null;
     }
-    this.logger.info({ jobName }, "Job stopped");
+    this.logger.info("Job stopped", { jobName });
   }
   stopAllJobs() {
     for (const [jobName] of this.jobs) {
       this.stopJob(jobName);
     }
-    this.logger.info({}, "All jobs stopped");
+    this.logger.info("All jobs stopped");
   }
   getJobStatus(jobName) {
     return this.status.get(jobName) || null;
@@ -7341,23 +9796,22 @@ var IntelligentPollingService = class {
       void this.executeJobWithRetry(jobName, handler);
     }, nextRunInMs);
     this.timeouts.set(jobName, timeout);
-    this.logger.debug(
-      { jobName, nextRunInMs, nextRunAt: nextRunAt.toISOString() },
-      "Next job run scheduled"
-    );
+    if (this.logger.debug) {
+      this.logger.debug("Next job run scheduled", { jobName, nextRunInMs, nextRunAt: nextRunAt.toISOString() });
+    }
   }
   async executeJobWithRetry(jobName, handler) {
     const config = this.jobs.get(jobName);
     const jobStatus = this.status.get(jobName);
     if (jobStatus.isRunning) {
-      this.logger.warn({ jobName }, "Job already running, skipping retry");
+      this.logger.warn("Job already running, skipping retry", { jobName });
       return;
     }
     jobStatus.isRunning = true;
     try {
-      this.logger.info({ jobName }, "Job execution with retry started");
+      this.logger.info("Job execution with retry started", { jobName });
       let retryResult;
-      if (!config.retryConfig || config.retryConfig.maxRetries === 0) {
+      if (!config.retryConfig || config.retryConfig.maxAttempts === 0) {
         const startTime = Date.now();
         const result = await handler.execute();
         const durationMs = Date.now() - startTime;
@@ -7394,15 +9848,12 @@ var IntelligentPollingService = class {
         jobStatus.lastDurationMs = retryResult.totalDurationMs;
         this.metrics.totalJobsExecuted++;
         this.metrics.totalSuccessfulJobs++;
-        this.logger.info(
-          {
-            jobName,
-            durationMs: retryResult.totalDurationMs,
-            attempts: retryResult.attempts,
-            data: retryResult.data
-          },
-          "Job execution with retry succeeded"
-        );
+        this.logger.info("Job execution with retry succeeded", {
+          jobName,
+          durationMs: retryResult.totalDurationMs,
+          attempts: retryResult.attempts,
+          data: retryResult.data
+        });
       } else {
         jobStatus.consecutiveFailures++;
         jobStatus.lastError = retryResult.error || "Unknown error";
@@ -7417,18 +9868,15 @@ var IntelligentPollingService = class {
           jobStatus.consecutiveFailures
         );
         jobStatus.currentIntervalMs = newInterval;
-        this.logger.warn(
-          {
-            jobName,
-            durationMs: retryResult.totalDurationMs,
-            attempts: retryResult.attempts,
-            error: retryResult.error,
-            consecutiveFailures: jobStatus.consecutiveFailures,
-            newIntervalMs: newInterval,
-            circuitBreakerState: retryResult.circuitBreakerState
-          },
-          "Job execution with retry failed"
-        );
+        this.logger.warn("Job execution with retry failed", {
+          jobName,
+          durationMs: retryResult.totalDurationMs,
+          attempts: retryResult.attempts,
+          error: retryResult.error,
+          consecutiveFailures: jobStatus.consecutiveFailures,
+          newIntervalMs: newInterval,
+          circuitBreakerState: retryResult.circuitBreakerState
+        });
       }
       jobStatus.lastRunAt = /* @__PURE__ */ new Date();
     } catch (error) {
@@ -7444,22 +9892,18 @@ var IntelligentPollingService = class {
         jobStatus.consecutiveFailures
       );
       jobStatus.currentIntervalMs = newInterval;
-      this.logger.error(
-        {
-          jobName,
-          error: error.message,
-          stack: error.stack,
-          consecutiveFailures: jobStatus.consecutiveFailures,
-          newIntervalMs: newInterval
-        },
-        "Job execution with retry threw unexpected error"
-      );
+      this.logger.error("Job execution with retry threw unexpected error", {
+        jobName,
+        error: error.message,
+        stack: error.stack,
+        consecutiveFailures: jobStatus.consecutiveFailures,
+        newIntervalMs: newInterval
+      });
     } finally {
       jobStatus.isRunning = false;
-      this.logger.debug(
-        { jobName },
-        "Job execution with retry completed"
-      );
+      if (this.logger.debug) {
+        this.logger.debug("Job execution with retry completed", { jobName });
+      }
       this.scheduleNextRun(jobName, handler);
     }
   }
@@ -7499,14 +9943,11 @@ var IntelligentPollingService = class {
           config.baseIntervalMs * 0.8
         );
         jobStatus.currentIntervalMs = reducedInterval;
-        this.logger.info(
-          {
-            jobName: jobStatus.name,
-            newIntervalMs: reducedInterval,
-            consecutiveSuccesses: jobStatus.consecutiveSuccesses
-          },
-          "Reduced polling interval due to consistent success"
-        );
+        this.logger.info("Reduced polling interval due to consistent success", {
+          jobName: jobStatus.name,
+          newIntervalMs: reducedInterval,
+          consecutiveSuccesses: jobStatus.consecutiveSuccesses
+        });
       } else {
         jobStatus.currentIntervalMs = config.baseIntervalMs;
       }
@@ -7518,14 +9959,11 @@ var IntelligentPollingService = class {
       );
       jobStatus.currentIntervalMs = newInterval;
       if (jobStatus.consecutiveFailures >= (config.failureThreshold || 3)) {
-        this.logger.warn(
-          {
-            jobName: jobStatus.name,
-            newIntervalMs: newInterval,
-            consecutiveFailures: jobStatus.consecutiveFailures
-          },
-          "Increased polling interval due to consecutive failures"
-        );
+        this.logger.warn("Increased polling interval due to consecutive failures", {
+          jobName: jobStatus.name,
+          newIntervalMs: newInterval,
+          consecutiveFailures: jobStatus.consecutiveFailures
+        });
       }
     }
   }
@@ -7546,17 +9984,14 @@ var IntelligentPollingService = class {
       jobStatus.consecutiveFailures
     );
     jobStatus.currentIntervalMs = newInterval;
-    this.logger.error(
-      {
-        jobName: jobStatus.name,
-        error: error.message,
-        stack: error.stack,
-        durationMs,
-        consecutiveFailures: jobStatus.consecutiveFailures,
-        newIntervalMs: newInterval
-      },
-      "Job execution threw unexpected error"
-    );
+    this.logger.error("Job execution threw unexpected error", {
+      jobName: jobStatus.name,
+      error: error.message,
+      stack: error.stack,
+      durationMs,
+      consecutiveFailures: jobStatus.consecutiveFailures,
+      newIntervalMs: newInterval
+    });
   }
   calculateBackoffInterval(baseIntervalMs, maxIntervalMs, consecutiveFailures) {
     if (consecutiveFailures === 0) {
@@ -7939,6 +10374,36 @@ function startOmieClientSyncJob(appOrLogger) {
   }
   return stop;
 }
+function startOmieProductStructureSyncJob(app) {
+  const cronExpr = process.env.OMIE_PRODUCT_STRUCTURE_SYNC_CRON || "*/20 * * * *";
+  app.log.info({ cronExpr }, "[product-structure] sync job scheduled");
+  cron__default.default.schedule(cronExpr, async () => {
+    try {
+      const state2 = app.productStructureSyncJobState;
+      const now = Date.now();
+      if (state2?.blockedUntil && now < state2.blockedUntil) {
+        const remaining = Math.ceil((state2.blockedUntil - now) / 1e3);
+        app.log.warn({ remaining }, "[product-structure] job skipped due to rate-limit window");
+        return;
+      }
+      const res = await app.inject({
+        method: "POST",
+        url: "/v1/admin/omie/product-structures/sync-job-tick"
+      });
+      app.log.info(
+        { statusCode: res.statusCode, body: safeBody(res.body) },
+        "[product-structure] job tick executed"
+      );
+    } catch (err) {
+      app.log.error({ err }, "[product-structure] job crashed");
+    }
+  });
+}
+function safeBody(body) {
+  if (typeof body !== "string") return body;
+  if (body.length > 800) return body.slice(0, 800) + "...";
+  return body;
+}
 
 // src/bootstrap/openapi-simple.ts
 function registerOpenAPIDocumentation(app) {
@@ -8269,9 +10734,11 @@ async function buildApp() {
     appKey: env.OMIE_APP_KEY,
     appSecret: env.OMIE_APP_SECRET,
     timeoutMs: 2e4,
-    retry: { attempts: 3, baseDelayMs: 250, maxDelayMs: 2e3 },
+    retry: { attempts: 5, baseDelayMs: 500, maxDelayMs: 2e3 },
     debug: process.env.NODE_ENV !== "production"
   }));
+  const omieStockCache = createOmieStockCache(app.omieClient, { logger: app.log });
+  app.decorate("omieStockCache", omieStockCache);
   const allowedOrigins = new Set(
     env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean)
   );
@@ -8344,6 +10811,9 @@ async function buildApp() {
   }
   if (env.ENABLE_OMIE_PRODUCT_SYNC_JOB) {
     startOmieProductSyncJob(app);
+  }
+  if (env.ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB) {
+    startOmieProductStructureSyncJob(app);
   }
   if (env.OMIE_ORDERS_STAGE_SYNC) {
     startOmieOrdersStage20SyncJob(app);

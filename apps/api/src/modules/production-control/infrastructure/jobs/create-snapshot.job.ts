@@ -1,6 +1,4 @@
 import type { FastifyInstance } from "fastify";
-import { AppError } from "@/shared/errors";
-import { createOmieSalesOrdersModule } from "@/modules/omie-sales-orders";
 import { createProductionControlModule } from "@/modules/production-control";
 import { IntelligentPollingService, PollingJobHandler } from "@/shared/services/IntelligentPollingService";
 import { getPollingConfigFromEnv } from "@/shared/services/polling.config";
@@ -23,13 +21,13 @@ function resolveLogger(input: FastifyInstance | LoggerLike): LoggerLike {
 }
 
 /**
- * Job: sincroniza pedidos Omie etapa 20 usando IntelligentPollingService
+ * Job: cria snapshots de controle de produção
  * - Polling dinâmico baseado em criticidade
- * - Intervalo base: 1 minuto (configurável via env)
- * - Backoff exponencial em caso de falhas
- * - Polling adaptativo baseado em sucessos consecutivos
+ * - Intervalo base: 30 segundos (configurável via env)
+ * - Integra com job existente de pedidos etapa 20
+ * - Cria snapshot quando há novos dados disponíveis
  */
-export function startOmieOrdersStage20SyncJob(
+export function startCreateSnapshotJob(
   appOrLogger: FastifyInstance | LoggerLike
 ) {
   const log = resolveLogger(appOrLogger);
@@ -41,10 +39,10 @@ export function startOmieOrdersStage20SyncJob(
 
   // ✅ obtém configuração do polling do ambiente
   const pollingConfigs = getPollingConfigFromEnv();
-  const jobConfig = pollingConfigs["omie-orders-stage20-sync"];
+  const jobConfig = pollingConfigs["production-control-snapshot"];
 
   if (!jobConfig.enabled) {
-    log.info({}, "omie orders stage20 sync job disabled via environment");
+    log.info({}, "production control snapshot job disabled via environment");
     return;
   }
 
@@ -68,52 +66,40 @@ export function startOmieOrdersStage20SyncJob(
 
         if (!app) {
           throw new Error(
-            "Fastify instance is required to run Omie Orders Stage20 job"
+            "Fastify instance is required to run production control snapshot job"
           );
         }
 
-        const { useCases: omieUseCases } = createOmieSalesOrdersModule(app);
-        const syncResult = await omieUseCases.syncStage20Orders.execute();
-
-        // ✅ Após sincronização bem-sucedida, cria snapshot de controle de produção
-        let snapshotResult = null;
-        try {
-          const { useCases: productionControlUseCases } = createProductionControlModule(app);
-          snapshotResult = await productionControlUseCases.createSnapshot.execute();
-        } catch (snapshotError: any) {
-          // ✅ Loga erro mas não falha o job principal
-          log.warn(
-            { error: snapshotError.message, stack: snapshotError.stack },
-            "Failed to create production control snapshot after sync"
-          );
-        }
+        const { useCases } = createProductionControlModule(app);
+        const result = await useCases.createSnapshot.execute();
 
         const durationMs = Date.now() - startTime;
 
         return {
           success: true,
           durationMs,
-          data: {
-            sync: syncResult,
-            snapshot: snapshotResult,
-          },
+          data: result,
           metadata: {
-            syncType: "orders-stage20",
+            jobType: "production-control-snapshot",
             timestamp: new Date().toISOString(),
-            snapshotCreated: !!snapshotResult,
+            snapshotId: result.snapshotId,
+            newProducts: result.newProducts,
+            updatedProducts: result.updatedProducts,
+            completedProducts: result.completedProducts,
           },
         };
       } catch (err: any) {
         const durationMs = Date.now() - startTime;
 
-        if (err instanceof AppError && err.code === "SYNC_IN_PROGRESS") {
+        // ✅ trata erros específicos do módulo
+        if (err.code === "NO_STAGE20_DATA") {
           return {
             success: false,
             durationMs,
-            error: "Sync already in progress",
+            error: "No stage20 data available",
             metadata: {
               errorCode: err.code,
-              syncType: "orders-stage20",
+              jobType: "production-control-snapshot",
             },
           };
         }
@@ -124,7 +110,7 @@ export function startOmieOrdersStage20SyncJob(
           error: err.message,
           metadata: {
             errorStack: err.stack,
-            syncType: "orders-stage20",
+            jobType: "production-control-snapshot",
           },
         };
       }
@@ -132,10 +118,10 @@ export function startOmieOrdersStage20SyncJob(
   };
 
   // ✅ inicia o job com polling inteligente
-  pollingService.startJob("omie-orders-stage20-sync", jobHandler).catch((error) => {
+  pollingService.startJob("production-control-snapshot", jobHandler).catch((error) => {
     log.error(
       { error: error.message, stack: error.stack },
-      "Failed to start omie orders stage20 sync job"
+      "Failed to start production control snapshot job"
     );
   });
 
@@ -146,12 +132,12 @@ export function startOmieOrdersStage20SyncJob(
       criticality: jobConfig.criticality,
       adaptivePolling: jobConfig.adaptivePolling,
     },
-    "omie orders stage20 sync job started with intelligent polling"
+    "production control snapshot job started with intelligent polling"
   );
 
   // ✅ retorna função para parar o job
   return () => {
-    pollingService.stopJob("omie-orders-stage20-sync");
-    log.info({}, "omie orders stage20 sync job stopped");
+    pollingService.stopJob("production-control-snapshot");
+    log.info({}, "production control snapshot job stopped");
   };
 }

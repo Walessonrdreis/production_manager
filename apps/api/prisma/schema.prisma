@@ -525,3 +525,97 @@ model ProductStructureItem {
   @@index([codProdutoPai])
   @@unique([codProdutoPai, codProdutoComponente, idMalhaOmie])
 }
+
+// ============================================
+// MÓDULO: PRODUCTION-CONTROL
+// ============================================
+
+enum ProductionControlStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("production_control_status")
+}
+
+enum ProductionControlHistoryAction {
+  SNAPSHOT_CREATED
+  ORDER_CHECKED
+  ORDER_UNCHECKED
+  PRODUCT_CHECKED
+  PRODUCT_UNCHECKED
+  DATE_UPDATED
+  AUTO_COMPLETED
+
+  @@map("production_control_history_action")
+}
+
+model ProductionControlSnapshot {
+  id          String   @id @default(uuid())
+  snapshotId  String   @unique @db.VarChar(64)
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  products    ProductionControlProduct[]
+
+  @@index([snapshotId])
+  @@index([createdAt])
+  @@map("production_control_snapshot")
+}
+
+model ProductionControlProduct {
+  id          String   @id @default(uuid())
+  snapshotId  String
+  snapshot    ProductionControlSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  description String   @db.Text
+  totalQuantity Decimal @db.Decimal(18, 4)
+  pendingQuantity Decimal @db.Decimal(18, 4)
+  status      ProductionControlStatus @default(PENDING)
+  scheduledDate DateTime?
+  actualDate   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders      ProductionControlOrder[]
+  history     ProductionControlHistory[]
+
+  @@index([snapshotId])
+  @@index([description])
+  @@index([status])
+  @@map("production_control_product")
+}
+
+model ProductionControlOrder {
+  id          String   @id @default(uuid())
+  productId   String
+  product     ProductionControlProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderNumber String?  @db.VarChar(64)
+  clientName  String?  @db.Text
+  quantity    Decimal  @db.Decimal(18, 4)
+  checked     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  history     ProductionControlHistory[]
+
+  @@index([productId])
+  @@index([orderNumber])
+  @@map("production_control_order")
+}
+
+model ProductionControlHistory {
+  id          String   @id @default(uuid())
+  orderId     String?
+  order       ProductionControlOrder? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     ProductionControlProduct? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  action      ProductionControlHistoryAction
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("production_control_history")
+}
