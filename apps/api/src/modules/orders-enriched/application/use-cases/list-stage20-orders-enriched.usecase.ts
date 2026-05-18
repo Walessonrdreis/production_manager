@@ -59,6 +59,48 @@ function extractOmieClientCode(order: any): bigint | null {
   return null;
 }
 
+function filterFinancialData(rawPayload: any): any {
+  if (!rawPayload) return rawPayload;
+  
+  console.log('DEBUG: Filtrando dados financeiros do rawPayload');
+  
+  // Cria uma cópia do payload para não modificar o original
+  const filteredPayload = JSON.parse(JSON.stringify(rawPayload));
+  
+  // Remove dados financeiros do array det (itens do pedido)
+  if (filteredPayload.det && Array.isArray(filteredPayload.det)) {
+    console.log(`DEBUG: Encontrado ${filteredPayload.det.length} itens no array det`);
+    
+    filteredPayload.det = filteredPayload.det.map((item: any, index: number) => {
+      // Remove a propriedade 'imposto' que contém dados financeiros
+      const { imposto, ...itemWithoutTax } = item;
+      
+      if (imposto) {
+        console.log(`DEBUG: Removido 'imposto' do item ${index}`);
+      }
+      
+      return itemWithoutTax;
+    });
+  }
+  
+  // Remove outras seções financeiras se existirem
+  const financialSections = [
+    'total_pedido',
+    'lista_parcelas',
+    'frete'
+  ];
+  
+  financialSections.forEach(section => {
+    if (filteredPayload[section]) {
+      console.log(`DEBUG: Removida seção financeira '${section}'`);
+      delete filteredPayload[section];
+    }
+  });
+  
+  console.log('DEBUG: Filtragem de dados financeiros concluída');
+  return filteredPayload;
+}
+
 export class ListStage20OrdersEnrichedUseCase {
   constructor(
     private readonly ordersFetcher: Stage20OrdersFetcher,
@@ -101,6 +143,9 @@ export class ListStage20OrdersEnrichedUseCase {
       // Extraímos os campos que queremos em ordem específica
       const { id, omieCode, numeroPedido, codigoCliente, codigoEmpresa, etapa, cancelado, encerrado, dataPrevisao, rawPayload, ...otherFields } = order;
       
+      // Filtra dados financeiros do rawPayload
+      const filteredRawPayload = filterFinancialData(rawPayload);
+      
       const enrichedOrder = {
         id,
         omieClientCode: omieCode, // Mantém compatibilidade
@@ -113,7 +158,7 @@ export class ListStage20OrdersEnrichedUseCase {
         cancelado,
         encerrado,
         dataPrevisao,
-        rawPayload,
+        rawPayload: filteredRawPayload,
         // Outros campos que podem existir
         ...otherFields,
         client: client
