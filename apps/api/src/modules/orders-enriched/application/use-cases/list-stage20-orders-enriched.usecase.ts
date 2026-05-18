@@ -89,8 +89,15 @@ export class ListStage20OrdersEnrichedUseCase {
       const code = extractOmieClientCode(order);
       const client = code ? clientMap.get(code.toString()) ?? null : null;
 
+      // Extrai nome do cliente (prefere tradeName, fallback para legalName)
+      const nomeCliente = client
+        ? (client.tradeName || client.legalName)
+        : null;
+
       return {
         ...order,
+        // Adiciona nomeCliente diretamente no objeto do pedido
+        nomeCliente,
         client: client
           ? {
               omieClientCode: client.omieClientCode.toString(), // JSON-safe
