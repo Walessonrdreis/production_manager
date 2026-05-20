@@ -10,8 +10,8 @@ import { registerRoutes } from "@/bootstrap/routes";
 import { setBaseLogger } from "@/shared/logger";
 import { prisma } from "@/infra/db";
 
-// ✅ IMPORTAR O CLIENT DA OMIE (ajuste o caminho/nome se necessário)
-import { createOmieClient } from "@/shared/integrations/omie/omie.client";
+// ✅ IMPORTAR O CLIENT DA OMIE COM CIRCUIT BREAKER
+import { createOmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
 import { createOmieStockCache } from "@/shared/integrations/omie/omie-stock-cache";
 
 // jobs (nova arquitetura)
@@ -39,6 +39,8 @@ declare module "fastify" {
     prisma: typeof prisma;
     omieClient: {
       post: <T>(path: string, payload: any) => Promise<T>;
+      getCircuitBreakerMetrics: () => any;
+      resetCircuitBreaker: () => void;
     };
     clientSyncState: {
       running: boolean;
@@ -67,6 +69,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: process.env.NODE_ENV !== "test",
     trustProxy: true,
+    // Configurações de timeout para prevenir requisições muito longas
+    connectionTimeout: 30000, // 30 segundos para estabelecer conexão
+    requestTimeout: 45000, // 45 segundos para completar requisição
+    bodyLimit: 1048576, // 1MB limite de corpo
   });
 
   // logger e prisma
@@ -76,13 +82,18 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ---------------------------------------------------------------------------
   // ✅ OMIE CLIENT (OBRIGATÓRIO) - precisa existir antes das rotas/módulos
   // ---------------------------------------------------------------------------
- app.decorate("omieClient", createOmieClient({
+ app.decorate("omieClient", createOmieClientWithCircuitBreaker({
   baseUrl: env.OMIE_BASE_URL,
   appKey: env.OMIE_APP_KEY,
   appSecret: env.OMIE_APP_SECRET,
-  timeoutMs: 20000,
-  retry: { attempts: 5, baseDelayMs: 500, maxDelayMs: 2000 },
+  timeoutMs: 10000, // Reduzido para 10 segundos
+  retry: { attempts: 2, baseDelayMs: 1000, maxDelayMs: 3000 }, // Menos tentativas
   debug: process.env.NODE_ENV !== "production",
+  circuitBreaker: {
+    failureThreshold: 3, // Abre circuito após 3 falhas consecutivas
+    resetTimeoutMs: 30000, // 30 segundos em estado aberto
+    successThreshold: 2, // 2 sucessos para fechar circuito
+  },
 }));
 
   const omieStockCache = createOmieStockCache(app.omieClient, { logger: app.log });
