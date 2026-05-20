@@ -23,3 +23,6 @@ export * from './application/use-cases/update-dates.usecase';
 export * from './application/use-cases/get-history.usecase';
 
 export * from './presentation/http/production-control.controller';
+
+// ✅ Exporta a função de criação do módulo
+export { createProductionControlModule } from './register';

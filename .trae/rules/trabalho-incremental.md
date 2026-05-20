@@ -12,7 +12,7 @@
 
 ## REGRA 3: TEMPO LIMITADO POR AÇÃO
 - Cada ação deve levar **5-15 minutos** no máximo
-- Se ultrapassar 15 minutos, pare e divida em ações menores
+- Se ultrapassar 15 minutos, pare e divida em ações menores espere a aprovação do usuário
 - Mostre progresso intermediário
 
 ## REGRA 4: VERIFICAÇÃO DE LOGS

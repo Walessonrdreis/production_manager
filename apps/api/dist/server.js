@@ -3,7 +3,7 @@
 require('dotenv/config');
 var Fastify = require('fastify');
 var cors = require('@fastify/cors');
-var crypto = require('crypto');
+var crypto2 = require('crypto');
 var zod = require('zod');
 var client = require('@prisma/client');
 var contracts = require('@shared/contracts');
@@ -13,7 +13,7 @@ function _interopDefault (e) { return e && e.__esModule ? e : { default: e }; }
 
 var Fastify__default = /*#__PURE__*/_interopDefault(Fastify);
 var cors__default = /*#__PURE__*/_interopDefault(cors);
-var crypto__default = /*#__PURE__*/_interopDefault(crypto);
+var crypto2__default = /*#__PURE__*/_interopDefault(crypto2);
 var cron__default = /*#__PURE__*/_interopDefault(cron);
 
 // src/server.ts
@@ -7656,7 +7656,7 @@ function computeStructureHash(payload) {
     codProduto: payload.codProduto.trim(),
     items: normalizedItems
   });
-  return crypto__default.default.createHash("sha256").update(raw).digest("hex");
+  return crypto2__default.default.createHash("sha256").update(raw).digest("hex");
 }
 
 // src/modules/product-structure/application/use-cases/sync-omie-product-structure.usecase.ts
@@ -9465,6 +9465,1659 @@ function startOmieProductSyncJob(appOrLogger) {
   return () => task.stop();
 }
 
+// src/modules/production-control/application/entities/snapshot.entity.ts
+function createSnapshot(params) {
+  return {
+    id: crypto.randomUUID(),
+    snapshotId: params.snapshotId,
+    description: params.description,
+    createdAt: /* @__PURE__ */ new Date()
+  };
+}
+
+// src/modules/production-control/application/entities/product.entity.ts
+function createProduct(params) {
+  const now = /* @__PURE__ */ new Date();
+  return {
+    id: crypto.randomUUID(),
+    snapshotId: params.snapshotId,
+    description: params.description,
+    totalQuantity: params.totalQuantity,
+    pendingQuantity: params.totalQuantity,
+    status: "PENDING",
+    scheduledDate: params.scheduledDate,
+    actualDate: params.actualDate,
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+// src/modules/production-control/application/entities/order.entity.ts
+function createOrder(params) {
+  const now = /* @__PURE__ */ new Date();
+  return {
+    id: crypto.randomUUID(),
+    productId: params.productId,
+    orderNumber: params.orderNumber,
+    clientName: params.clientName,
+    quantity: params.quantity,
+    checked: false,
+    createdAt: now,
+    updatedAt: now
+  };
+}
+function toggleOrderCheck(order) {
+  return {
+    ...order,
+    checked: !order.checked,
+    updatedAt: /* @__PURE__ */ new Date()
+  };
+}
+
+// src/modules/production-control/application/entities/history.entity.ts
+function createHistory(params) {
+  return {
+    id: crypto.randomUUID(),
+    orderId: params.orderId,
+    productId: params.productId,
+    action: params.action,
+    details: params.details,
+    createdAt: /* @__PURE__ */ new Date()
+  };
+}
+
+// src/modules/production-control/application/dtos/snapshot.dto.ts
+var SnapshotDTO = class {
+  static toDomain(data) {
+    return {
+      id: data.id,
+      snapshotId: data.snapshotId,
+      description: data.description,
+      createdAt: new Date(data.createdAt)
+    };
+  }
+  static fromDomain(snapshot) {
+    return {
+      id: snapshot.id,
+      snapshotId: snapshot.snapshotId,
+      description: snapshot.description,
+      createdAt: snapshot.createdAt.toISOString()
+    };
+  }
+};
+
+// src/modules/production-control/application/dtos/product.dto.ts
+var ProductDTO = class {
+  static toDomain(data) {
+    return {
+      id: data.id,
+      snapshotId: data.snapshotId,
+      description: data.description,
+      totalQuantity: Number(data.totalQuantity),
+      pendingQuantity: Number(data.pendingQuantity),
+      status: data.status,
+      scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : void 0,
+      actualDate: data.actualDate ? new Date(data.actualDate) : void 0,
+      createdAt: new Date(data.createdAt),
+      updatedAt: new Date(data.updatedAt),
+      orders: data.orders || []
+    };
+  }
+  static fromDomain(product) {
+    return {
+      id: product.id,
+      snapshotId: product.snapshotId,
+      description: product.description,
+      totalQuantity: product.totalQuantity,
+      pendingQuantity: product.pendingQuantity,
+      status: product.status,
+      scheduledDate: product.scheduledDate?.toISOString(),
+      actualDate: product.actualDate?.toISOString(),
+      createdAt: product.createdAt.toISOString(),
+      updatedAt: product.updatedAt.toISOString()
+    };
+  }
+};
+
+// src/modules/production-control/application/dtos/order.dto.ts
+var OrderDTO = class {
+  static toDomain(data) {
+    return {
+      id: data.id,
+      productId: data.productId,
+      orderNumber: data.orderNumber,
+      clientName: data.clientName,
+      quantity: Number(data.quantity),
+      checked: data.checked,
+      createdAt: new Date(data.createdAt),
+      updatedAt: new Date(data.updatedAt)
+    };
+  }
+  static fromDomain(order) {
+    return {
+      id: order.id,
+      productId: order.productId,
+      orderNumber: order.orderNumber,
+      clientName: order.clientName,
+      quantity: order.quantity,
+      checked: order.checked,
+      createdAt: order.createdAt.toISOString(),
+      updatedAt: order.updatedAt.toISOString()
+    };
+  }
+};
+
+// src/modules/production-control/application/dtos/history.dto.ts
+var HistoryDTO = class {
+  static toDomain(data) {
+    return {
+      id: data.id,
+      orderId: data.orderId,
+      productId: data.productId,
+      action: data.action,
+      details: data.details,
+      createdAt: new Date(data.createdAt)
+    };
+  }
+  static fromDomain(history) {
+    return {
+      id: history.id,
+      orderId: history.orderId,
+      productId: history.productId,
+      action: history.action,
+      details: history.details,
+      createdAt: history.createdAt.toISOString()
+    };
+  }
+};
+
+// src/modules/production-control/application/services/snapshot.service.ts
+var SnapshotService = class {
+  constructor(snapshotRepository, productRepository, orderRepository) {
+    this.snapshotRepository = snapshotRepository;
+    this.productRepository = productRepository;
+    this.orderRepository = orderRepository;
+  }
+  snapshotRepository;
+  productRepository;
+  orderRepository;
+  async createSnapshotWithProducts(snapshot, products, orders) {
+    const createdSnapshot = await this.snapshotRepository.createSnapshot(snapshot);
+    for (const product of products) {
+      const createdProduct = await this.productRepository.createProduct({
+        ...product,
+        snapshotId: createdSnapshot.id
+      });
+      const productOrders = orders.filter(
+        (order) => order.productId === product.id
+      );
+      for (const order of productOrders) {
+        await this.orderRepository.createOrder({
+          ...order,
+          productId: createdProduct.id
+        });
+      }
+    }
+    return createdSnapshot;
+  }
+  async getSnapshotWithDetails(snapshotId) {
+    const snapshot = await this.snapshotRepository.findSnapshotBySnapshotId(snapshotId);
+    if (!snapshot) {
+      throw new Error(`Snapshot not found: ${snapshotId}`);
+    }
+    const products = await this.productRepository.listProductsBySnapshot(snapshot.id);
+    const orders = [];
+    for (const product of products) {
+      const productOrders = await this.orderRepository.listOrdersByProduct(product.id);
+      orders.push(...productOrders);
+    }
+    return { snapshot, products, orders };
+  }
+  async listSnapshotsWithSummary(limit, offset) {
+    const snapshots = await this.snapshotRepository.listSnapshots(limit);
+    const productCounts = {};
+    for (const snapshot of snapshots) {
+      const count = await this.productRepository.countProductsBySnapshot(snapshot.id);
+      productCounts[snapshot.id] = count;
+    }
+    return { snapshots, productCounts };
+  }
+};
+
+// src/modules/production-control/application/services/reconciliation.service.ts
+var ReconciliationService = class {
+  constructor(snapshotRepository, productRepository, orderRepository) {
+    this.snapshotRepository = snapshotRepository;
+    this.productRepository = productRepository;
+    this.orderRepository = orderRepository;
+  }
+  snapshotRepository;
+  productRepository;
+  orderRepository;
+  async reconcileProducts(currentProducts, previousProducts) {
+    const newProducts = [];
+    const updatedProducts = [];
+    const completedProducts = [];
+    const previousProductMap = /* @__PURE__ */ new Map();
+    for (const product of previousProducts) {
+      const key = `${product.description}-${product.snapshotId}`;
+      previousProductMap.set(key, product);
+    }
+    for (const currentProduct of currentProducts) {
+      const key = `${currentProduct.description}-${currentProduct.snapshotId}`;
+      const previousProduct = previousProductMap.get(key);
+      if (!previousProduct) {
+        newProducts.push(currentProduct);
+      } else {
+        if (currentProduct.totalQuantity !== previousProduct.totalQuantity || currentProduct.pendingQuantity !== previousProduct.pendingQuantity || currentProduct.status !== previousProduct.status) {
+          updatedProducts.push(currentProduct);
+        }
+      }
+    }
+    for (const previousProduct of previousProducts) {
+      const key = `${previousProduct.description}-${previousProduct.snapshotId}`;
+      const existsInCurrent = currentProducts.some(
+        (p) => `${p.description}-${p.snapshotId}` === key
+      );
+      if (!existsInCurrent) {
+        const completedProduct = {
+          ...previousProduct,
+          status: "COMPLETED",
+          updatedAt: /* @__PURE__ */ new Date()
+        };
+        completedProducts.push(completedProduct);
+      }
+    }
+    return { newProducts, updatedProducts, completedProducts };
+  }
+  calculatePendingQuantity(product, orders) {
+    const checkedOrdersQuantity = orders.filter((order) => order.checked).reduce((sum, order) => sum + order.quantity, 0);
+    return Math.max(0, product.totalQuantity - checkedOrdersQuantity);
+  }
+  updateProductStatusBasedOnQuantity(product) {
+    let newStatus = product.status;
+    if (product.pendingQuantity === 0) {
+      newStatus = "COMPLETED";
+    } else if (product.pendingQuantity < product.totalQuantity) {
+      newStatus = "IN_PROGRESS";
+    } else {
+      newStatus = "PENDING";
+    }
+    return {
+      ...product,
+      status: newStatus,
+      updatedAt: /* @__PURE__ */ new Date()
+    };
+  }
+};
+
+// src/modules/production-control/application/services/history.service.ts
+var HistoryService = class {
+  constructor(repository) {
+    this.repository = repository;
+  }
+  repository;
+  async recordSnapshotCreated(snapshotId) {
+    const history = createHistory({
+      action: "SNAPSHOT_CREATED",
+      details: { snapshotId }
+    });
+    return await this.repository.createHistory(history);
+  }
+  async recordOrderCheck(orderId, checked, productId) {
+    const action = checked ? "ORDER_CHECKED" : "ORDER_UNCHECKED";
+    const history = createHistory({
+      orderId,
+      productId,
+      action,
+      details: { orderId, checked }
+    });
+    return await this.repository.createHistory(history);
+  }
+  async recordProductCheck(productId, checked) {
+    const action = checked ? "PRODUCT_CHECKED" : "PRODUCT_UNCHECKED";
+    const history = createHistory({
+      productId,
+      action,
+      details: { productId, checked }
+    });
+    return await this.repository.createHistory(history);
+  }
+  async recordDateUpdate(productId, field, oldValue, newValue) {
+    const history = createHistory({
+      productId,
+      action: "DATE_UPDATED",
+      details: { productId, field, oldValue, newValue }
+    });
+    return await this.repository.createHistory(history);
+  }
+  async recordAutoCompletion(productId) {
+    const history = createHistory({
+      productId,
+      action: "AUTO_COMPLETED",
+      details: { productId, completedAt: /* @__PURE__ */ new Date() }
+    });
+    return await this.repository.createHistory(history);
+  }
+  async getProductHistory(productId) {
+    return await this.repository.listHistoryByProduct(productId);
+  }
+  async getOrderHistory(orderId) {
+    return await this.repository.listHistoryByOrder(orderId);
+  }
+  async getSnapshotHistory(snapshotId) {
+    return await this.repository.listHistoryBySnapshot(snapshotId);
+  }
+};
+
+// src/modules/production-control/application/use-cases/create-snapshot.usecase.ts
+var CreateSnapshotUseCase = class {
+  constructor(snapshotRepository, productRepository, orderRepository, stage20Fetcher, snapshotService, reconciliationService, historyService) {
+    this.snapshotRepository = snapshotRepository;
+    this.productRepository = productRepository;
+    this.orderRepository = orderRepository;
+    this.stage20Fetcher = stage20Fetcher;
+    this.snapshotService = snapshotService;
+    this.reconciliationService = reconciliationService;
+    this.historyService = historyService;
+  }
+  snapshotRepository;
+  productRepository;
+  orderRepository;
+  stage20Fetcher;
+  snapshotService;
+  reconciliationService;
+  historyService;
+  async execute() {
+    const currentStage20Products = await this.stage20Fetcher.fetchStage20Products();
+    const previousSnapshot = await this.getLatestSnapshot();
+    const previousProducts = previousSnapshot ? await this.productRepository.listProductsBySnapshot(previousSnapshot.id) : [];
+    const snapshotId = this.generateSnapshotId();
+    const snapshot = createSnapshot({
+      snapshotId,
+      description: `Snapshot ${(/* @__PURE__ */ new Date()).toISOString()}`
+    });
+    const { products, orders } = this.convertStage20ToEntities(
+      currentStage20Products,
+      snapshot.id
+    );
+    const reconciliationResult = await this.reconciliationService.reconcileProducts(
+      products,
+      previousProducts
+    );
+    await this.snapshotService.createSnapshotWithProducts(
+      snapshot,
+      reconciliationResult.newProducts,
+      orders
+    );
+    await this.historyService.recordSnapshotCreated(snapshot.id);
+    for (const completedProduct of reconciliationResult.completedProducts) {
+      await this.productRepository.updateProduct(completedProduct);
+      await this.historyService.recordAutoCompletion(completedProduct.id);
+    }
+    return {
+      snapshotId,
+      newProducts: reconciliationResult.newProducts.length,
+      updatedProducts: reconciliationResult.updatedProducts.length,
+      completedProducts: reconciliationResult.completedProducts.length
+    };
+  }
+  async getLatestSnapshot() {
+    return await this.snapshotRepository.findLatestSnapshot();
+  }
+  generateSnapshotId() {
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1e4);
+    return `snapshot-${timestamp}-${random}`;
+  }
+  convertStage20ToEntities(stage20Products, snapshotId) {
+    const products = [];
+    const orders = [];
+    for (const stage20Product of stage20Products) {
+      const product = createProduct({
+        snapshotId,
+        description: stage20Product.description,
+        totalQuantity: stage20Product.totalQuantity
+      });
+      products.push(product);
+      for (const stage20Order of stage20Product.orders) {
+        const order = createOrder({
+          productId: product.id,
+          orderNumber: stage20Order.orderNumber,
+          clientName: stage20Order.clientName,
+          quantity: stage20Order.quantity
+        });
+        orders.push(order);
+      }
+    }
+    return { products, orders };
+  }
+};
+
+// src/modules/production-control/application/use-cases/list-snapshots.usecase.ts
+var ListSnapshotsUseCase = class {
+  constructor(repository) {
+    this.repository = repository;
+  }
+  repository;
+  async execute(params = {}) {
+    const { limit = 50, offset = 0 } = params;
+    const snapshots = await this.repository.listSnapshots(limit, offset);
+    const total = snapshots.length;
+    return {
+      snapshots,
+      total,
+      limit,
+      offset
+    };
+  }
+};
+
+// src/modules/production-control/application/use-cases/toggle-check.usecase.ts
+var ToggleCheckUseCase = class {
+  constructor(repository, reconciliationService, historyService) {
+    this.repository = repository;
+    this.reconciliationService = reconciliationService;
+    this.historyService = historyService;
+  }
+  repository;
+  reconciliationService;
+  historyService;
+  async execute(params) {
+    const { orderId, checkAll = false } = params;
+    const order = await this.repository.findOrderById(orderId);
+    if (!order) {
+      throw new Error(`Order not found: ${orderId}`);
+    }
+    const product = await this.repository.findProductById(order.productId);
+    if (!product) {
+      throw new Error(`Product not found for order: ${orderId}`);
+    }
+    let updatedOrder;
+    if (checkAll) {
+      const allOrders2 = await this.repository.findOrdersByProductId(product.id);
+      const allChecked = allOrders2.every((o) => o.checked);
+      for (const o of allOrders2) {
+        const toggledOrder = {
+          ...o,
+          checked: !allChecked,
+          updatedAt: /* @__PURE__ */ new Date()
+        };
+        await this.repository.updateOrder(toggledOrder);
+        await this.historyService.recordOrderCheck(
+          o.id,
+          !allChecked,
+          product.id
+        );
+      }
+      updatedOrder = {
+        ...order,
+        checked: !allChecked,
+        updatedAt: /* @__PURE__ */ new Date()
+      };
+    } else {
+      updatedOrder = toggleOrderCheck(order);
+      await this.repository.updateOrder(updatedOrder);
+      await this.historyService.recordOrderCheck(
+        orderId,
+        updatedOrder.checked,
+        product.id
+      );
+    }
+    const allOrders = await this.repository.findOrdersByProductId(product.id);
+    const pendingQuantity = this.reconciliationService.calculatePendingQuantity(
+      product,
+      allOrders
+    );
+    const updatedProduct = {
+      ...product,
+      pendingQuantity,
+      updatedAt: /* @__PURE__ */ new Date()
+    };
+    const finalProduct = this.reconciliationService.updateProductStatusBasedOnQuantity(
+      updatedProduct
+    );
+    await this.repository.updateProduct(finalProduct);
+    return {
+      order: updatedOrder,
+      product: finalProduct,
+      updatedPendingQuantity: pendingQuantity
+    };
+  }
+};
+
+// src/modules/production-control/application/use-cases/update-dates.usecase.ts
+var UpdateDatesUseCase = class {
+  constructor(repository, historyService) {
+    this.repository = repository;
+    this.historyService = historyService;
+  }
+  repository;
+  historyService;
+  async execute(params) {
+    const { productId, scheduledDate, actualDate } = params;
+    const product = await this.repository.findProductById(productId);
+    if (!product) {
+      throw new Error(`Product not found: ${productId}`);
+    }
+    const oldScheduledDate = product.scheduledDate;
+    const oldActualDate = product.actualDate;
+    const updatedProduct = {
+      ...product,
+      scheduledDate,
+      actualDate,
+      updatedAt: /* @__PURE__ */ new Date()
+    };
+    await this.repository.updateProduct(updatedProduct);
+    if (scheduledDate !== void 0 && scheduledDate !== oldScheduledDate) {
+      await this.historyService.recordDateUpdate(
+        productId,
+        "scheduledDate",
+        oldScheduledDate,
+        scheduledDate
+      );
+    }
+    if (actualDate !== void 0 && actualDate !== oldActualDate) {
+      await this.historyService.recordDateUpdate(
+        productId,
+        "actualDate",
+        oldActualDate,
+        actualDate
+      );
+    }
+    return updatedProduct;
+  }
+};
+
+// src/modules/production-control/application/use-cases/get-history.usecase.ts
+var GetHistoryUseCase = class {
+  constructor(repository) {
+    this.repository = repository;
+  }
+  repository;
+  async execute(params = {}) {
+    const { snapshotId, productId, orderId, limit = 50, offset = 0 } = params;
+    let history = [];
+    if (orderId) {
+      history = await this.repository.findHistoryByOrderId(orderId);
+    } else if (productId) {
+      history = await this.repository.findHistoryByProductId(productId);
+    } else if (snapshotId) {
+      history = await this.repository.findHistoryBySnapshotId(snapshotId);
+    } else {
+      throw new Error("Must provide at least one filter: snapshotId, productId, or orderId");
+    }
+    const paginatedHistory = history.slice(offset, offset + limit);
+    return {
+      history: paginatedHistory,
+      total: history.length,
+      limit,
+      offset
+    };
+  }
+};
+
+// src/modules/production-control/presentation/http/production-control.controller.ts
+function createProductionControlController(app) {
+  const { useCases } = createProductionControlModule(app);
+  return {
+    async listSnapshots(request, reply) {
+      try {
+        const { limit = 50, offset = 0, orderBy = "createdAt", orderDirection = "desc" } = request.query;
+        const snapshots = await useCases.listSnapshots.execute({
+          limit: Number(limit),
+          offset: Number(offset),
+          orderBy,
+          orderDirection
+        });
+        const total = await useCases.countSnapshots.execute();
+        return reply.send(
+          paginated(snapshots, {
+            limit: Number(limit),
+            offset: Number(offset),
+            total
+          })
+        );
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError({
+          code: "LIST_SNAPSHOTS_ERROR",
+          message: `Error listing snapshots: ${error instanceof Error ? error.message : String(error)}`,
+          status: 500
+        });
+      }
+    },
+    async getSnapshotById(request, reply) {
+      try {
+        const { id } = request.params;
+        const snapshot = await useCases.getSnapshotById.execute({ id });
+        if (!snapshot) {
+          throw new AppError({
+            code: "SNAPSHOT_NOT_FOUND",
+            message: `Snapshot with id ${id} not found`,
+            status: 404
+          });
+        }
+        return reply.send(ok(snapshot));
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError({
+          code: "GET_SNAPSHOT_ERROR",
+          message: `Error getting snapshot: ${error instanceof Error ? error.message : String(error)}`,
+          status: 500
+        });
+      }
+    },
+    async getSnapshotProducts(request, reply) {
+      try {
+        const { id } = request.params;
+        const { status, limit = 100, offset = 0 } = request.query;
+        const products = await useCases.getSnapshotProducts.execute({
+          snapshotId: id,
+          status,
+          limit: Number(limit),
+          offset: Number(offset)
+        });
+        const total = await useCases.countSnapshotProducts.execute({
+          snapshotId: id,
+          status
+        });
+        return reply.send(
+          paginated(products, {
+            limit: Number(limit),
+            offset: Number(offset),
+            total
+          })
+        );
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError({
+          code: "GET_SNAPSHOT_PRODUCTS_ERROR",
+          message: `Error getting snapshot products: ${error instanceof Error ? error.message : String(error)}`,
+          status: 500
+        });
+      }
+    },
+    async getProductDetails(request, reply) {
+      try {
+        const { productId } = request.params;
+        const product = await useCases.getProductDetails.execute({ productId });
+        if (!product) {
+          throw new AppError({
+            code: "PRODUCT_NOT_FOUND",
+            message: `Product with id ${productId} not found`,
+            status: 404
+          });
+        }
+        return reply.send(ok(product));
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError({
+          code: "GET_PRODUCT_DETAILS_ERROR",
+          message: `Error getting product details: ${error instanceof Error ? error.message : String(error)}`,
+          status: 500
+        });
+      }
+    },
+    async toggleOrderCheck(request, reply) {
+      try {
+        const { orderId } = request.params;
+        const result = await useCases.toggleOrderCheck.execute({ orderId });
+        if (!result) {
+          throw new AppError({
+            code: "ORDER_NOT_FOUND",
+            message: `Order with id ${orderId} not found`,
+            status: 404
+          });
+        }
+        return reply.send(ok(result));
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError({
+          code: "TOGGLE_ORDER_CHECK_ERROR",
+          message: `Error toggling order check: ${error instanceof Error ? error.message : String(error)}`,
+          status: 500
+        });
+      }
+    },
+    async toggleProductCheck(request, reply) {
+      try {
+        const { productId } = request.params;
+        const result = await useCases.toggleProductCheck.execute({ productId });
+        if (!result) {
+          throw new AppError({
+            code: "PRODUCT_NOT_FOUND",
+            message: `Product with id ${productId} not found`,
+            status: 404
+          });
+        }
+        return reply.send(ok(result));
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError({
+          code: "TOGGLE_PRODUCT_CHECK_ERROR",
+          message: `Error toggling product check: ${error instanceof Error ? error.message : String(error)}`,
+          status: 500
+        });
+      }
+    },
+    async updateProductDates(request, reply) {
+      try {
+        const { productId } = request.params;
+        const { scheduledDate, actualDate } = request.body;
+        const result = await useCases.updateProductDates.execute({
+          productId,
+          scheduledDate: scheduledDate ? new Date(scheduledDate) : void 0,
+          actualDate: actualDate ? new Date(actualDate) : void 0
+        });
+        if (!result) {
+          throw new AppError({
+            code: "PRODUCT_NOT_FOUND",
+            message: `Product with id ${productId} not found`,
+            status: 404
+          });
+        }
+        return reply.send(ok(result));
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError({
+          code: "UPDATE_PRODUCT_DATES_ERROR",
+          message: `Error updating product dates: ${error instanceof Error ? error.message : String(error)}`,
+          status: 500
+        });
+      }
+    },
+    async getProductHistory(request, reply) {
+      try {
+        const { productId } = request.params;
+        const { limit = 100, offset = 0, action } = request.query;
+        const history = await useCases.getProductHistory.execute({
+          productId,
+          limit: Number(limit),
+          offset: Number(offset),
+          action
+        });
+        const total = await useCases.countProductHistory.execute({
+          productId,
+          action
+        });
+        return reply.send(
+          paginated(history, {
+            limit: Number(limit),
+            offset: Number(offset),
+            total
+          })
+        );
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError({
+          code: "GET_PRODUCT_HISTORY_ERROR",
+          message: `Error getting product history: ${error instanceof Error ? error.message : String(error)}`,
+          status: 500
+        });
+      }
+    },
+    async getOrderHistory(request, reply) {
+      try {
+        const { orderId } = request.params;
+        const { limit = 100, offset = 0, action } = request.query;
+        const history = await useCases.getOrderHistory.execute({
+          orderId,
+          limit: Number(limit),
+          offset: Number(offset),
+          action
+        });
+        const total = await useCases.countOrderHistory.execute({
+          orderId,
+          action
+        });
+        return reply.send(
+          paginated(history, {
+            limit: Number(limit),
+            offset: Number(offset),
+            total
+          })
+        );
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError({
+          code: "GET_ORDER_HISTORY_ERROR",
+          message: `Error getting order history: ${error instanceof Error ? error.message : String(error)}`,
+          status: 500
+        });
+      }
+    },
+    async createSnapshot(request, reply) {
+      try {
+        const { description } = request.body;
+        const result = await useCases.createSnapshot.execute({
+          description
+        });
+        return reply.send(ok(result));
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError({
+          code: "CREATE_SNAPSHOT_ERROR",
+          message: `Error creating snapshot: ${error instanceof Error ? error.message : String(error)}`,
+          status: 500
+        });
+      }
+    },
+    async cleanupOldData(request, reply) {
+      try {
+        const { olderThanDays = 30, keepLast = 100 } = request.body;
+        const result = await useCases.cleanupOldData.execute({
+          olderThanDays: Number(olderThanDays),
+          keepLast: Number(keepLast)
+        });
+        return reply.send(ok(result));
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError({
+          code: "CLEANUP_OLD_DATA_ERROR",
+          message: `Error cleaning up old data: ${error instanceof Error ? error.message : String(error)}`,
+          status: 500
+        });
+      }
+    }
+  };
+}
+
+// src/modules/production-control/infrastructure/db/snapshot.repository.prisma.ts
+var SnapshotRepositoryPrisma = class {
+  prisma;
+  constructor(prisma2) {
+    this.prisma = prisma2;
+  }
+  async createSnapshot(snapshot) {
+    const created = await this.prisma.productionControlSnapshot.create({
+      data: {
+        snapshotId: snapshot.snapshotId,
+        description: snapshot.description
+      }
+    });
+    return SnapshotDTO.fromPrisma(created);
+  }
+  async findSnapshotById(id) {
+    const snapshot = await this.prisma.productionControlSnapshot.findUnique({
+      where: { id }
+    });
+    if (!snapshot) {
+      return null;
+    }
+    return SnapshotDTO.fromPrisma(snapshot);
+  }
+  async findSnapshotBySnapshotId(snapshotId) {
+    const snapshot = await this.prisma.productionControlSnapshot.findUnique({
+      where: { snapshotId }
+    });
+    if (!snapshot) {
+      return null;
+    }
+    return SnapshotDTO.fromPrisma(snapshot);
+  }
+  async listSnapshots(options) {
+    const {
+      limit = 50,
+      offset = 0,
+      orderBy = "createdAt",
+      orderDirection = "desc"
+    } = options || {};
+    const snapshots = await this.prisma.productionControlSnapshot.findMany({
+      take: limit,
+      skip: offset,
+      orderBy: {
+        [orderBy]: orderDirection
+      }
+    });
+    return snapshots.map(SnapshotDTO.fromPrisma);
+  }
+  async getLatestSnapshot() {
+    const snapshot = await this.prisma.productionControlSnapshot.findFirst({
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    if (!snapshot) {
+      return null;
+    }
+    return SnapshotDTO.fromPrisma(snapshot);
+  }
+  async countSnapshots() {
+    return await this.prisma.productionControlSnapshot.count();
+  }
+  async deleteSnapshot(id) {
+    try {
+      await this.prisma.productionControlSnapshot.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  async cleanupOldSnapshots(options) {
+    const { olderThanDays = 30, keepLast = 100 } = options || {};
+    const recentSnapshots = await this.prisma.productionControlSnapshot.findMany({
+      take: keepLast,
+      orderBy: {
+        createdAt: "desc"
+      },
+      select: {
+        id: true
+      }
+    });
+    const recentSnapshotIds = recentSnapshots.map((s) => s.id);
+    const cutoffDate = /* @__PURE__ */ new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    const result = await this.prisma.productionControlSnapshot.deleteMany({
+      where: {
+        AND: [
+          {
+            createdAt: {
+              lt: cutoffDate
+            }
+          },
+          {
+            id: {
+              notIn: recentSnapshotIds
+            }
+          }
+        ]
+      }
+    });
+    return result.count;
+  }
+};
+
+// src/modules/production-control/infrastructure/db/product.repository.prisma.ts
+var ProductRepositoryPrisma = class {
+  prisma;
+  constructor(prisma2) {
+    this.prisma = prisma2;
+  }
+  async createProduct(product) {
+    const created = await this.prisma.productionControlProduct.create({
+      data: {
+        snapshotId: product.snapshotId,
+        description: product.description,
+        totalQuantity: product.totalQuantity,
+        pendingQuantity: product.pendingQuantity,
+        status: product.status,
+        scheduledDate: product.scheduledDate,
+        actualDate: product.actualDate
+      }
+    });
+    return ProductDTO.fromPrisma(created);
+  }
+  async createProducts(products) {
+    const created = await this.prisma.productionControlProduct.createManyAndReturn({
+      data: products.map((product) => ({
+        snapshotId: product.snapshotId,
+        description: product.description,
+        totalQuantity: product.totalQuantity,
+        pendingQuantity: product.pendingQuantity,
+        status: product.status,
+        scheduledDate: product.scheduledDate,
+        actualDate: product.actualDate
+      }))
+    });
+    return created.map(ProductDTO.fromPrisma);
+  }
+  async findProductById(id) {
+    const product = await this.prisma.productionControlProduct.findUnique({
+      where: { id }
+    });
+    if (!product) {
+      return null;
+    }
+    return ProductDTO.fromPrisma(product);
+  }
+  async findProductsBySnapshotId(snapshotId) {
+    const products = await this.prisma.productionControlProduct.findMany({
+      where: { snapshotId },
+      orderBy: {
+        description: "asc"
+      }
+    });
+    return products.map(ProductDTO.fromPrisma);
+  }
+  async findProductBySnapshotAndDescription(snapshotId, description) {
+    const product = await this.prisma.productionControlProduct.findFirst({
+      where: {
+        snapshotId,
+        description
+      }
+    });
+    if (!product) {
+      return null;
+    }
+    return ProductDTO.fromPrisma(product);
+  }
+  async updateProduct(id, updates) {
+    try {
+      const updated = await this.prisma.productionControlProduct.update({
+        where: { id },
+        data: {
+          ...updates.pendingQuantity !== void 0 && { pendingQuantity: updates.pendingQuantity },
+          ...updates.status !== void 0 && { status: updates.status },
+          ...updates.scheduledDate !== void 0 && { scheduledDate: updates.scheduledDate },
+          ...updates.actualDate !== void 0 && { actualDate: updates.actualDate },
+          updatedAt: /* @__PURE__ */ new Date()
+        }
+      });
+      return ProductDTO.fromPrisma(updated);
+    } catch (error) {
+      return null;
+    }
+  }
+  async updateProductStatus(id, status) {
+    return this.updateProduct(id, { status });
+  }
+  async updateProductPendingQuantity(id, pendingQuantity) {
+    return this.updateProduct(id, { pendingQuantity });
+  }
+  async updateProductDates(id, scheduledDate, actualDate) {
+    return this.updateProduct(id, { scheduledDate, actualDate });
+  }
+  async deleteProduct(id) {
+    try {
+      await this.prisma.productionControlProduct.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  async deleteProductsBySnapshotId(snapshotId) {
+    const result = await this.prisma.productionControlProduct.deleteMany({
+      where: { snapshotId }
+    });
+    return result.count;
+  }
+  async countProductsBySnapshotId(snapshotId) {
+    return await this.prisma.productionControlProduct.count({
+      where: { snapshotId }
+    });
+  }
+  async getProductWithOrders(id) {
+    const product = await this.prisma.productionControlProduct.findUnique({
+      where: { id },
+      include: {
+        orders: true
+      }
+    });
+    if (!product) {
+      return null;
+    }
+    return ProductDTO.fromPrisma(product);
+  }
+  async listProductsByStatus(status, options) {
+    const { limit = 100, offset = 0 } = options || {};
+    const products = await this.prisma.productionControlProduct.findMany({
+      where: { status },
+      take: limit,
+      skip: offset,
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    return products.map(ProductDTO.fromPrisma);
+  }
+  async searchProducts(query, options) {
+    const { limit = 50, offset = 0 } = options || {};
+    const products = await this.prisma.productionControlProduct.findMany({
+      where: {
+        description: {
+          contains: query,
+          mode: "insensitive"
+        }
+      },
+      take: limit,
+      skip: offset,
+      orderBy: {
+        description: "asc"
+      }
+    });
+    return products.map(ProductDTO.fromPrisma);
+  }
+};
+
+// src/modules/production-control/infrastructure/db/order.repository.prisma.ts
+var OrderRepositoryPrisma = class {
+  prisma;
+  constructor(prisma2) {
+    this.prisma = prisma2;
+  }
+  async createOrder(order) {
+    const created = await this.prisma.productionControlOrder.create({
+      data: {
+        productId: order.productId,
+        orderNumber: order.orderNumber,
+        clientName: order.clientName,
+        quantity: order.quantity,
+        checked: order.checked
+      }
+    });
+    return OrderDTO.fromPrisma(created);
+  }
+  async createOrders(orders) {
+    const created = await this.prisma.productionControlOrder.createManyAndReturn({
+      data: orders.map((order) => ({
+        productId: order.productId,
+        orderNumber: order.orderNumber,
+        clientName: order.clientName,
+        quantity: order.quantity,
+        checked: order.checked
+      }))
+    });
+    return created.map(OrderDTO.fromPrisma);
+  }
+  async findOrderById(id) {
+    const order = await this.prisma.productionControlOrder.findUnique({
+      where: { id }
+    });
+    if (!order) {
+      return null;
+    }
+    return OrderDTO.fromPrisma(order);
+  }
+  async findOrdersByProductId(productId) {
+    const orders = await this.prisma.productionControlOrder.findMany({
+      where: { productId },
+      orderBy: {
+        orderNumber: "asc"
+      }
+    });
+    return orders.map(OrderDTO.fromPrisma);
+  }
+  async findOrderByProductAndOrderNumber(productId, orderNumber) {
+    const order = await this.prisma.productionControlOrder.findFirst({
+      where: {
+        productId,
+        orderNumber
+      }
+    });
+    if (!order) {
+      return null;
+    }
+    return OrderDTO.fromPrisma(order);
+  }
+  async updateOrder(id, updates) {
+    try {
+      const updated = await this.prisma.productionControlOrder.update({
+        where: { id },
+        data: {
+          ...updates.checked !== void 0 && { checked: updates.checked },
+          ...updates.orderNumber !== void 0 && { orderNumber: updates.orderNumber },
+          ...updates.clientName !== void 0 && { clientName: updates.clientName },
+          ...updates.quantity !== void 0 && { quantity: updates.quantity },
+          updatedAt: /* @__PURE__ */ new Date()
+        }
+      });
+      return OrderDTO.fromPrisma(updated);
+    } catch (error) {
+      return null;
+    }
+  }
+  async toggleOrderCheck(id) {
+    const order = await this.findOrderById(id);
+    if (!order) {
+      return null;
+    }
+    return this.updateOrder(id, { checked: !order.checked });
+  }
+  async markOrderAsChecked(id) {
+    return this.updateOrder(id, { checked: true });
+  }
+  async markOrderAsUnchecked(id) {
+    return this.updateOrder(id, { checked: false });
+  }
+  async deleteOrder(id) {
+    try {
+      await this.prisma.productionControlOrder.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  async deleteOrdersByProductId(productId) {
+    const result = await this.prisma.productionControlOrder.deleteMany({
+      where: { productId }
+    });
+    return result.count;
+  }
+  async countOrdersByProductId(productId) {
+    return await this.prisma.productionControlOrder.count({
+      where: { productId }
+    });
+  }
+  async countCheckedOrdersByProductId(productId) {
+    return await this.prisma.productionControlOrder.count({
+      where: {
+        productId,
+        checked: true
+      }
+    });
+  }
+  async getTotalQuantityByProductId(productId) {
+    const result = await this.prisma.productionControlOrder.aggregate({
+      where: { productId },
+      _sum: {
+        quantity: true
+      }
+    });
+    return result._sum.quantity?.toNumber() || 0;
+  }
+  async getCheckedQuantityByProductId(productId) {
+    const result = await this.prisma.productionControlOrder.aggregate({
+      where: {
+        productId,
+        checked: true
+      },
+      _sum: {
+        quantity: true
+      }
+    });
+    return result._sum.quantity?.toNumber() || 0;
+  }
+  async listOrdersByCheckedStatus(checked, options) {
+    const { limit = 100, offset = 0 } = options || {};
+    const orders = await this.prisma.productionControlOrder.findMany({
+      where: { checked },
+      take: limit,
+      skip: offset,
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    return orders.map(OrderDTO.fromPrisma);
+  }
+  async searchOrders(query, options) {
+    const { limit = 50, offset = 0 } = options || {};
+    const orders = await this.prisma.productionControlOrder.findMany({
+      where: {
+        OR: [
+          {
+            orderNumber: {
+              contains: query,
+              mode: "insensitive"
+            }
+          },
+          {
+            clientName: {
+              contains: query,
+              mode: "insensitive"
+            }
+          }
+        ]
+      },
+      take: limit,
+      skip: offset,
+      orderBy: {
+        orderNumber: "asc"
+      }
+    });
+    return orders.map(OrderDTO.fromPrisma);
+  }
+  async batchUpdateOrders(orderIds, updates) {
+    const result = await this.prisma.productionControlOrder.updateMany({
+      where: {
+        id: {
+          in: orderIds
+        }
+      },
+      data: {
+        ...updates.checked !== void 0 && { checked: updates.checked },
+        updatedAt: /* @__PURE__ */ new Date()
+      }
+    });
+    return result.count;
+  }
+};
+
+// src/modules/production-control/infrastructure/db/history.repository.prisma.ts
+var HistoryRepositoryPrisma = class {
+  prisma;
+  constructor(prisma2) {
+    this.prisma = prisma2;
+  }
+  async createHistory(history) {
+    const created = await this.prisma.productionControlHistory.create({
+      data: {
+        orderId: history.orderId,
+        productId: history.productId,
+        action: history.action,
+        details: history.details
+      }
+    });
+    return HistoryDTO.fromPrisma(created);
+  }
+  async createHistories(histories) {
+    const created = await this.prisma.productionControlHistory.createManyAndReturn({
+      data: histories.map((history) => ({
+        orderId: history.orderId,
+        productId: history.productId,
+        action: history.action,
+        details: history.details
+      }))
+    });
+    return created.map(HistoryDTO.fromPrisma);
+  }
+  async findHistoryById(id) {
+    const history = await this.prisma.productionControlHistory.findUnique({
+      where: { id }
+    });
+    if (!history) {
+      return null;
+    }
+    return HistoryDTO.fromPrisma(history);
+  }
+  async findHistoriesByOrderId(orderId) {
+    const histories = await this.prisma.productionControlHistory.findMany({
+      where: { orderId },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    return histories.map(HistoryDTO.fromPrisma);
+  }
+  async findHistoriesByProductId(productId) {
+    const histories = await this.prisma.productionControlHistory.findMany({
+      where: { productId },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    return histories.map(HistoryDTO.fromPrisma);
+  }
+  async findHistoriesByAction(action) {
+    const histories = await this.prisma.productionControlHistory.findMany({
+      where: { action },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    return histories.map(HistoryDTO.fromPrisma);
+  }
+  async listHistories(options) {
+    const {
+      limit = 100,
+      offset = 0,
+      orderBy = "createdAt",
+      orderDirection = "desc",
+      orderId,
+      productId,
+      action
+    } = options || {};
+    const where = {};
+    if (orderId) where.orderId = orderId;
+    if (productId) where.productId = productId;
+    if (action) where.action = action;
+    const histories = await this.prisma.productionControlHistory.findMany({
+      where,
+      take: limit,
+      skip: offset,
+      orderBy: {
+        [orderBy]: orderDirection
+      }
+    });
+    return histories.map(HistoryDTO.fromPrisma);
+  }
+  async countHistories(options) {
+    const { orderId, productId, action } = options || {};
+    const where = {};
+    if (orderId) where.orderId = orderId;
+    if (productId) where.productId = productId;
+    if (action) where.action = action;
+    return await this.prisma.productionControlHistory.count({ where });
+  }
+  async getOrderHistorySummary(orderId) {
+    const histories = await this.findHistoriesByOrderId(orderId);
+    const actionsByType = {};
+    histories.forEach((history) => {
+      actionsByType[history.action] = (actionsByType[history.action] || 0) + 1;
+    });
+    return {
+      totalActions: histories.length,
+      lastAction: histories[0],
+      actionsByType
+    };
+  }
+  async getProductHistorySummary(productId) {
+    const histories = await this.findHistoriesByProductId(productId);
+    const actionsByType = {};
+    histories.forEach((history) => {
+      actionsByType[history.action] = (actionsByType[history.action] || 0) + 1;
+    });
+    return {
+      totalActions: histories.length,
+      lastAction: histories[0],
+      actionsByType
+    };
+  }
+  async deleteHistory(id) {
+    try {
+      await this.prisma.productionControlHistory.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  async deleteHistoriesByOrderId(orderId) {
+    const result = await this.prisma.productionControlHistory.deleteMany({
+      where: { orderId }
+    });
+    return result.count;
+  }
+  async deleteHistoriesByProductId(productId) {
+    const result = await this.prisma.productionControlHistory.deleteMany({
+      where: { productId }
+    });
+    return result.count;
+  }
+  async cleanupOldHistories(options) {
+    const { olderThanDays = 90, keepLast = 1e3 } = options || {};
+    const recentHistories = await this.prisma.productionControlHistory.findMany({
+      take: keepLast,
+      orderBy: {
+        createdAt: "desc"
+      },
+      select: {
+        id: true
+      }
+    });
+    const recentHistoryIds = recentHistories.map((h) => h.id);
+    const cutoffDate = /* @__PURE__ */ new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    const result = await this.prisma.productionControlHistory.deleteMany({
+      where: {
+        AND: [
+          {
+            createdAt: {
+              lt: cutoffDate
+            }
+          },
+          {
+            id: {
+              notIn: recentHistoryIds
+            }
+          }
+        ]
+      }
+    });
+    return result.count;
+  }
+  async searchHistories(query, options) {
+    const { limit = 50, offset = 0 } = options || {};
+    const histories = await this.prisma.productionControlHistory.findMany({
+      where: {
+        OR: [
+          {
+            details: {
+              path: ["description"],
+              string_contains: query
+            }
+          },
+          {
+            details: {
+              path: ["orderNumber"],
+              string_contains: query
+            }
+          },
+          {
+            details: {
+              path: ["clientName"],
+              string_contains: query
+            }
+          }
+        ]
+      },
+      take: limit,
+      skip: offset,
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    return histories.map(HistoryDTO.fromPrisma);
+  }
+};
+
+// src/modules/production-control/infrastructure/integrations/internal/stage20-fetcher.fastify.ts
+var Stage20FetcherFastify = class {
+  constructor(app) {
+    this.app = app;
+  }
+  app;
+  async fetchStage20Products() {
+    try {
+      const response = await this.app.inject({
+        method: "GET",
+        url: "/v1/admin/orders/stage20/totals/detailed"
+      });
+      if (response.statusCode !== 200) {
+        throw new Error(`Failed to fetch stage20 products: ${response.statusCode}`);
+      }
+      const data = response.json();
+      return this.transformResponse(data);
+    } catch (error) {
+      console.error("Error fetching stage20 products:", error);
+      throw new Error(`Failed to fetch stage20 products: ${error.message}`);
+    }
+  }
+  transformResponse(data) {
+    if (!data || !data.products || !Array.isArray(data.products)) {
+      return [];
+    }
+    return data.products.map((product) => ({
+      description: product.description || "",
+      totalQuantity: product.totalQuantity || 0,
+      orders: (product.orders || []).map((order) => ({
+        orderNumber: order.orderNumber || "",
+        clientName: order.clientName || "",
+        quantity: order.quantity || 0
+      }))
+    }));
+  }
+};
+
+// src/modules/production-control/register.ts
+function createProductionControlModule(app) {
+  const prisma2 = new client.PrismaClient();
+  const snapshotRepository = new SnapshotRepositoryPrisma(prisma2);
+  const productRepository = new ProductRepositoryPrisma(prisma2);
+  const orderRepository = new OrderRepositoryPrisma(prisma2);
+  const historyRepository = new HistoryRepositoryPrisma(prisma2);
+  const stage20Fetcher = new Stage20FetcherFastify(app);
+  const snapshotService = new SnapshotService(
+    snapshotRepository,
+    productRepository,
+    orderRepository
+  );
+  const reconciliationService = new ReconciliationService(
+    snapshotRepository,
+    productRepository,
+    orderRepository
+  );
+  const historyService = new HistoryService(historyRepository);
+  const createSnapshotUseCase = new CreateSnapshotUseCase(
+    snapshotRepository,
+    productRepository,
+    orderRepository,
+    stage20Fetcher,
+    snapshotService,
+    reconciliationService,
+    historyService
+  );
+  const listSnapshotsUseCase = new ListSnapshotsUseCase(snapshotRepository);
+  const toggleCheckUseCase = new ToggleCheckUseCase(
+    productRepository,
+    orderRepository,
+    reconciliationService,
+    historyService
+  );
+  const updateDatesUseCase = new UpdateDatesUseCase(
+    productRepository,
+    historyService
+  );
+  const getHistoryUseCase = new GetHistoryUseCase(historyRepository);
+  const controller = createProductionControlController(app);
+  return {
+    useCases: {
+      createSnapshot: createSnapshotUseCase,
+      listSnapshots: listSnapshotsUseCase,
+      toggleOrderCheck: toggleCheckUseCase,
+      toggleProductCheck: toggleCheckUseCase,
+      updateProductDates: updateDatesUseCase,
+      getProductHistory: getHistoryUseCase,
+      getOrderHistory: getHistoryUseCase,
+      countSnapshots: listSnapshotsUseCase,
+      countSnapshotProducts: listSnapshotsUseCase,
+      countProductHistory: getHistoryUseCase,
+      countOrderHistory: getHistoryUseCase
+    },
+    controller,
+    repositories: {
+      snapshotRepository,
+      productRepository,
+      orderRepository,
+      historyRepository
+    },
+    services: {
+      snapshotService,
+      reconciliationService,
+      historyService
+    }
+  };
+}
+
 // src/shared/services/RetrySystem.ts
 var RetrySystem = class {
   logger;
@@ -10118,16 +11771,30 @@ function startOmieOrdersStage20SyncJob(appOrLogger) {
             "Fastify instance is required to run Omie Orders Stage20 job"
           );
         }
-        const { useCases } = createOmieSalesOrdersModule(app);
-        const result = await useCases.syncStage20Orders.execute();
+        const { useCases: omieUseCases } = createOmieSalesOrdersModule(app);
+        const syncResult = await omieUseCases.syncStage20Orders.execute();
+        let snapshotResult = null;
+        try {
+          const { useCases: productionControlUseCases } = createProductionControlModule(app);
+          snapshotResult = await productionControlUseCases.createSnapshot.execute();
+        } catch (snapshotError) {
+          log.warn(
+            { error: snapshotError.message, stack: snapshotError.stack },
+            "Failed to create production control snapshot after sync"
+          );
+        }
         const durationMs = Date.now() - startTime;
         return {
           success: true,
           durationMs,
-          data: result,
+          data: {
+            sync: syncResult,
+            snapshot: snapshotResult
+          },
           metadata: {
             syncType: "orders-stage20",
-            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+            snapshotCreated: !!snapshotResult
           }
         };
       } catch (err) {
@@ -10758,7 +12425,7 @@ async function buildApp() {
   app.decorateRequest("requestId", "");
   app.addHook("onRequest", async (request) => {
     const incomingId = request.headers["x-request-id"];
-    request.requestId = incomingId || crypto__default.default.randomUUID();
+    request.requestId = incomingId || crypto2__default.default.randomUUID();
     if (process.env.NODE_ENV !== "test") {
       request.log = request.log.child({ reqId: request.requestId });
     }

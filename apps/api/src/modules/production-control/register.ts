@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { PrismaClient } from '@prisma/client';
-import { productionControlRoutes } from './presentation/http/routes';
-import { ProductionControlController } from './presentation/http/production-control.controller';
+import { registerProductionControlRoutes } from './presentation/http/production-control.routes';
+import { createProductionControlController } from './presentation/http/production-control.controller';
 import { SnapshotRepositoryPrisma } from './infrastructure/db/snapshot.repository.prisma';
 import { ProductRepositoryPrisma } from './infrastructure/db/product.repository.prisma';
 import { OrderRepositoryPrisma } from './infrastructure/db/order.repository.prisma';
@@ -16,7 +16,7 @@ import { ToggleCheckUseCase } from './application/use-cases/toggle-check.usecase
 import { UpdateDatesUseCase } from './application/use-cases/update-dates.usecase';
 import { GetHistoryUseCase } from './application/use-cases/get-history.usecase';
 
-export async function registerProductionControlModule(app: FastifyInstance) {
+export function createProductionControlModule(app: FastifyInstance) {
   const prisma = new PrismaClient();
 
   // Repositories
@@ -66,16 +66,42 @@ export async function registerProductionControlModule(app: FastifyInstance) {
   const getHistoryUseCase = new GetHistoryUseCase(historyRepository);
 
   // Controller
-  const controller = new ProductionControlController({
-    createSnapshotUseCase,
-    listSnapshotsUseCase,
-    toggleCheckUseCase,
-    updateDatesUseCase,
-    getHistoryUseCase,
-  });
+  const controller = createProductionControlController(app);
 
+  return {
+    useCases: {
+      createSnapshot: createSnapshotUseCase,
+      listSnapshots: listSnapshotsUseCase,
+      toggleOrderCheck: toggleCheckUseCase,
+      toggleProductCheck: toggleCheckUseCase,
+      updateProductDates: updateDatesUseCase,
+      getProductHistory: getHistoryUseCase,
+      getOrderHistory: getHistoryUseCase,
+      countSnapshots: listSnapshotsUseCase,
+      countSnapshotProducts: listSnapshotsUseCase,
+      countProductHistory: getHistoryUseCase,
+      countOrderHistory: getHistoryUseCase,
+    },
+    controller,
+    repositories: {
+      snapshotRepository,
+      productRepository,
+      orderRepository,
+      historyRepository,
+    },
+    services: {
+      snapshotService,
+      reconciliationService,
+      historyService,
+    },
+  };
+}
+
+export async function registerProductionControlModule(app: FastifyInstance) {
+  const { controller } = createProductionControlModule(app);
+  
   // Routes
-  app.register(productionControlRoutes, { controller });
+  registerProductionControlRoutes(app);
 
   console.log('✅ Módulo production-control registrado');
 }

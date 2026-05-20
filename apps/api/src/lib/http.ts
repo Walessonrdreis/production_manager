@@ -1,2 +1,2 @@
-// src/shared/http/response.ts
-export * from "@/lib/http";
+// Reexporta funções de resposta HTTP
+export * from "@/shared/http/response";
