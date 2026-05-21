@@ -1,4 +1,5 @@
 import { Logger } from "@/shared/logger";
+import { shouldRetry } from "./retry.config";
 
 export type RetryConfig = {
   maxAttempts: number;
@@ -59,13 +60,26 @@ export class RetrySystem {
     let lastError: Error | null = null;
     let attempts = 0;
 
-    this.logger.info("Starting retry operation", { operationName, config });
+    this.logger.info("Starting retry operation", { 
+      operationName, 
+      maxAttempts: config.maxAttempts,
+      baseDelayMs: config.baseDelayMs,
+      maxDelayMs: config.maxDelayMs,
+      circuitBreakerEnabled: config.circuitBreakerEnabled,
+      circuitBreakerThreshold: config.circuitBreakerThreshold 
+    });
 
     while (attempts < config.maxAttempts) {
       attempts++;
 
       if (this.shouldBlockOperation(config)) {
-        this.logger.warn("Operation blocked by circuit breaker", { operationName, attempts, circuitBreakerState: this.circuitBreakerState });
+        this.logger.warn("Operation blocked by circuit breaker", { 
+          operationName, 
+          attempts, 
+          circuitBreakerState: this.circuitBreakerState,
+          consecutiveFailures: this.consecutiveFailures,
+          timeSinceOpenMs: this.circuitBreakerOpenedAt ? Date.now() - this.circuitBreakerOpenedAt.getTime() : null
+        });
 
         return {
           success: false,
@@ -79,13 +93,25 @@ export class RetrySystem {
 
       try {
         if (this.logger.debug) {
-          this.logger.debug("Executing operation attempt", { operationName, attempt: attempts, totalAttempts: config.maxAttempts });
+          this.logger.debug("Executing operation attempt", { 
+            operationName, 
+            attempt: attempts, 
+            totalAttempts: config.maxAttempts,
+            elapsedTimeMs: Date.now() - startTime
+          });
         }
 
         const data = await operation();
         
         this.handleSuccess(config);
         this.updateMetrics(true, Date.now() - startTime);
+
+        this.logger.info("Operation completed successfully", {
+          operationName,
+          attempts,
+          totalDurationMs: Date.now() - startTime,
+          circuitBreakerState: this.circuitBreakerState
+        });
 
         return {
           success: true,
@@ -99,20 +125,56 @@ export class RetrySystem {
         lastError = error;
         this.handleFailure(config);
 
+        const errorType = error.code || error.response?.status;
+        const errorMessage = error.message;
+        const isRetryable = shouldRetry(error);
+
         this.logger.warn("Operation attempt failed", {
-            operationName,
-            attempt: attempts,
-            error: error.message,
-            consecutiveFailures: this.consecutiveFailures,
-            circuitBreakerState: this.circuitBreakerState,
-          });
+          operationName,
+          attempt: attempts,
+          errorType,
+          errorMessage,
+          isRetryable,
+          consecutiveFailures: this.consecutiveFailures,
+          circuitBreakerState: this.circuitBreakerState,
+          elapsedTimeMs: Date.now() - startTime
+        });
 
         if (attempts < config.maxAttempts) {
-          const delay = this.calculateDelay(config, attempts);
-          await this.delay(delay);
+          // Verificar se o erro é retentável
+          if (isRetryable) {
+            const delay = this.calculateDelay(config, attempts);
+            
+            this.logger.info("Retry scheduled for transient error", {
+              operationName,
+              attempt: attempts,
+              delayMs: delay,
+              errorType,
+              isRetryable: true,
+              nextAttempt: attempts + 1,
+              maxAttempts: config.maxAttempts
+            });
+            
+            await this.delay(delay);
 
-          if (this.logger.debug) {
-            this.logger.debug("Waiting before next retry attempt", { operationName, delayMs: delay, nextAttempt: attempts + 1 });
+            if (this.logger.debug) {
+              this.logger.debug("Waiting before next retry attempt completed", { 
+                operationName, 
+                delayMs: delay, 
+                nextAttempt: attempts + 1 
+              });
+            }
+          } else {
+            // Erro não retentável - parar imediatamente
+            this.logger.error("Non-retryable error encountered, stopping retries", {
+              operationName,
+              attempt: attempts,
+              errorType,
+              errorMessage,
+              isRetryable: false,
+              reason: "Client error (4xx) or non-transient error"
+            });
+            break;
           }
         }
       }
@@ -120,9 +182,20 @@ export class RetrySystem {
 
     this.updateMetrics(false, Date.now() - startTime);
 
+    const finalError = lastError?.message || "Operation failed after all retry attempts";
+    
+    this.logger.error("Operation failed after all retry attempts", {
+      operationName,
+      attempts,
+      totalDurationMs: Date.now() - startTime,
+      finalError,
+      circuitBreakerState: this.circuitBreakerState,
+      consecutiveFailures: this.consecutiveFailures
+    });
+
     return {
       success: false,
-      error: lastError?.message || "Operation failed after all retry attempts",
+      error: finalError,
       attempts,
       totalDurationMs: Date.now() - startTime,
       lastAttemptAt: new Date(),

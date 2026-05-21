@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { IntelligentPollingService, PollingJobHandler } from "@/shared/services/IntelligentPollingService";
-import { getPollingConfigFromEnv } from "@/shared/services/polling.config";
+import cron from "node-cron";
 import { createProductsModule } from "@/modules/products";
 
 type LoggerLike = {
@@ -21,12 +20,11 @@ function resolveLogger(input: FastifyInstance | LoggerLike): LoggerLike {
 }
 
 /**
- * Job: monitoramento inteligente de estoque
- * - Polling dinâmico baseado em criticidade
- * - Intervalo base: 2 minutos (configurável via env)
+ * Job: monitoramento de estoque
+ * - Execução periódica via cron
  * - Detecção de estoque crítico
- * - Backoff exponencial em caso de falhas
- * - Polling adaptativo baseado em sucessos consecutivos
+ * - Retry controlado em caso de falhas
+ * - Execução única por job
  */
 export function startStockMonitorJob(
   appOrLogger: FastifyInstance | LoggerLike
@@ -38,104 +36,108 @@ export function startStockMonitorJob(
     return;
   }
 
-  // ✅ obtém configuração do polling do ambiente
-  const pollingConfigs = getPollingConfigFromEnv();
-  const jobConfig = pollingConfigs["stock-monitor"];
+  // ✅ flag de ativação
+  const enabledValue = String(
+    process.env.ENABLE_STOCK_MONITOR_JOB ?? ""
+  )
+    .trim()
+    .toLowerCase();
 
-  if (!jobConfig.enabled) {
-    log.info({}, "stock monitor job disabled via environment");
+  const enabled = enabledValue === "true" || enabledValue === "1";
+  if (!enabled) {
+    log.info({}, "stock monitor job disabled");
     return;
   }
 
-  // ✅ cria serviço de polling inteligente
-  const pollingService = new IntelligentPollingService(log);
+  // ✅ cron configurável
+  const cronExpr =
+    String(process.env.STOCK_MONITOR_CRON ?? "").trim() ||
+    "*/2 * * * *";
 
-  // ✅ registra o job no serviço de polling
-  pollingService.registerJob(jobConfig);
+  const effectiveCronExpr = cron.validate(cronExpr)
+    ? cronExpr
+    : "*/2 * * * *";
 
-  // ✅ handler para execução do job
-  const jobHandler: PollingJobHandler = {
-    execute: async () => {
-      const startTime = Date.now();
-
-      try {
-        // ✅ obtém instância do Fastify se disponível
-        const app =
-          "decorate" in (appOrLogger as any)
-            ? (appOrLogger as FastifyInstance)
-            : null;
-
-        if (!app) {
-          throw new Error(
-            "Fastify instance is required to run Stock Monitor job"
-          );
-        }
-
-        // ✅ obtém módulo de produtos
-        const { useCases } = createProductsModule(app);
-
-        // ✅ executa refresh de estoque para obter dados atualizados
-        const refreshResult = await useCases.refreshStock.execute();
-
-        // ✅ obtém produtos com estoque crítico
-        const criticalStock = await this.checkCriticalStock(app);
-
-        const durationMs = Date.now() - startTime;
-
-        return {
-          success: true,
-          durationMs,
-          data: {
-            refreshResult,
-            criticalStock,
-            timestamp: new Date().toISOString(),
-          },
-          metadata: {
-            jobType: "stock-monitor",
-            criticalItemsCount: criticalStock.length,
-            refreshSuccess: refreshResult.success,
-          },
-        };
-      } catch (err: any) {
-        const durationMs = Date.now() - startTime;
-
-        return {
-          success: false,
-          durationMs,
-          error: err.message,
-          metadata: {
-            errorStack: err.stack,
-            jobType: "stock-monitor",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-    },
-  };
-
-  // ✅ inicia o job com polling inteligente
-  pollingService.startJob("stock-monitor", jobHandler).catch((error) => {
-    log.error(
-      { error: error.message, stack: error.stack },
-      "Failed to start stock monitor job"
+  if (effectiveCronExpr !== cronExpr) {
+    log.warn(
+      { cronExpr },
+      "stock monitor job: invalid cron expr, falling back to */2 * * * *"
     );
-  });
+  }
 
   log.info(
-    { 
-      baseIntervalMs: jobConfig.baseIntervalMs,
-      maxIntervalMs: jobConfig.maxIntervalMs,
-      criticality: jobConfig.criticality,
-      adaptivePolling: jobConfig.adaptivePolling,
-    },
-    "stock monitor job started with intelligent polling"
+    { cronExpr: effectiveCronExpr },
+    "stock monitor job scheduled"
   );
 
-  // ✅ retorna função para parar o job
-  return () => {
-    pollingService.stopJob("stock-monitor");
-    log.info({}, "stock monitor job stopped");
+  let inFlight = false;
+
+  const tick = async () => {
+    if (inFlight) {
+      log.warn(
+        {},
+        "stock monitor job skipped (previous run still in progress)"
+      );
+      return;
+    }
+
+    inFlight = true;
+    const startedAt = Date.now();
+    const startedAtIso = new Date(startedAt).toISOString();
+
+    log.info({ startedAt: startedAtIso }, "stock monitor job started");
+
+    try {
+      // ✅ obtém instância do Fastify se disponível
+      const app =
+        "decorate" in (appOrLogger as any)
+          ? (appOrLogger as FastifyInstance)
+          : null;
+
+      if (!app) {
+        throw new Error(
+          "Fastify instance is required to run Stock Monitor job"
+        );
+      }
+
+      // ✅ obtém módulo de produtos
+      const { useCases } = createProductsModule(app);
+
+      // ✅ executa refresh de estoque para obter dados atualizados
+      const refreshResult = await useCases.refreshStock.execute();
+
+      // ✅ obtém produtos com estoque crítico
+      const criticalStock = await checkCriticalStock(app);
+
+      const durationMs = Date.now() - startedAt;
+
+      log.info(
+        {
+          startedAt: startedAtIso,
+          finishedAt: new Date().toISOString(),
+          durationMs,
+          criticalItemsCount: criticalStock.length,
+          refreshSuccess: refreshResult.success,
+        },
+        "stock monitor job finished"
+      );
+    } catch (err: any) {
+      log.error(
+        { err, stack: err?.stack, startedAt: startedAtIso },
+        "stock monitor job failed"
+      );
+    } finally {
+      inFlight = false;
+    }
   };
+
+  const task = cron.schedule(effectiveCronExpr, tick, {
+    scheduled: true,
+    timezone: "America/Sao_Paulo",
+  });
+
+  // ✅ permite parar o job (shutdown)
+  return () => task.stop();
 }
 
 /**

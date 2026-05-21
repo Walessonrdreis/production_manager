@@ -7,12 +7,15 @@
 
 ## REGRA 2: TRABALHO INCREMENTAL OBRIGATÓRIO
 - **Máximo 3 arquivos** por ação
-- **Máximo 15 minutos** por ação
+- **Máximo 5 minutos** por ação
 - **Uma tarefa** específica por ação
 - Mostrar progresso após cada ação
+- Não implementar múltiplas features de uma vez
+- Fassa passo a passo, um passo para explica o que fez e agura confirmação do usuário.
+-
 
 ## REGRA 3: CONFIRMAÇÃO PARA MUDANÇAS CRÍTICAS
-- Se necessário para execução do projeto, pedir confirmação
+- Se haver uma chance de quebrar a aplicação, sempre pedir confirmação
 - Explicar impacto das mudanças
 - Oferecer opções quando possível
 
@@ -27,6 +30,6 @@
 - Facilita revisão e controle
 
 ## REFERÊNCIAS
-- [Trabalho Incremental](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/trabalho-incremental.md)
+- [Trabalho Incremental](./trabalho-incremental.md)
 - [TDD Princípios](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/tdd-principios.md)
-- [SRP Granularidade](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/srp-granularidade.md)
+- [SRP Granularidade](./srp-granularidade.md)

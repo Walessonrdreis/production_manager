@@ -4,23 +4,23 @@ export type RetryConfigMap = Record<string, RetryConfig>;
 
 export const DEFAULT_RETRY_CONFIGS: RetryConfigMap = {
   "omie-production-orders-sync": {
-    maxAttempts: 3,
-    baseDelayMs: 2000,
-    maxDelayMs: 30000,
+    maxAttempts: 2,
+    baseDelayMs: 3000,
+    maxDelayMs: 10000,
     exponentialFactor: 2,
     jitter: true,
-    jitterFactor: 0.1,
+    jitterFactor: 0.2,
     circuitBreakerEnabled: true,
     circuitBreakerThreshold: 3,
     circuitBreakerResetTimeoutMs: 60000,
   },
   "omie-orders-stage20-sync": {
-    maxAttempts: 3,
-    baseDelayMs: 2000,
-    maxDelayMs: 30000,
+    maxAttempts: 2,
+    baseDelayMs: 3000,
+    maxDelayMs: 10000,
     exponentialFactor: 2,
     jitter: true,
-    jitterFactor: 0.1,
+    jitterFactor: 0.2,
     circuitBreakerEnabled: true,
     circuitBreakerThreshold: 3,
     circuitBreakerResetTimeoutMs: 60000,
@@ -28,13 +28,13 @@ export const DEFAULT_RETRY_CONFIGS: RetryConfigMap = {
   "stock-monitor": {
     maxAttempts: 2,
     baseDelayMs: 5000,
-    maxDelayMs: 60000,
+    maxDelayMs: 15000,
     exponentialFactor: 2,
     jitter: true,
     jitterFactor: 0.2,
-    circuitBreakerEnabled: false,
-    circuitBreakerThreshold: 5,
-    circuitBreakerResetTimeoutMs: 120000,
+    circuitBreakerEnabled: true,
+    circuitBreakerThreshold: 3,
+    circuitBreakerResetTimeoutMs: 60000,
   },
 };
 
@@ -47,11 +47,57 @@ function safeParseInt(value: string | undefined, defaultValue: number): number {
 function safeParseFloat(value: string | undefined, defaultValue: number): number {
   if (!value) return defaultValue;
   const parsed = parseFloat(value);
-  return isNaN(parsed) || parsed <= 0 ? defaultValue : parsed;
+  return isNaN(parsed) ? defaultValue : parsed;
+}
+
+/**
+ * Determina se um erro deve ser retentado com base em sua natureza
+ * Retry apenas para erros transitórios:
+ * - Timeout (ETIMEDOUT)
+ * - Conexão resetada (ECONNRESET)
+ * - Rate limit (429)
+ * - Erros de servidor (5xx)
+ * 
+ * NÃO retry para:
+ * - Erros de cliente (400, 401, 403, 404)
+ * - Erros de validação
+ * - Erros de autorização
+ */
+export function shouldRetry(error: any): boolean {
+  const status = error?.response?.status;
+  const code = error?.code;
+  
+  // Erros de rede/timeout
+  if (code === "ETIMEDOUT" || code === "ECONNRESET") {
+    return true;
+  }
+  
+  // Rate limit
+  if (status === 429) {
+    return true;
+  }
+  
+  // Erros de servidor (5xx)
+  if (status >= 500 && status < 600) {
+    return true;
+  }
+  
+  // NÃO retry para erros de cliente
+  if (status >= 400 && status < 500) {
+    return false;
+  }
+  
+  // Por padrão, não retentar para outros tipos de erro
+  return false;
 }
 
 export function getRetryConfig(jobName: string): RetryConfig {
   const envPrefix = `RETRY_${jobName.toUpperCase().replace(/-/g, "_")}_`;
+  
+  // Proteção para job desconhecido
+  if (!DEFAULT_RETRY_CONFIGS[jobName]) {
+    console.warn(`RetryConfig não encontrado para ${jobName}, usando configuração default`);
+  }
   
   const config = DEFAULT_RETRY_CONFIGS[jobName] || RetrySystem.createDefaultConfig();
 

@@ -1,8 +1,7 @@
 import type { FastifyInstance } from "fastify";
+import cron from "node-cron";
 import { AppError } from "@/shared/errors";
 import { createOmieProductionOrdersModule } from "@/modules/omie-production-orders";
-import { IntelligentPollingService, PollingJobHandler } from "@/shared/services/IntelligentPollingService";
-import { getPollingConfigFromEnv } from "@/shared/services/polling.config";
 
 type LoggerLike = {
   info: (obj: any, msg?: string) => void;
@@ -22,11 +21,10 @@ function resolveLogger(input: FastifyInstance | LoggerLike): LoggerLike {
 }
 
 /**
- * Job: synchronizes Omie production orders usando IntelligentPollingService
- * - Polling dinâmico baseado em criticidade
- * - Intervalo base: 30 segundos (configurável via env)
- * - Backoff exponencial em caso de falhas
- * - Polling adaptativo baseado em sucessos consecutivos
+ * Job: synchronizes Omie production orders usando cron
+ * - Execução periódica via cron
+ * - Retry controlado em caso de falhas
+ * - Execução única por job
  */
 export function startOmieProductionOrdersSyncJob(
   appOrLogger: FastifyInstance | LoggerLike
@@ -38,102 +36,102 @@ export function startOmieProductionOrdersSyncJob(
     return;
   }
 
-  // ✅ obtém configuração do polling do ambiente
-  const pollingConfigs = getPollingConfigFromEnv();
-  const jobConfig = pollingConfigs["omie-production-orders-sync"];
+  // ✅ flag de ativação
+  const enabledValue = String(
+    process.env.ENABLE_OMIE_PRODUCTION_ORDERS_SYNC_JOB ?? ""
+  )
+    .trim()
+    .toLowerCase();
 
-  if (!jobConfig.enabled) {
-    log.info({}, "omie production orders sync job disabled via environment");
+  const enabled = enabledValue === "true" || enabledValue === "1";
+  if (!enabled) {
+    log.info({}, "omie production orders sync job disabled");
     return;
   }
 
-  // ✅ cria serviço de polling inteligente
-  const pollingService = new IntelligentPollingService(log);
+  // ✅ cron configurável
+  const cronExpr =
+    String(process.env.OMIE_PRODUCTION_ORDERS_SYNC_CRON ?? "").trim() ||
+    "*/30 * * * *";
 
-  // ✅ registra o job no serviço de polling
-  pollingService.registerJob(jobConfig);
+  const effectiveCronExpr = cron.validate(cronExpr)
+    ? cronExpr
+    : "*/30 * * * *";
 
-  // ✅ handler para execução do job
-  const jobHandler: PollingJobHandler = {
-    execute: async () => {
-      const startTime = Date.now();
-
-      try {
-        // ✅ obtém instância do Fastify se disponível
-        const app =
-          "decorate" in (appOrLogger as any)
-            ? (appOrLogger as FastifyInstance)
-            : null;
-
-        if (!app) {
-          throw new Error(
-            "Fastify instance is required to run Omie Production Orders job"
-          );
-        }
-
-        const { useCases } = createOmieProductionOrdersModule(app);
-        const result = await useCases.syncProductionOrders.execute();
-
-        const durationMs = Date.now() - startTime;
-
-        return {
-          success: true,
-          durationMs,
-          data: result,
-          metadata: {
-            syncType: "production-orders",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      } catch (err: any) {
-        const durationMs = Date.now() - startTime;
-
-        if (err instanceof AppError && err.code === "SYNC_IN_PROGRESS") {
-          return {
-            success: false,
-            durationMs,
-            error: "Sync already in progress",
-            metadata: {
-              errorCode: err.code,
-              syncType: "production-orders",
-            },
-          };
-        }
-
-        return {
-          success: false,
-          durationMs,
-          error: err.message,
-          metadata: {
-            errorStack: err.stack,
-            syncType: "production-orders",
-          },
-        };
-      }
-    },
-  };
-
-  // ✅ inicia o job com polling inteligente
-  pollingService.startJob("omie-production-orders-sync", jobHandler).catch((error) => {
-    log.error(
-      { error: error.message, stack: error.stack },
-      "Failed to start omie production orders sync job"
+  if (effectiveCronExpr !== cronExpr) {
+    log.warn(
+      { cronExpr },
+      "omie production orders sync job: invalid cron expr, falling back to */30 * * * *"
     );
-  });
+  }
 
   log.info(
-    { 
-      baseIntervalMs: jobConfig.baseIntervalMs,
-      maxIntervalMs: jobConfig.maxIntervalMs,
-      criticality: jobConfig.criticality,
-      adaptivePolling: jobConfig.adaptivePolling,
-    },
-    "omie production orders sync job started with intelligent polling"
+    { cronExpr: effectiveCronExpr },
+    "omie production orders sync job scheduled"
   );
 
-  // ✅ retorna função para parar o job
-  return () => {
-    pollingService.stopJob("omie-production-orders-sync");
-    log.info({}, "omie production orders sync job stopped");
+  let inFlight = false;
+
+  const tick = async () => {
+    if (inFlight) {
+      log.warn(
+        {},
+        "omie production orders sync job skipped (previous run still in progress)"
+      );
+      return;
+    }
+
+    inFlight = true;
+    const startedAt = Date.now();
+    const startedAtIso = new Date(startedAt).toISOString();
+
+    log.info({ startedAt: startedAtIso }, "omie production orders sync job started");
+
+    try {
+      // ✅ obtém instância do Fastify se disponível
+      const app =
+        "decorate" in (appOrLogger as any)
+          ? (appOrLogger as FastifyInstance)
+          : null;
+
+      if (!app) {
+        throw new Error(
+          "Fastify instance is required to run Omie Production Orders Sync job"
+        );
+      }
+
+      // ✅ obtém módulo de ordens de produção Omie
+      const { useCases } = createOmieProductionOrdersModule(app);
+
+      // ✅ executa sincronização de ordens de produção
+      const syncResult = await useCases.syncProductionOrders.execute();
+
+      const durationMs = Date.now() - startedAt;
+
+      log.info(
+        {
+          startedAt: startedAtIso,
+          finishedAt: new Date().toISOString(),
+          durationMs,
+          ordersSynced: syncResult.data?.ordersSynced || 0,
+        },
+        "omie production orders sync job finished"
+      );
+    } catch (err: any) {
+      log.error(
+        { err, stack: err?.stack, startedAt: startedAtIso },
+        "omie production orders sync job failed"
+      );
+    } finally {
+      inFlight = false;
+    }
   };
+
+  const task = cron.schedule(effectiveCronExpr, tick, {
+    scheduled: true,
+    timezone: "America/Sao_Paulo",
+  });
+
+  // ✅ permite parar o job (shutdown)
+  return () => task.stop();
 }
