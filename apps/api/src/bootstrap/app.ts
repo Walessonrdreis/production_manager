@@ -198,11 +198,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ---------------------------------------------------------------------------
   await registerRoutes(app);
 
-  // (opcional) manter enquanto você está validando endpoints
-  
-  console.log(app.printRoutes());
-
-
   /// ---------------------------------------------------------------------------
 // Jobs (✅ UMA VEZ, ✅ DEPOIS DAS ROTAS)
 // ---------------------------------------------------------------------------

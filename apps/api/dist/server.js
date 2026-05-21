@@ -5137,15 +5137,10 @@ function extractOmieClientCode(order) {
 }
 function filterFinancialData(rawPayload) {
   if (!rawPayload) return rawPayload;
-  console.log("DEBUG: Filtrando dados financeiros do rawPayload");
   const filteredPayload = JSON.parse(JSON.stringify(rawPayload));
   if (filteredPayload.det && Array.isArray(filteredPayload.det)) {
-    console.log(`DEBUG: Encontrado ${filteredPayload.det.length} itens no array det`);
-    filteredPayload.det = filteredPayload.det.map((item, index) => {
+    filteredPayload.det = filteredPayload.det.map((item) => {
       const { imposto, ...itemWithoutTax } = item;
-      if (imposto) {
-        console.log(`DEBUG: Removido 'imposto' do item ${index}`);
-      }
       return itemWithoutTax;
     });
   }
@@ -5156,11 +5151,9 @@ function filterFinancialData(rawPayload) {
   ];
   financialSections.forEach((section) => {
     if (filteredPayload[section]) {
-      console.log(`DEBUG: Removida se\xE7\xE3o financeira '${section}'`);
       delete filteredPayload[section];
     }
   });
-  console.log("DEBUG: Filtragem de dados financeiros conclu\xEDda");
   return filteredPayload;
 }
 var ListStage20OrdersEnrichedUseCase = class {
@@ -5185,7 +5178,6 @@ var ListStage20OrdersEnrichedUseCase = class {
       const code = extractOmieClientCode(order);
       const client = code ? clientMap.get(code.toString()) ?? null : null;
       const nomeCliente = client ? client.tradeName || client.legalName : null;
-      console.log(`DEBUG: Pedido ${order.numeroPedido} - C\xF3digo cliente: ${code ? code.toString() : "null"} - Cliente encontrado: ${client ? "SIM" : "N\xC3O"} - Nome: ${nomeCliente}`);
       const { id, omieCode, numeroPedido, codigoCliente, codigoEmpresa, etapa, cancelado, encerrado, dataPrevisao, rawPayload, ...otherFields } = order;
       const filteredRawPayload = filterFinancialData(rawPayload);
       const enrichedOrder = {
@@ -5213,12 +5205,8 @@ var ListStage20OrdersEnrichedUseCase = class {
           document: client.document
         } : null
       };
-      console.log(`DEBUG: Estrutura do pedido ${order.numeroPedido}:`, Object.keys(enrichedOrder));
       return enrichedOrder;
     });
-    if (enrichedOrders.length > 0) {
-      console.log("DEBUG: Primeiro pedido enriquecido completo:", JSON.stringify(enrichedOrders[0], null, 2));
-    }
     return enrichedOrders;
   }
 };
@@ -10341,7 +10329,6 @@ async function buildApp() {
   });
   registerOpenAPIDocumentation(app);
   await registerRoutes(app);
-  console.log(app.printRoutes());
   if (env.ENABLE_STOCK_REFRESH_JOB) {
     startStockRefreshJob(app);
   }
