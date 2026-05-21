@@ -1,8 +1,7 @@
 ---
-alwaysApply: true
+alwaysApply: false
 scene: development
 ---
-
 # ESTRATÉGIA DE TESTES - PIRÂMIDE TDD
 
 ## REGRA 1: PIRÂMIDE DE TESTES

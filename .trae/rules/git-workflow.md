@@ -1,8 +1,7 @@
 ---
-alwaysApply: true
+alwaysApply: false
 scene: git_message
 ---
-
 # GIT WORKFLOW - COMMITS E BRANCHES
 
 ## REGRA 1: MENSAGENS DE COMMIT

@@ -1,3 +1,6 @@
+---
+alwaysApply: true
+---
 # REGRAS DE RESPOSTAS - SEGURANÇA
 
 ## REGRA 1: SEM QUEBRAS DE COMPILAÇÃO

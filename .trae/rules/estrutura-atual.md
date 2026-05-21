@@ -1,8 +1,7 @@
 ---
-alwaysApply: true
+alwaysApply: false
 scene: development
 ---
-
 # ESTRUTURA ATUAL - DIRETRIZES
 
 ## ORGANIZAÇÃO EXISTENTE

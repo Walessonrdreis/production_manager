@@ -1,3 +1,6 @@
+---
+alwaysApply: false
+---
 # TRABALHO INCREMENTAL - AÇÕES CURTAS
 
 ## REGRA 1: MÁXIMO DE ARQUIVOS POR AÇÃO

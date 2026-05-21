@@ -1,8 +1,7 @@
 ---
-alwaysApply: true
+alwaysApply: false
 scene: development
 ---
-
 # PRINCÍPIOS TDD - DESENVOLVIMENTO GUIADO POR TESTES
 
 ## REGRA 1: CICLO TDD OBRIGATÓRIO

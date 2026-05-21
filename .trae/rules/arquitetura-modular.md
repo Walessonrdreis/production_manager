@@ -1,8 +1,7 @@
 ---
-alwaysApply: true
+alwaysApply: false
 scene: development
 ---
-
 # ARQUITETURA MODULAR - ESTRUTURA ATUAL
 
 ## REGRA 1: MANTER ESTRUTURA EXISTENTE

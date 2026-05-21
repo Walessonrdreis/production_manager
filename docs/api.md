@@ -28,13 +28,17 @@ apps/api/
 │  ├─ bootstrap/
 │  │  ├─ app.ts            (montagem Fastify, plugins, jobs)
 │  │  ├─ server.ts         (listen)
-│  │  └─ routes.ts         (registro de rotas)
+│  │  ├─ routes.ts         (registro de rotas)
+│  │  ├─ openapi-simple.ts (documentação OpenAPI)
+│  │  └─ plugins/          (plugins: error-handler, job-lock, logger, prisma)
 │  ├─ config/
 │  │  └─ env.ts            (schema/validação de env com Zod)
 │  ├─ infra/               (infraestrutura: db/prisma, etc.)
 │  ├─ modules/             (features por domínio)
 │  ├─ shared/              (cross-cutting: errors, logger, http, integrações)
 │  ├─ contracts/           (contratos/tipos compartilháveis)
+│  ├─ lib/                 (utilitários: http helpers)
+│  ├─ @types/              (tipos TypeScript)
 │  └─ legacy/              (código legado preservado)
 ├─ prisma/
 │  ├─ schema.prisma
@@ -50,16 +54,24 @@ apps/api/
 
 ## Módulos (src/modules)
 
-Organização por domínio/feature. Em geral cada módulo agrupa rotas, schemas/validação, casos de uso e integrações do seu contexto.
+Organização por domínio/feature com arquitetura limpa (clean architecture). Cada módulo segue estrutura: `application/`, `infrastructure/`, `presentation/`, `register.ts`.
 
-- `products`: catálogo, estoque, “managed-products” e sincronização com Omie
-- `omie-orders`: sincronização/persistência/consulta de pedidos (ex.: stage 20)
+- `alerts`: sistema de alertas de estoque
+- `client`: sincronização/consulta de clientes Omie
+- `internal-production-orders`: ordens de produção internas
+- `omie-production-orders`: ordens de produção Omie
+- `omie-sales-orders`: pedidos de venda Omie (stage 20)
 - `orders-enriched`: composição/enriquecimento de dados para consumo interno
 - `orders-view`: visão agregada/leitura para listagem de pedidos
-- `client`: sincronização/consulta de clientes Omie
-- `sectors`: CRUD/casos de uso para setores
+- `plans`: planos de produção (inclui exportação CSV)
 - `product-sector`: relação/setor padrão de produto
-- `plans`: planos (inclui exportação CSV)
+- `product-sectors`: setores de produto
+- `product-structure`: estrutura de produtos
+- `production-queue`: fila de produção
+- `sales-production-integration`: integração vendas-produção
+- `sectors`: CRUD/casos de uso para setores
+- `sync`: sincronização geral
+- `trello-integration`: integração com Trello
 
 ## Infra e compartilhados
 
@@ -67,7 +79,7 @@ Organização por domínio/feature. Em geral cada módulo agrupa rotas, schemas/
 - `src/shared`:
   - `errors`: exceções de domínio (ex.: `AppError`) e mapeamentos de erro
   - `http`: helpers/adapter de request/response e utilidades de endpoint
-  - `integrations`: clientes para serviços externos (ex.: Omie)
+  - `integrations`: clientes para serviços externos (ex.: Omie com circuit breaker)
   - `logger`: logging
   - `jobs`: utilitários para jobs (ex.: backoff/lock)
 

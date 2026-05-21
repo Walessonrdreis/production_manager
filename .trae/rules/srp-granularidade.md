@@ -1,8 +1,7 @@
 ---
-alwaysApply: true
+alwaysApply: false
 scene: development
 ---
-
 # SRP GLOBAL - RESPONSABILIDADE ÚNICA
 
 ## REGRA 1: 1 ARQUIVO = 1 INTENÇÃO
