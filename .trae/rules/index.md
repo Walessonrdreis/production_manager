@@ -2,46 +2,46 @@
 
 ## 📋 REGRAS PRINCIPAIS
 
-### 1. [TDD PRINCÍPIOS](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/tdd-principios.md)
+### 1. [TDD PRINCÍPIOS](./tdd-principios.md)
 - Desenvolvimento guiado por testes
 - Ciclo RED-GREEN-REFACTOR obrigatório
 - Testes antes do código
 
-### 2. [SRP GRANULARIDADE](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/srp-granularidade.md)
+### 2. [SRP GRANULARIDADE](./srp-granularidade.md)
 - 1 arquivo = 1 intenção
 - Padrão Verbo + Objeto para nomes
 - Crescimento orgânico com fragmentação
 
-### 3. [ARQUITETURA MODULAR](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/arquitetura-modular.md)
+### 3. [ARQUITETURA MODULAR](./arquitetura-modular.md)
 - Manter estrutura Clean Architecture atual
 - Organização por módulos independentes
 - Evolução gradual da arquitetura
 
-### 4. [QUALIDADE CÓDIGO](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/qualidade-codigo.md)
+### 4. [QUALIDADE CÓDIGO](./qualidade-codigo.md)
 - Sem quebras de compilação
 - Verificação contínua de logs
 - Trabalhos curtos e focados
 
-### 5. [TESTES ESTRATÉGIA](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/testes-estrategia.md)
+### 5. [TESTES ESTRATÉGIA](./testes-estrategia.md)
 - Pirâmide de testes (70% unitários)
 - Mocks minimalistas
 - Cobertura inteligente
 
-### 6. [GIT WORKFLOW](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/git-workflow.md)
+### 6. [GIT WORKFLOW](./git-workflow.md)
 - Mensagens de commit padronizadas
 - Branch strategy definida
 - Commits atômicos
 
 ## 🏗️ ESTRUTURA ATUAL
 
-### 7. [ESTRUTURA ATUAL](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/estrutura-atual.md)
+### 7. [ESTRUTURA ATUAL](./estrutura-atual.md)
 - Manter compatibilidade com código existente
 - Evoluir gradualmente sem reescritas
 - Preservar APIs públicas
 
 ## 🚀 ETAPA 2 IMPLEMENTAÇÃO
 
-### 8. [ETAPA 2 DIRETRIZES](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/etapa-2-diretrizes.md)
+### 8. [ETAPA 2 DIRETRIZES](./etapa-2-diretrizes.md)
 - Polling inteligente (estoque: 2min, pedidos: 1min, produção: 30s)
 - Cache multi-nível (memória → Redis → banco)
 - Dashboard tempo real com WebSocket
@@ -49,18 +49,18 @@
 
 ## 📝 REGRAS EXISTENTES
 
-### 9. [REGRAS DE RESPOSTAS](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/regras-de-respostas.md)
+### 9. [REGRAS DE RESPOSTAS](./regras-de-respostas.md)
 - Não quebrar compilação
 - Confirmar antes de mudanças críticas
 - Trabalho incremental obrigatório
 
-### 10. [TRABALHO INCREMENTAL](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/trabalho-incremental.md)
+### 10. [TRABALHO INCREMENTAL](./trabalho-incremental.md)
 - Máximo 3 arquivos por ação
 - Máximo 15 minutos por ação
 - Uma tarefa específica por ação
 - Progresso visível passo a passo
 
-### 11. [GIT COMMIT MESSAGE](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/git-commit-message.md)
+### 11. [GIT COMMIT MESSAGE](./git-commit-message.md)
 - Formato: `tipo(escopo): descrição`
 - Tipos: feat, fix, docs, style, refactor, test, chore
 

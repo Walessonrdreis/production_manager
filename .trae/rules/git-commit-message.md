@@ -1,8 +1,7 @@
 ---
-alwaysApply: true
+alwaysApply: false
 scene: git_message
 ---
-
 # FORMATO DE MENSAGENS DE COMMIT
 
 ## ESTRUTURA OBRIGATÓRIA

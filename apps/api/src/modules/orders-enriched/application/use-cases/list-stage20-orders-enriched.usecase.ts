@@ -62,23 +62,14 @@ function extractOmieClientCode(order: any): bigint | null {
 function filterFinancialData(rawPayload: any): any {
   if (!rawPayload) return rawPayload;
   
-  console.log('DEBUG: Filtrando dados financeiros do rawPayload');
-  
   // Cria uma cópia do payload para não modificar o original
   const filteredPayload = JSON.parse(JSON.stringify(rawPayload));
   
   // Remove dados financeiros do array det (itens do pedido)
   if (filteredPayload.det && Array.isArray(filteredPayload.det)) {
-    console.log(`DEBUG: Encontrado ${filteredPayload.det.length} itens no array det`);
-    
-    filteredPayload.det = filteredPayload.det.map((item: any, index: number) => {
+    filteredPayload.det = filteredPayload.det.map((item: any) => {
       // Remove a propriedade 'imposto' que contém dados financeiros
       const { imposto, ...itemWithoutTax } = item;
-      
-      if (imposto) {
-        console.log(`DEBUG: Removido 'imposto' do item ${index}`);
-      }
-      
       return itemWithoutTax;
     });
   }
@@ -92,12 +83,10 @@ function filterFinancialData(rawPayload: any): any {
   
   financialSections.forEach(section => {
     if (filteredPayload[section]) {
-      console.log(`DEBUG: Removida seção financeira '${section}'`);
       delete filteredPayload[section];
     }
   });
   
-  console.log('DEBUG: Filtragem de dados financeiros concluída');
   return filteredPayload;
 }
 
@@ -136,9 +125,6 @@ export class ListStage20OrdersEnrichedUseCase {
         ? (client.tradeName || client.legalName)
         : null;
 
-      // DEBUG: Log para verificar se encontrou o cliente
-      console.log(`DEBUG: Pedido ${order.numeroPedido} - Código cliente: ${code ? code.toString() : 'null'} - Cliente encontrado: ${client ? 'SIM' : 'NÃO'} - Nome: ${nomeCliente}`);
-
       // Cria um novo objeto com nomeCliente logo após codigoCliente
       // Extraímos os campos que queremos em ordem específica
       const { id, omieCode, numeroPedido, codigoCliente, codigoEmpresa, etapa, cancelado, encerrado, dataPrevisao, rawPayload, ...otherFields } = order;
@@ -171,16 +157,8 @@ export class ListStage20OrdersEnrichedUseCase {
           : null,
       };
 
-      // DEBUG: Verificar estrutura do pedido enriquecido
-      console.log(`DEBUG: Estrutura do pedido ${order.numeroPedido}:`, Object.keys(enrichedOrder));
-      
       return enrichedOrder;
     });
-
-    // DEBUG: Log do primeiro pedido enriquecido
-    if (enrichedOrders.length > 0) {
-      console.log('DEBUG: Primeiro pedido enriquecido completo:', JSON.stringify(enrichedOrders[0], null, 2));
-    }
 
     // Retorna apenas os pedidos enriquecidos
     return enrichedOrders;

@@ -31,5 +31,5 @@
 
 ## REFERÊNCIAS
 - [Trabalho Incremental](./trabalho-incremental.md)
-- [TDD Princípios](file:///C:/Users/walll/OneDrive/projects_git/production_manager/.trae/rules/tdd-principios.md)
+- [TDD Princípios](./tdd-principios.md)
 - [SRP Granularidade](./srp-granularidade.md)

@@ -1,8 +1,7 @@
 ---
-alwaysApply: true
+alwaysApply: false
 scene: development
 ---
-
 # ETAPA 2 - DIRETRIZES DE IMPLEMENTAÇÃO (API-FIRST)
 
 ## OBJETIVOS PRIORITÁRIOS - ESTRATÉGIA API-FIRST
