@@ -21,6 +21,7 @@ import { registerProductStructureModule } from "@/modules/product-structure/regi
 import { registerInternalProductionOrdersModule } from "@/modules/internal-production-orders/register";
 import { registerTrelloIntegrationModule } from "@/modules/trello-integration/register";
 import { registerProductSectorsModule } from "@/modules/product-sectors";
+import { registerIntegrationModule } from "@/modules/integration/register";
 
 
 export async function registerRoutes(app: FastifyInstance) {
@@ -300,6 +301,9 @@ export async function registerRoutes(app: FastifyInstance) {
 
   // trello integration module
   await registerTrelloIntegrationModule(app);
+
+  // integration module (API 1 - Command Integration Flow)
+  await registerIntegrationModule(app);
 
   // product-sectors module (defaults: Refino, Temperagem, Confeitaria, Embalagem)
   await registerProductSectorsModule(app);

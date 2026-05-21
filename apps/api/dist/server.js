@@ -8878,6 +8878,91 @@ async function registerProductSectorsModule(app) {
   const seeded = await seedUseCase.execute();
   logger.info({ count: seeded.length }, "[ProductSectors] setores padr\xE3o sincronizados");
 }
+var CreateProductionOrderRequestSchema = zod.z.object({
+  productId: zod.z.string(),
+  quantity: zod.z.number().positive(),
+  externalRequestId: zod.z.string(),
+  scheduledDate: zod.z.string().datetime().optional(),
+  notes: zod.z.string().optional()
+});
+var CreateProductionOrderResponseSchema = zod.z.object({
+  success: zod.z.boolean(),
+  data: zod.z.object({
+    externalRequestId: zod.z.string(),
+    status: zod.z.enum(["ACCEPTED"])
+  })
+});
+var ValidationErrorResponseSchema = zod.z.object({
+  success: zod.z.boolean(),
+  error: zod.z.literal("VALIDATION_ERROR"),
+  message: zod.z.string()
+});
+var InternalErrorResponseSchema = zod.z.object({
+  success: zod.z.boolean(),
+  error: zod.z.literal("INTERNAL_ERROR"),
+  message: zod.z.string()
+});
+
+// src/modules/integration/application/use-cases/create-production-order.usecase.ts
+var CreateProductionOrderUseCase = class {
+  async execute(request) {
+    const response = {
+      success: true,
+      data: {
+        externalRequestId: request.externalRequestId,
+        status: "ACCEPTED"
+      }
+    };
+    return response;
+  }
+};
+async function createProductionOrderController(request, reply) {
+  try {
+    const validatedData = CreateProductionOrderRequestSchema.parse(request.body);
+    const useCase = new CreateProductionOrderUseCase();
+    const successResponse = await useCase.execute(validatedData);
+    return reply.code(202).send(successResponse);
+  } catch (error) {
+    if (error instanceof zod.z.ZodError) {
+      const validationError = {
+        success: false,
+        error: "VALIDATION_ERROR",
+        message: "Invalid request payload"
+      };
+      return reply.code(400).send(validationError);
+    }
+    const internalError = {
+      success: false,
+      error: "INTERNAL_ERROR",
+      message: "An unexpected error occurred"
+    };
+    return reply.code(500).send(internalError);
+  }
+}
+
+// src/modules/integration/presentation/http/routes.ts
+async function integrationRoutes(app) {
+  app.route({
+    method: "POST",
+    url: "/v1/integration/production-order",
+    schema: {
+      description: "Mock endpoint for production order integration (API 1)",
+      tags: ["integration"],
+      body: CreateProductionOrderRequestSchema,
+      response: {
+        202: CreateProductionOrderResponseSchema,
+        400: ValidationErrorResponseSchema,
+        500: InternalErrorResponseSchema
+      }
+    },
+    handler: createProductionOrderController
+  });
+}
+
+// src/modules/integration/register.ts
+async function registerIntegrationModule(app) {
+  await app.register(integrationRoutes);
+}
 
 // src/bootstrap/routes.ts
 async function registerRoutes(app) {
@@ -9107,6 +9192,7 @@ async function registerRoutes(app) {
   await registerClientModule(app);
   await registerInternalProductionOrdersModule(app);
   await registerTrelloIntegrationModule(app);
+  await registerIntegrationModule(app);
   await registerProductSectorsModule(app);
   registerAlertsModule(app);
   registerSalesProductionIntegrationModule(app);

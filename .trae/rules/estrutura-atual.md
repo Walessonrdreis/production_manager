@@ -1,5 +1,5 @@
 ---
-alwaysApply: false
+alwaysApply: true
 scene: development
 ---
 # ESTRUTURA ATUAL - DIRETRIZES
@@ -11,7 +11,6 @@ apps/api/src/
 ├── config/            # Configurações de ambiente
 ├── contracts/         # Contratos de API pública
 ├── infra/             # Infraestrutura compartilhada
-├── legacy/            # Código legado (manter compatibilidade)
 ├── lib/               # Utilitários compartilhados
 ├── modules/           # Módulos de negócio
 └── shared/            # Código comum entre módulos

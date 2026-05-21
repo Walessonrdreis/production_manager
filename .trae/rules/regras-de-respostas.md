@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
 # REGRAS DE RESPOSTAS - SEGURANÇA
 

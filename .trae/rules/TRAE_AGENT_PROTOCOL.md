@@ -12,6 +12,12 @@ O agente executa EXATAMENTE o que foi pedido.
 
 Se não está explicitamente descrito → NÃO FAZER.
 
+Explique o que foi feito.
+
+Mostre código.
+
+Confirme impacto.
+
 ---
 
 # 🧠 REGRA 1 — UM STEP POR VEZ
@@ -33,7 +39,7 @@ Se não está explicitamente descrito → NÃO FAZER.
 
 Após finalizar o STEP:
 
-- PARAR IMEDIATAMENTE
+- PARAR IMEDIATAMENTE após explicar o que foi feito
 - NÃO continuar
 - NÃO sugerir implementação adicional
 

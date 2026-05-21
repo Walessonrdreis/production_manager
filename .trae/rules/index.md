@@ -1,6 +1,14 @@
+---
+alwaysApply: true
+---
 # REGRAS DO PROJETO - ÍNDICE
 
 ## 📋 REGRAS PRINCIPAIS
+
+### 0. [TRAE AGENT PROTOCOL](./TRAE_AGENT_PROTOCOL.md)
+- Segurança e confiabilidade
+- Integridade de código
+- Comunicação eficiente
 
 ### 1. [TDD PRINCÍPIOS](./tdd-principios.md)
 - Desenvolvimento guiado por testes
@@ -54,11 +62,6 @@
 - Confirmar antes de mudanças críticas
 - Trabalho incremental obrigatório
 
-### 10. [TRABALHO INCREMENTAL](./trabalho-incremental.md)
-- Máximo 3 arquivos por ação
-- Máximo 15 minutos por ação
-- Uma tarefa específica por ação
-- Progresso visível passo a passo
 
 ### 11. [GIT COMMIT MESSAGE](./git-commit-message.md)
 - Formato: `tipo(escopo): descrição`

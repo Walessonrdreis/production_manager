@@ -1,5 +1,5 @@
 ---
-alwaysApply: false
+alwaysApply: true
 scene: development
 ---
 # QUALIDADE DE CÓDIGO - PADRÕES ESSENCIAIS

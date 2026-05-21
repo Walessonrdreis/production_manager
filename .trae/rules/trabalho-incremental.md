@@ -1,11 +1,10 @@
 ---
-alwaysApply: false
+alwaysApply: true
 ---
 # TRABALHO INCREMENTAL - AÇÕES CURTAS
 
-## REGRA 1: MÁXIMO DE ARQUIVOS POR AÇÃO
-- **Máximo 3 arquivos** criados/modificados por ação
-- Se precisar alterar mais arquivos, divida em múltiplas ações
+## REGRA 1: Cada passo deve ser curto
+- Não combine múltiplas ações em uma única passagem
 - Mostre progresso após cada ação
 
 ## REGRA 2: UMA TAREFA POR AÇÃO
