@@ -7,7 +7,6 @@ var crypto = require('crypto');
 var zod = require('zod');
 var client = require('@prisma/client');
 var contracts = require('@shared/contracts');
-var zodToJsonSchema = require('zod-to-json-schema');
 var cron = require('node-cron');
 
 function _interopDefault (e) { return e && e.__esModule ? e : { default: e }; }
@@ -8887,19 +8886,19 @@ var CreateProductionOrderRequestSchema = zod.z.object({
   scheduledDate: zod.z.string().datetime().optional(),
   notes: zod.z.string().optional()
 });
-var CreateProductionOrderResponseSchema = zod.z.object({
+zod.z.object({
   success: zod.z.boolean(),
   data: zod.z.object({
     externalRequestId: zod.z.string(),
     status: zod.z.enum(["ACCEPTED"])
   })
 });
-var ValidationErrorResponseSchema = zod.z.object({
+zod.z.object({
   success: zod.z.boolean(),
   error: zod.z.literal("VALIDATION_ERROR"),
   message: zod.z.string()
 });
-var InternalErrorResponseSchema = zod.z.object({
+zod.z.object({
   success: zod.z.boolean(),
   error: zod.z.literal("INTERNAL_ERROR"),
   message: zod.z.string()
@@ -8947,12 +8946,18 @@ var RealProductionOrderIntegrationGateway = class {
       return { externalRequestId: command.externalRequestId, status: "ACCEPTED" };
     } catch (error) {
       console.error("[OMIE ERROR FULL]", error);
-      if (error?.response) {
-        console.error("[OMIE RESPONSE DATA]", error.response.data);
+      let message = "Omie unknown error";
+      if (typeof error === "object" && error !== null) {
+        const anyError = error;
+        if (anyError.response?.data?.faultstring) {
+          message = anyError.response.data.faultstring;
+        } else if (anyError.response?.data?.error) {
+          message = anyError.response.data.error;
+        } else if (anyError.message) {
+          message = anyError.message;
+        }
       }
-      throw new Error(
-        error?.response?.data?.faultstring || error?.response?.data?.error || error.message || "Omie unknown error"
-      );
+      throw new Error(message);
     }
   }
   formatDate(date) {
@@ -9036,19 +9041,15 @@ async function createProductionOrderController(request, reply, useCase) {
     return reply.code(500).send(internalError);
   }
 }
+
+// src/modules/integration/presentation/http/routes.ts
 async function integrationRoutes(app) {
   app.route({
     method: "POST",
     url: "/v1/integration/production-order",
     schema: {
       description: "Mock endpoint for production order integration (API 1)",
-      tags: ["integration"],
-      body: zodToJsonSchema.zodToJsonSchema(CreateProductionOrderRequestSchema),
-      response: {
-        202: zodToJsonSchema.zodToJsonSchema(CreateProductionOrderResponseSchema),
-        400: zodToJsonSchema.zodToJsonSchema(ValidationErrorResponseSchema),
-        500: zodToJsonSchema.zodToJsonSchema(InternalErrorResponseSchema)
-      }
+      tags: ["integration"]
     },
     handler: createProductionOrderController
   });
