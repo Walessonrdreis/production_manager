@@ -8946,8 +8946,13 @@ var RealProductionOrderIntegrationGateway = class {
       }
       return { externalRequestId: command.externalRequestId, status: "ACCEPTED" };
     } catch (error) {
-      console.error("[OmieIntegrationError]", error);
-      throw error;
+      console.error("[OMIE ERROR FULL]", error);
+      if (error?.response) {
+        console.error("[OMIE RESPONSE DATA]", error.response.data);
+      }
+      throw new Error(
+        error?.response?.data?.faultstring || error?.response?.data?.error || error.message || "Omie unknown error"
+      );
     }
   }
   formatDate(date) {
