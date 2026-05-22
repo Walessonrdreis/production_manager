@@ -14,14 +14,4 @@ export async function integrationRoutes(app: FastifyInstance) {
     handler: createProductionOrderController,
   });
   
-app.route({
-  method: "POST",
-  url: "/v1/integration/stock/position",
-  schema: {
-    description: "Get consolidated stock position by product (API 1)",
-    tags: ["integration", "stock"]
-  },
-  handler: getStockPositionController
-});
-
 }
