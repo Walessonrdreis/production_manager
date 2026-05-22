@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createProductionOrderController } from "./controllers";
+import { getStockPositionController } from "../../stock/presentation/http/stock-position.controller";
 
 export async function integrationRoutes(app: FastifyInstance) {
   // POST /v1/integration/production-order
@@ -12,4 +13,15 @@ export async function integrationRoutes(app: FastifyInstance) {
     },
     handler: createProductionOrderController,
   });
+  
+app.route({
+  method: "POST",
+  url: "/v1/integration/stock/position",
+  schema: {
+    description: "Get consolidated stock position by product (API 1)",
+    tags: ["integration", "stock"]
+  },
+  handler: getStockPositionController
+});
+
 }
