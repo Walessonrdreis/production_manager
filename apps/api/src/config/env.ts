@@ -8,6 +8,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   PORT: z.coerce.number().default(3333),
   CORS_ORIGIN: z.string().default(""),
+  PRODUCTION_ORDER_GATEWAY: z.enum(["fake", "real"]).default("fake"),
 
   // Omie
   OMIE_APP_KEY: z.string().min(1),

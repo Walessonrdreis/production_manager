@@ -22,6 +22,7 @@ var envSchema = zod.z.object({
   DATABASE_URL: zod.z.string().min(1),
   PORT: zod.z.coerce.number().default(3333),
   CORS_ORIGIN: zod.z.string().default(""),
+  PRODUCTION_ORDER_GATEWAY: zod.z.enum(["fake", "real"]).default("fake"),
   // Omie
   OMIE_APP_KEY: zod.z.string().min(1),
   OMIE_APP_SECRET: zod.z.string().min(1),
@@ -8913,11 +8914,31 @@ var FakeProductionOrderIntegrationGateway = class {
   }
 };
 
+// src/modules/integration/infrastructure/gateways/real-production-order-integration.gateway.ts
+var RealProductionOrderIntegrationGateway = class {
+  async createProductionOrder(command) {
+    console.log(`[RealGateway] Simulando cria\xE7\xE3o de ordem de produ\xE7\xE3o para produto: ${command.productId}, quantidade: ${command.quantity}`);
+    return {
+      externalRequestId: command.externalRequestId,
+      status: "ACCEPTED"
+    };
+  }
+};
+
 // src/modules/integration/application/use-cases/create-production-order.usecase.ts
 var CreateProductionOrderUseCase = class {
   gateway;
   constructor(gateway) {
-    this.gateway = gateway || new FakeProductionOrderIntegrationGateway();
+    if (gateway) {
+      this.gateway = gateway;
+      return;
+    }
+    const gatewayType = process.env.PRODUCTION_ORDER_GATEWAY;
+    if (gatewayType === "real") {
+      this.gateway = new RealProductionOrderIntegrationGateway();
+    } else {
+      this.gateway = new FakeProductionOrderIntegrationGateway();
+    }
   }
   async execute(request) {
     const integrationResult = await this.gateway.createProductionOrder(request);
