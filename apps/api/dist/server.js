@@ -8916,12 +8916,67 @@ var FakeProductionOrderIntegrationGateway = class {
 
 // src/modules/integration/infrastructure/gateways/real-production-order-integration.gateway.ts
 var RealProductionOrderIntegrationGateway = class {
+  constructor(omieClient) {
+    this.omieClient = omieClient;
+  }
+  omieClient;
   async createProductionOrder(command) {
-    console.log(`[RealGateway] Simulando cria\xE7\xE3o de ordem de produ\xE7\xE3o para produto: ${command.productId}, quantidade: ${command.quantity}`);
-    return {
-      externalRequestId: command.externalRequestId,
-      status: "ACCEPTED"
+    this.validateRequiredFields(command);
+    const payload = {
+      call: "IncluirOrdemProducao",
+      app_key: env.OMIE_APP_KEY,
+      app_secret: env.OMIE_APP_SECRET,
+      param: [
+        {
+          identificacao: {
+            cCodIntOP: command.externalRequestId,
+            dDtPrevisao: command.scheduledDate ? this.formatDate(command.scheduledDate) : this.getCurrentDate(),
+            nCodProduto: Number(command.productId),
+            nQtde: command.quantity
+          }
+        }
+      ]
     };
+    try {
+      const response = await this.omieClient.post("/api/v1/produtos/op/", payload);
+      if (response.faultstring || response.error || response.codigo_status !== "0") {
+        console.error("[OmieIntegrationError]", response);
+        throw new Error(`Omie API error: ${response.faultstring || response.error || "Unknown error"}`);
+      }
+      return { externalRequestId: command.externalRequestId, status: "ACCEPTED" };
+    } catch (error) {
+      console.error("[OmieIntegrationError]", error);
+      throw error;
+    }
+  }
+  formatDate(date) {
+    const parsedDate = new Date(date);
+    const day = String(parsedDate.getDate()).padStart(2, "0");
+    const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+    const year = parsedDate.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+  getCurrentDate() {
+    const today = /* @__PURE__ */ new Date();
+    const day = String(today.getDate()).padStart(2, "0");
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const year = today.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+  validateRequiredFields(command) {
+    const missingFields = [];
+    if (!command.productId || command.productId.trim() === "") {
+      missingFields.push("productId");
+    }
+    if (!command.quantity || command.quantity <= 0) {
+      missingFields.push("quantity");
+    }
+    if (!command.externalRequestId || command.externalRequestId.trim() === "") {
+      missingFields.push("externalRequestId");
+    }
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required fields: ${missingFields.join(", ")}`);
+    }
   }
 };
 
