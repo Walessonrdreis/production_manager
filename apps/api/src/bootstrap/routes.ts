@@ -22,6 +22,8 @@ import { registerInternalProductionOrdersModule } from "@/modules/internal-produ
 import { registerTrelloIntegrationModule } from "@/modules/trello-integration/register";
 import { registerProductSectorsModule } from "@/modules/product-sectors";
 import { registerIntegrationModule } from "@/modules/integration/register";
+import { registerStockModule } from "@/modules/integration/stock/register-stock-module";
+
 
 
 export async function registerRoutes(app: FastifyInstance) {
@@ -270,6 +272,10 @@ export async function registerRoutes(app: FastifyInstance) {
     );
   });
 
+  
+
+
+
   // ---------------------------------------------------------------------------
   // register modules (new architecture)
   // ---------------------------------------------------------------------------
@@ -320,6 +326,8 @@ export async function registerRoutes(app: FastifyInstance) {
   
   // sales production integration module (API Core - Fase 2)
   registerSalesProductionIntegrationModule(app);
+
+  await registerStockModule(app);
   
   void omieSalesOrders;
   void omieProductionOrders;
