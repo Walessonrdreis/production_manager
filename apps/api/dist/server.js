@@ -10407,9 +10407,6 @@ curl -X POST http://localhost:3000/api/integration/sales-to-production \\
 }
 
 // src/bootstrap/app.ts
-function isAppError(err) {
-  return err !== null && typeof err === "object" && typeof err.code === "string" && typeof err.statusCode === "number" && typeof err.message === "string";
-}
 async function buildApp() {
   const app = Fastify__default.default({
     logger: process.env.NODE_ENV !== "test",
@@ -10469,43 +10466,17 @@ async function buildApp() {
     }
   });
   app.setErrorHandler((error, request, reply) => {
-    const requestId = request.requestId;
-    const isDev = process.env.NODE_ENV !== "production";
-    if (error instanceof zod.ZodError) {
-      const message = error.issues?.[0]?.message || "Dados inv\xE1lidos.";
-      const details = isDev ? { ...error.format(), stack: error.stack } : error.format();
+    if (error.validation) {
       return reply.status(400).send({
-        error: {
-          code: "VALIDATION_ERROR",
-          message,
-          details,
-          requestId
-        }
+        success: false,
+        error: "VALIDATION_ERROR",
+        message: "Invalid request payload"
       });
     }
-    if (isAppError(error)) {
-      if (process.env.NODE_ENV !== "test") {
-        request.log.warn({ requestId }, `[${error.code}] ${error.message}`);
-      }
-      const details = isDev ? { ...error.details || {}, stack: error.stack } : error.details;
-      return reply.status(error.statusCode).send({
-        error: {
-          code: error.code,
-          message: error.message,
-          ...details ? { details } : {},
-          requestId
-        }
-      });
-    }
-    if (process.env.NODE_ENV !== "test") {
-      request.log.error({ err: error, requestId }, "Erro Inesperado");
-    }
-    return reply.status(500).send({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Erro interno",
-        requestId
-      }
+    return reply.status(error.statusCode || 500).send({
+      success: false,
+      error: "INTERNAL_ERROR",
+      message: error.message || "Unexpected error"
     });
   });
   registerOpenAPIDocumentation(app);

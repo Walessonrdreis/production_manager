@@ -50,20 +50,26 @@ export class RealProductionOrderIntegrationGateway
       
       // Retorno obrigatório conforme contrato
       return { externalRequestId: command.externalRequestId, status: "ACCEPTED" };
-    } catch (error) {
-      console.error("[OMIE ERROR FULL]", error);
-      
-      if (error?.response) {
-        console.error("[OMIE RESPONSE DATA]", error.response.data);
-      }
-      
-      throw new Error(
-        error?.response?.data?.faultstring ||
-        error?.response?.data?.error ||
-        error.message ||
-        "Omie unknown error"
-      );
+    } catch (error: unknown) {
+  console.error("[OMIE ERROR FULL]", error);
+
+  let message = "Omie unknown error";
+
+  if (typeof error === "object" && error !== null) {
+    const anyError = error as any;
+
+    if (anyError.response?.data?.faultstring) {
+      message = anyError.response.data.faultstring;
+    } else if (anyError.response?.data?.error) {
+      message = anyError.response.data.error;
+    } else if (anyError.message) {
+      message = anyError.message;
     }
+  }
+
+  throw new Error(message);
+}
+
   }
 
   private formatDate(date: string): string {
