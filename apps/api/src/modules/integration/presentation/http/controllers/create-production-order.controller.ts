@@ -11,15 +11,16 @@ export async function createProductionOrderController(
   request: FastifyRequest<{
     Body: typeof CreateProductionOrderRequestSchema._type;
   }>,
-  reply: FastifyReply
+  reply: FastifyReply,
+  useCase?: CreateProductionOrderUseCase
 ) {
   try {
     // Validar payload
     const validatedData = CreateProductionOrderRequestSchema.parse(request.body);
 
     // Chamar use case (sem lógica de negócio no controller)
-    const useCase = new CreateProductionOrderUseCase();
-    const successResponse = await useCase.execute(validatedData);
+    const useCaseInstance = useCase || new CreateProductionOrderUseCase();
+    const successResponse = await useCaseInstance.execute(validatedData);
 
     return reply.code(202).send(successResponse);
   } catch (error) {

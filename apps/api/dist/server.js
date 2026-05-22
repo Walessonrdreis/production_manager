@@ -8903,24 +8903,39 @@ var InternalErrorResponseSchema = zod.z.object({
   message: zod.z.string()
 });
 
+// src/modules/integration/infrastructure/gateways/fake-production-order-integration.gateway.ts
+var FakeProductionOrderIntegrationGateway = class {
+  async createProductionOrder(command) {
+    return {
+      externalRequestId: command.externalRequestId,
+      status: "ACCEPTED"
+    };
+  }
+};
+
 // src/modules/integration/application/use-cases/create-production-order.usecase.ts
 var CreateProductionOrderUseCase = class {
+  gateway;
+  constructor(gateway) {
+    this.gateway = gateway || new FakeProductionOrderIntegrationGateway();
+  }
   async execute(request) {
+    const integrationResult = await this.gateway.createProductionOrder(request);
     const response = {
       success: true,
       data: {
-        externalRequestId: request.externalRequestId,
-        status: "ACCEPTED"
+        externalRequestId: integrationResult.externalRequestId,
+        status: integrationResult.status
       }
     };
     return response;
   }
 };
-async function createProductionOrderController(request, reply) {
+async function createProductionOrderController(request, reply, useCase) {
   try {
     const validatedData = CreateProductionOrderRequestSchema.parse(request.body);
-    const useCase = new CreateProductionOrderUseCase();
-    const successResponse = await useCase.execute(validatedData);
+    const useCaseInstance = useCase || new CreateProductionOrderUseCase();
+    const successResponse = await useCaseInstance.execute(validatedData);
     return reply.code(202).send(successResponse);
   } catch (error) {
     if (error instanceof zod.z.ZodError) {
