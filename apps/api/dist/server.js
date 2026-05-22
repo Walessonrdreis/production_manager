@@ -8938,8 +8938,9 @@ var RealProductionOrderIntegrationGateway = class {
       ]
     };
     try {
-      const response = await this.omieClient.post("/api/v1/produtos/op/", payload);
-      if (response.faultstring || response.error || response.codigo_status !== "0") {
+      const apiResponse = await this.omieClient.post("/api/v1/produtos/op/", payload);
+      const response = apiResponse && typeof apiResponse === "object" && "data" in apiResponse ? apiResponse.data : apiResponse;
+      if (response.faultstring || response.error || response.codigo_status && response.codigo_status !== "0") {
         console.error("[OmieIntegrationError]", response);
         throw new Error(`Omie API error: ${response.faultstring || response.error || "Unknown error"}`);
       }
@@ -8948,14 +8949,10 @@ var RealProductionOrderIntegrationGateway = class {
       console.error("[OMIE ERROR FULL]", error);
       let message = "Omie unknown error";
       if (typeof error === "object" && error !== null) {
-        const anyError = error;
-        if (anyError.response?.data?.faultstring) {
-          message = anyError.response.data.faultstring;
-        } else if (anyError.response?.data?.error) {
-          message = anyError.response.data.error;
-        } else if (anyError.message) {
-          message = anyError.message;
-        }
+        const anyErr = error;
+        if (anyErr.response?.data?.faultstring) message = anyErr.response.data.faultstring;
+        else if (anyErr.response?.data?.error) message = anyErr.response.data.error;
+        else if (anyErr.message) message = anyErr.message;
       }
       throw new Error(message);
     }

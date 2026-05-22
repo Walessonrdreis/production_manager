@@ -40,10 +40,15 @@ export class RealProductionOrderIntegrationGateway
 
     // Chamada real à API Omie
     try {
-      const response = await this.omieClient.post<any>("/api/v1/produtos/op/", payload);
+      const apiResponse = await this.omieClient.post<any>("/api/v1/produtos/op/", payload);
       
-      // Verificar se a resposta contém erro
-      if (response.faultstring || response.error || response.codigo_status !== "0") {
+      // Normalizar retorno para suportar tanto payload direto quanto .data (axios-like)
+      const response = (apiResponse && typeof apiResponse === "object" && "data" in apiResponse)
+        ? (apiResponse as any).data
+        : apiResponse;
+      
+      // Verificar se a resposta contém erro (sem falso positivo)
+      if (response.faultstring || response.error || (response.codigo_status && response.codigo_status !== "0")) {
         console.error('[OmieIntegrationError]', response);
         throw new Error(`Omie API error: ${response.faultstring || response.error || 'Unknown error'}`);
       }
@@ -51,24 +56,21 @@ export class RealProductionOrderIntegrationGateway
       // Retorno obrigatório conforme contrato
       return { externalRequestId: command.externalRequestId, status: "ACCEPTED" };
     } catch (error: unknown) {
-  console.error("[OMIE ERROR FULL]", error);
+      console.error("[OMIE ERROR FULL]", error);
 
-  let message = "Omie unknown error";
+      let message = "Omie unknown error";
 
-  if (typeof error === "object" && error !== null) {
-    const anyError = error as any;
+      if (typeof error === "object" && error !== null) {
+        const anyErr = error as any;
 
-    if (anyError.response?.data?.faultstring) {
-      message = anyError.response.data.faultstring;
-    } else if (anyError.response?.data?.error) {
-      message = anyError.response.data.error;
-    } else if (anyError.message) {
-      message = anyError.message;
+        // Alguns clients colocam retorno em error.response.data
+        if (anyErr.response?.data?.faultstring) message = anyErr.response.data.faultstring;
+        else if (anyErr.response?.data?.error) message = anyErr.response.data.error;
+        else if (anyErr.message) message = anyErr.message;
+      }
+
+      throw new Error(message);
     }
-  }
-
-  throw new Error(message);
-}
 
   }
 
