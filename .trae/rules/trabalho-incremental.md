@@ -7,10 +7,7 @@ alwaysApply: true
 - Não combine múltiplas ações em uma única passagem
 - Mostre progresso após cada ação
 
-## REGRA 2: UMA TAREFA POR AÇÃO
-- Implemente **APENAS UMA** funcionalidade específica por ação
-- Exemplo: Criar service + testar = 2 ações separadas
-- Não implemente múltiplas features de uma vez
+
 
 ## REGRA 3: TEMPO LIMITADO POR AÇÃO
 - Cada ação deve levar **5-15 minutos** no máximo

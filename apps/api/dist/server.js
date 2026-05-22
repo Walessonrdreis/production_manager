@@ -8921,6 +8921,9 @@ var RealProductionOrderIntegrationGateway = class {
   }
   omieClient;
   async createProductionOrder(command) {
+    if (!this.omieClient) {
+      throw new Error("OMIE_CLIENT_NOT_CONFIGURED");
+    }
     this.validateRequiredFields(command);
     const payload = {
       call: "IncluirOrdemProducao",
@@ -8988,7 +8991,187 @@ var RealProductionOrderIntegrationGateway = class {
   }
 };
 
+// src/shared/resilience/circuit-breaker.ts
+var CircuitBreaker = class {
+  constructor(name, config = {}) {
+    this.name = name;
+    this.failureThreshold = config.failureThreshold ?? 5;
+    this.resetTimeoutMs = config.resetTimeoutMs ?? 3e4;
+    this.successThreshold = config.successThreshold ?? 3;
+    this.logger = config.logger;
+  }
+  name;
+  failures = 0;
+  successes = 0;
+  state = "closed";
+  lastFailureTime = null;
+  lastSuccessTime = null;
+  failureThreshold;
+  resetTimeoutMs;
+  successThreshold;
+  logger;
+  /**
+   * Executa uma função protegida pelo circuit breaker
+   */
+  async execute(fn) {
+    if (this.state === "open") {
+      const now = Date.now();
+      const timeSinceLastFailure = this.lastFailureTime ? now - this.lastFailureTime : Infinity;
+      if (timeSinceLastFailure >= this.resetTimeoutMs) {
+        this.state = "half-open";
+        this.logger?.info?.({ circuit: this.name, state: this.state }, `Circuit ${this.name} half-open`);
+      } else {
+        const remainingTime = this.resetTimeoutMs - timeSinceLastFailure;
+        this.logger?.warn?.({ circuit: this.name, remainingTime }, `Circuit ${this.name} open, rejecting request`);
+        throw new AppError(
+          "CIRCUIT_BREAKER_OPEN",
+          503,
+          `Service ${this.name} temporarily unavailable`,
+          { circuit: this.name, retryAfter: Math.ceil(remainingTime / 1e3) }
+        );
+      }
+    }
+    try {
+      const result = await fn();
+      this.onSuccess();
+      return result;
+    } catch (error) {
+      this.onFailure();
+      throw error;
+    }
+  }
+  /**
+   * Registra uma falha
+   */
+  onFailure() {
+    this.failures++;
+    this.successes = 0;
+    this.lastFailureTime = Date.now();
+    this.logger?.warn?.({
+      circuit: this.name,
+      failures: this.failures,
+      threshold: this.failureThreshold
+    }, `Circuit ${this.name} failure recorded`);
+    if (this.failures >= this.failureThreshold && this.state !== "open") {
+      this.state = "open";
+      this.logger?.error?.({ circuit: this.name }, `Circuit ${this.name} opened`);
+    }
+    if (this.state === "half-open") {
+      this.state = "open";
+      this.logger?.error?.({ circuit: this.name }, `Circuit ${this.name} re-opened from half-open`);
+    }
+  }
+  /**
+   * Registra um sucesso
+   */
+  onSuccess() {
+    this.successes++;
+    this.lastSuccessTime = Date.now();
+    this.logger?.info?.({
+      circuit: this.name,
+      successes: this.successes,
+      threshold: this.successThreshold
+    }, `Circuit ${this.name} success recorded`);
+    if (this.state === "half-open" && this.successes >= this.successThreshold) {
+      this.state = "closed";
+      this.failures = 0;
+      this.successes = 0;
+      this.logger?.info?.({ circuit: this.name }, `Circuit ${this.name} closed`);
+    }
+    if (this.state === "closed" && this.successes >= this.successThreshold) {
+      this.failures = 0;
+      this.successes = 0;
+      this.logger?.info?.({ circuit: this.name }, `Circuit ${this.name} counters reset`);
+    }
+  }
+  /**
+   * Retorna métricas atuais
+   */
+  getMetrics() {
+    return {
+      failures: this.failures,
+      successes: this.successes,
+      state: this.state,
+      lastFailureTime: this.lastFailureTime,
+      lastSuccessTime: this.lastSuccessTime
+    };
+  }
+  /**
+   * Reseta o circuit breaker para estado inicial
+   */
+  reset() {
+    this.failures = 0;
+    this.successes = 0;
+    this.state = "closed";
+    this.lastFailureTime = null;
+    this.lastSuccessTime = null;
+    this.logger?.info?.({ circuit: this.name }, `Circuit ${this.name} reset`);
+  }
+};
+function createCircuitBreaker(name, config) {
+  return new CircuitBreaker(name, config);
+}
+
+// src/shared/integrations/omie/omie-client-with-circuit-breaker.ts
+var OmieClientWithCircuitBreaker = class {
+  client;
+  circuitBreaker;
+  constructor(config, logger) {
+    this.client = new OmieClient(config, logger);
+    this.circuitBreaker = createCircuitBreaker("omie-api", {
+      failureThreshold: config.circuitBreaker?.failureThreshold ?? 5,
+      resetTimeoutMs: config.circuitBreaker?.resetTimeoutMs ?? 6e4,
+      // 1 minuto
+      successThreshold: config.circuitBreaker?.successThreshold ?? 3,
+      logger
+    });
+  }
+  /**
+   * Executa uma requisição POST protegida pelo circuit breaker
+   */
+  async post(path, payload) {
+    return this.circuitBreaker.execute(
+      () => this.client.post(path, payload)
+    );
+  }
+  /**
+   * Retorna métricas do circuit breaker
+   */
+  getCircuitBreakerMetrics() {
+    return this.circuitBreaker.getMetrics();
+  }
+  /**
+   * Reseta o circuit breaker
+   */
+  resetCircuitBreaker() {
+    this.circuitBreaker.reset();
+  }
+};
+function createOmieClientWithCircuitBreaker(config, logger) {
+  return new OmieClientWithCircuitBreaker(config, logger);
+}
+
 // src/modules/integration/application/use-cases/create-production-order.usecase.ts
+var omieClientSingleton = null;
+function getOmieClient() {
+  if (omieClientSingleton) {
+    return omieClientSingleton;
+  }
+  omieClientSingleton = createOmieClientWithCircuitBreaker({
+    baseUrl: env.OMIE_BASE_URL,
+    appKey: env.OMIE_APP_KEY,
+    appSecret: env.OMIE_APP_SECRET,
+    timeoutMs: 1e4,
+    retry: { attempts: 2, baseDelayMs: 1e3, maxDelayMs: 3e3 },
+    debug: process.env.NODE_ENV !== "production",
+    circuitBreaker: {
+      failureThreshold: 3,
+      resetTimeoutMs: 3e4,
+      successThreshold: 2
+    }
+  });
+  return omieClientSingleton;
+}
 var CreateProductionOrderUseCase = class {
   gateway;
   constructor(gateway) {
@@ -8998,7 +9181,8 @@ var CreateProductionOrderUseCase = class {
     }
     const gatewayType = process.env.PRODUCTION_ORDER_GATEWAY;
     if (gatewayType === "real") {
-      this.gateway = new RealProductionOrderIntegrationGateway();
+      const omieClient = getOmieClient();
+      this.gateway = new RealProductionOrderIntegrationGateway(omieClient);
     } else {
       this.gateway = new FakeProductionOrderIntegrationGateway();
     }
@@ -9300,166 +9484,6 @@ var prisma = globalForPrisma.prisma ?? new client.PrismaClient({
 });
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
-}
-
-// src/shared/resilience/circuit-breaker.ts
-var CircuitBreaker = class {
-  constructor(name, config = {}) {
-    this.name = name;
-    this.failureThreshold = config.failureThreshold ?? 5;
-    this.resetTimeoutMs = config.resetTimeoutMs ?? 3e4;
-    this.successThreshold = config.successThreshold ?? 3;
-    this.logger = config.logger;
-  }
-  name;
-  failures = 0;
-  successes = 0;
-  state = "closed";
-  lastFailureTime = null;
-  lastSuccessTime = null;
-  failureThreshold;
-  resetTimeoutMs;
-  successThreshold;
-  logger;
-  /**
-   * Executa uma função protegida pelo circuit breaker
-   */
-  async execute(fn) {
-    if (this.state === "open") {
-      const now = Date.now();
-      const timeSinceLastFailure = this.lastFailureTime ? now - this.lastFailureTime : Infinity;
-      if (timeSinceLastFailure >= this.resetTimeoutMs) {
-        this.state = "half-open";
-        this.logger?.info?.({ circuit: this.name, state: this.state }, `Circuit ${this.name} half-open`);
-      } else {
-        const remainingTime = this.resetTimeoutMs - timeSinceLastFailure;
-        this.logger?.warn?.({ circuit: this.name, remainingTime }, `Circuit ${this.name} open, rejecting request`);
-        throw new AppError(
-          "CIRCUIT_BREAKER_OPEN",
-          503,
-          `Service ${this.name} temporarily unavailable`,
-          { circuit: this.name, retryAfter: Math.ceil(remainingTime / 1e3) }
-        );
-      }
-    }
-    try {
-      const result = await fn();
-      this.onSuccess();
-      return result;
-    } catch (error) {
-      this.onFailure();
-      throw error;
-    }
-  }
-  /**
-   * Registra uma falha
-   */
-  onFailure() {
-    this.failures++;
-    this.successes = 0;
-    this.lastFailureTime = Date.now();
-    this.logger?.warn?.({
-      circuit: this.name,
-      failures: this.failures,
-      threshold: this.failureThreshold
-    }, `Circuit ${this.name} failure recorded`);
-    if (this.failures >= this.failureThreshold && this.state !== "open") {
-      this.state = "open";
-      this.logger?.error?.({ circuit: this.name }, `Circuit ${this.name} opened`);
-    }
-    if (this.state === "half-open") {
-      this.state = "open";
-      this.logger?.error?.({ circuit: this.name }, `Circuit ${this.name} re-opened from half-open`);
-    }
-  }
-  /**
-   * Registra um sucesso
-   */
-  onSuccess() {
-    this.successes++;
-    this.lastSuccessTime = Date.now();
-    this.logger?.info?.({
-      circuit: this.name,
-      successes: this.successes,
-      threshold: this.successThreshold
-    }, `Circuit ${this.name} success recorded`);
-    if (this.state === "half-open" && this.successes >= this.successThreshold) {
-      this.state = "closed";
-      this.failures = 0;
-      this.successes = 0;
-      this.logger?.info?.({ circuit: this.name }, `Circuit ${this.name} closed`);
-    }
-    if (this.state === "closed" && this.successes >= this.successThreshold) {
-      this.failures = 0;
-      this.successes = 0;
-      this.logger?.info?.({ circuit: this.name }, `Circuit ${this.name} counters reset`);
-    }
-  }
-  /**
-   * Retorna métricas atuais
-   */
-  getMetrics() {
-    return {
-      failures: this.failures,
-      successes: this.successes,
-      state: this.state,
-      lastFailureTime: this.lastFailureTime,
-      lastSuccessTime: this.lastSuccessTime
-    };
-  }
-  /**
-   * Reseta o circuit breaker para estado inicial
-   */
-  reset() {
-    this.failures = 0;
-    this.successes = 0;
-    this.state = "closed";
-    this.lastFailureTime = null;
-    this.lastSuccessTime = null;
-    this.logger?.info?.({ circuit: this.name }, `Circuit ${this.name} reset`);
-  }
-};
-function createCircuitBreaker(name, config) {
-  return new CircuitBreaker(name, config);
-}
-
-// src/shared/integrations/omie/omie-client-with-circuit-breaker.ts
-var OmieClientWithCircuitBreaker = class {
-  client;
-  circuitBreaker;
-  constructor(config, logger) {
-    this.client = new OmieClient(config, logger);
-    this.circuitBreaker = createCircuitBreaker("omie-api", {
-      failureThreshold: config.circuitBreaker?.failureThreshold ?? 5,
-      resetTimeoutMs: config.circuitBreaker?.resetTimeoutMs ?? 6e4,
-      // 1 minuto
-      successThreshold: config.circuitBreaker?.successThreshold ?? 3,
-      logger
-    });
-  }
-  /**
-   * Executa uma requisição POST protegida pelo circuit breaker
-   */
-  async post(path, payload) {
-    return this.circuitBreaker.execute(
-      () => this.client.post(path, payload)
-    );
-  }
-  /**
-   * Retorna métricas do circuit breaker
-   */
-  getCircuitBreakerMetrics() {
-    return this.circuitBreaker.getMetrics();
-  }
-  /**
-   * Reseta o circuit breaker
-   */
-  resetCircuitBreaker() {
-    this.circuitBreaker.reset();
-  }
-};
-function createOmieClientWithCircuitBreaker(config, logger) {
-  return new OmieClientWithCircuitBreaker(config, logger);
 }
 function resolveLogger(input) {
   const maybeFastify = input;

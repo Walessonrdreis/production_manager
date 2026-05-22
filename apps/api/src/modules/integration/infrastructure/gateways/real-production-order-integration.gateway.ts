@@ -18,6 +18,10 @@ export class RealProductionOrderIntegrationGateway
     externalRequestId: string;
     status: "ACCEPTED";
   }> {
+    if (!this.omieClient) {
+      throw new Error("OMIE_CLIENT_NOT_CONFIGURED");
+    }
+
     // Valida campos obrigatórios antes da chamada
     this.validateRequiredFields(command);
 
