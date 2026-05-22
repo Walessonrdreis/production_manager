@@ -6,6 +6,7 @@ import {
   ValidationErrorResponseSchema,
   InternalErrorResponseSchema,
 } from "./schemas";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 export async function integrationRoutes(app: FastifyInstance) {
   // POST /v1/integration/production-order
@@ -15,11 +16,11 @@ export async function integrationRoutes(app: FastifyInstance) {
     schema: {
       description: "Mock endpoint for production order integration (API 1)",
       tags: ["integration"],
-      body: CreateProductionOrderRequestSchema,
+      body: zodToJsonSchema(CreateProductionOrderRequestSchema),
       response: {
-        202: CreateProductionOrderResponseSchema,
-        400: ValidationErrorResponseSchema,
-        500: InternalErrorResponseSchema,
+        202: zodToJsonSchema(CreateProductionOrderResponseSchema),
+        400: zodToJsonSchema(ValidationErrorResponseSchema),
+        500: zodToJsonSchema(InternalErrorResponseSchema),
       },
     },
     handler: createProductionOrderController,

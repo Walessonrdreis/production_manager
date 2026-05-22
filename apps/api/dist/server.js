@@ -7,6 +7,7 @@ var crypto = require('crypto');
 var zod = require('zod');
 var client = require('@prisma/client');
 var contracts = require('@shared/contracts');
+var zodToJsonSchema = require('zod-to-json-schema');
 var cron = require('node-cron');
 
 function _interopDefault (e) { return e && e.__esModule ? e : { default: e }; }
@@ -9030,8 +9031,6 @@ async function createProductionOrderController(request, reply, useCase) {
     return reply.code(500).send(internalError);
   }
 }
-
-// src/modules/integration/presentation/http/routes.ts
 async function integrationRoutes(app) {
   app.route({
     method: "POST",
@@ -9039,11 +9038,11 @@ async function integrationRoutes(app) {
     schema: {
       description: "Mock endpoint for production order integration (API 1)",
       tags: ["integration"],
-      body: CreateProductionOrderRequestSchema,
+      body: zodToJsonSchema.zodToJsonSchema(CreateProductionOrderRequestSchema),
       response: {
-        202: CreateProductionOrderResponseSchema,
-        400: ValidationErrorResponseSchema,
-        500: InternalErrorResponseSchema
+        202: zodToJsonSchema.zodToJsonSchema(CreateProductionOrderResponseSchema),
+        400: zodToJsonSchema.zodToJsonSchema(ValidationErrorResponseSchema),
+        500: zodToJsonSchema.zodToJsonSchema(InternalErrorResponseSchema)
       }
     },
     handler: createProductionOrderController
