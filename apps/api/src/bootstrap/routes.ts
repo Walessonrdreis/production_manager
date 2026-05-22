@@ -326,7 +326,7 @@ export async function registerRoutes(app: FastifyInstance) {
   
   // sales production integration module (API Core - Fase 2)
   registerSalesProductionIntegrationModule(app);
-
+ // stock module (integration module)
   await registerStockModule(app);
   
   void omieSalesOrders;
