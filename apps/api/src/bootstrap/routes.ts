@@ -23,6 +23,7 @@ import { registerTrelloIntegrationModule } from "@/modules/trello-integration/re
 import { registerProductSectorsModule } from "@/modules/product-sectors";
 import { registerIntegrationModule } from "@/modules/integration/register";
 import { registerStockModule } from "@/modules/integration/stock/register-stock-module";
+import { registerOrdersModule } from "@/modules/integration/orders/register-orders-module";
 
 
 
@@ -328,6 +329,8 @@ export async function registerRoutes(app: FastifyInstance) {
   registerSalesProductionIntegrationModule(app);
  // stock module (integration module)
   await registerStockModule(app);
+
+  await registerOrdersModule(app);
   
   void omieSalesOrders;
   void omieProductionOrders;
