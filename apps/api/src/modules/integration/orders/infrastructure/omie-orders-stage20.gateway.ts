@@ -23,48 +23,26 @@ type OrdersStage20Result = {
 export class OmieOrdersStage20Gateway {
   constructor(private readonly omieClient: OmieClientWithCircuitBreaker) {}
 
-  // ✅ cache in-memory (evita REDUNDANT e melhora performance)
+  // cache continua sendo bom e reduz chance de REDUNDANT
   private static cache: { expiresAt: number; value: OrdersStage20Result } | null = null;
-  private static readonly CACHE_TTL_MS = 60_000; // 60s (combina com "aguarde 59s")
+  private static readonly CACHE_TTL_MS = 60_000;
 
   async listStage20(): Promise<OrdersStage20Result> {
     if (!this.omieClient) throw new Error("OMIE_CLIENT_NOT_CONFIGURED");
 
-    // ✅ serve cache se estiver válido
     const cached = OmieOrdersStage20Gateway.cache;
     if (cached && Date.now() < cached.expiresAt) {
       return cached.value;
     }
 
-    // tenta 1 vez, e se der REDUNDANT aguarda e tenta mais 1 vez
-    const result = await this.tryOnceOrRetryRedundant();
+    const result = await this.fetchStage20();
 
-    // grava cache
     OmieOrdersStage20Gateway.cache = {
       value: result,
       expiresAt: Date.now() + OmieOrdersStage20Gateway.CACHE_TTL_MS,
     };
 
     return result;
-  }
-
-  private async tryOnceOrRetryRedundant(): Promise<OrdersStage20Result> {
-    try {
-      return await this.fetchStage20();
-    } catch (err: any) {
-      const parsed = this.parseRedundant(err);
-      if (parsed.isRedundant) {
-        const waitMs = (parsed.retryAfterSeconds + 1) * 1000; // +1s margem
-        console.warn("[OMIE ORDERS] REDUNDANT detected, waiting", { waitMs });
-        await this.sleep(waitMs);
-
-        // retry único
-        return await this.fetchStage20();
-      }
-
-      // não é redundante → rethrow
-      throw err;
-    }
   }
 
   private async fetchStage20(): Promise<OrdersStage20Result> {
@@ -86,41 +64,57 @@ export class OmieOrdersStage20Gateway {
         ],
       };
 
-      const apiResponse = await this.omieClient.post<any>(
-        "/api/v1/produtos/pedido/",
-        payload
-      );
+      try {
+        const apiResponse = await this.omieClient.post<any>(
+          "/api/v1/produtos/pedido/",
+          payload
+        );
 
-      const response =
-        apiResponse && typeof apiResponse === "object" && "data" in apiResponse
-          ? (apiResponse as any).data
-          : apiResponse;
+        const response =
+          apiResponse && typeof apiResponse === "object" && "data" in apiResponse
+            ? (apiResponse as any).data
+            : apiResponse;
 
-      if (
-        response?.faultstring ||
-        response?.error ||
-        (response?.codigo_status && response.codigo_status !== "0")
-      ) {
-        // Se veio um faultstring, jogamos para o catch geral tratar (inclui REDUNDANT)
-        const e = new Error(response?.faultstring || response?.error || "Omie orders error");
-        (e as any).omie = { response };
-        throw e;
+        if (
+          response?.faultstring ||
+          response?.error ||
+          (response?.codigo_status && response.codigo_status !== "0")
+        ) {
+          // Se vier faultstring do Omie, propaga como erro
+          throw new Error(response?.faultstring || response?.error || "Omie orders error");
+        }
+
+        const pedidos = Array.isArray(response?.pedido_venda_produto)
+          ? response.pedido_venda_produto
+          : [];
+
+        allOrders.push(...pedidos);
+
+        const totalPages =
+          Number(response?.total_de_paginas) ||
+          Number(response?.nTotPaginas) ||
+          Number(response?.totalPaginas) ||
+          1;
+
+        if (page >= totalPages || pedidos.length === 0) break;
+        page += 1;
+      } catch (error: any) {
+        // Detecta REDUNDANT vindo do AppError do seu OmieClient
+        const sample: string | undefined = error?.details?.sample;
+        const msgFromSample = sample ? this.safeExtractFaultstring(sample) : undefined;
+        const msg = String(msgFromSample || error?.message || "");
+
+        if (msg.includes("REDUNDANT") || msg.includes("Consumo redundante detectado")) {
+          const retryAfter = this.extractRetryAfterSeconds(msg);
+          const e: any = new Error(msg);
+          e.code = "OMIE_REDUNDANT";
+          e.retryAfterSeconds = retryAfter;
+          throw e;
+        }
+
+        // Propaga o erro original
+        throw error;
       }
-
-      const pedidos = Array.isArray(response?.pedido_venda_produto)
-        ? response.pedido_venda_produto
-        : [];
-
-      allOrders.push(...pedidos);
-
-      const totalPages =
-        Number(response?.total_de_paginas) ||
-        Number(response?.nTotPaginas) ||
-        Number(response?.totalPaginas) ||
-        1;
-
-      if (page >= totalPages || pedidos.length === 0) break;
-      page += 1;
     }
 
     const stage20 = allOrders.filter(
@@ -202,30 +196,6 @@ export class OmieOrdersStage20Gateway {
     return { success: true, data: { orders: normalized } };
   }
 
-  private parseRedundant(err: any): { isRedundant: boolean; retryAfterSeconds: number } {
-    // Caso 1: erro vindo do seu OmieClient com details.sample (como no log que você colou)
-    const sample: string | undefined = err?.details?.sample;
-    const msgFromSample = sample ? this.safeExtractFaultstring(sample) : undefined;
-
-    // Caso 2: erro encapsulado manualmente com (e as any).omie.response
-    const msgFromOmie = err?.omie?.response?.faultstring;
-
-    // Caso 3: message direto
-    const msg = String(msgFromSample || msgFromOmie || err?.message || "");
-
-    const isRedundant = msg.includes("REDUNDANT") || msg.includes("Consumo redundante detectado");
-    if (!isRedundant) return { isRedundant: false, retryAfterSeconds: 0 };
-
-    // extrai "Aguarde 59 segundos"
-    const m = msg.match(/Aguarde\s+(\d+)\s+segundos/i);
-    const seconds = m ? Number(m[1]) : 60;
-
-    return {
-      isRedundant: true,
-      retryAfterSeconds: Number.isNaN(seconds) ? 60 : seconds,
-    };
-  }
-
   private safeExtractFaultstring(sample: string): string | undefined {
     try {
       const j = JSON.parse(sample);
@@ -235,7 +205,9 @@ export class OmieOrdersStage20Gateway {
     }
   }
 
-  private sleep(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  private extractRetryAfterSeconds(msg: string): number {
+    const m = msg.match(/Aguarde\s+(\d+)\s+segundos/i);
+    const seconds = m ? Number(m[1]) : 60;
+    return Number.isNaN(seconds) ? 60 : seconds;
   }
 }
