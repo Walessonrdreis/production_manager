@@ -74,7 +74,7 @@ export async function registerRoutes(app: FastifyInstance) {
 
   // await registerOrdersViewModule(app);
 
-  // await registerClientModule(app);
+   await registerClientModule(app);
 
   // await registerInternalProductionOrdersModule(app);
 

@@ -3,6 +3,11 @@ import cron from "node-cron";
 import { AppError } from "@/shared/errors";
 import { createOmieSalesOrdersModule } from "@/modules/legacy/omie-sales-orders";
 
+// ✅ NOVO: automação pós-sync (clientes faltantes + backfill de nomes)
+// (ajuste os imports se seus caminhos forem ligeiramente diferentes)
+import { createSyncMissingClientsUseCase } from "@/modules/legacy/client/application/use-cases/sync-missing-clients.usecase";
+import { backfillOrderClientNames } from "@/modules/legacy/omie-sales-orders/application/use-cases/backfill-order-client-names.usecase";
+
 type LoggerLike = {
   info: (obj: any, msg?: string) => void;
   warn: (obj: any, msg?: string) => void;
@@ -25,6 +30,11 @@ function resolveLogger(input: FastifyInstance | LoggerLike): LoggerLike {
  * - Executa automaticamente conforme cron configurado
  * - Sem polling inteligente que sobrecarrega
  * - Mantém funcionalidade de sincronização
+ *
+ * ✅ AUTOMATIZAÇÃO (novo):
+ * após sincronizar orders:
+ * - sincroniza clientes faltantes referenciados nas orders
+ * - faz backfill de clientLegalName/clientTradeName/clientName nas orders
  */
 export function startOmieOrdersStage20SyncJob(
   appOrLogger: FastifyInstance | LoggerLike
@@ -37,9 +47,7 @@ export function startOmieOrdersStage20SyncJob(
   }
 
   // ✅ flag de ativação
-  const enabledValue = String(
-    process.env.OMIE_ORDERS_STAGE_SYNC ?? ""
-  )
+  const enabledValue = String(process.env.OMIE_ORDERS_STAGE_SYNC ?? "")
     .trim()
     .toLowerCase();
 
@@ -51,12 +59,9 @@ export function startOmieOrdersStage20SyncJob(
 
   // ✅ cron configurável
   const cronExpr =
-    String(process.env.OMIE_ORDERS_STAGE20_CRON ?? "").trim() ||
-    "*/10 * * * *";
+    String(process.env.OMIE_ORDERS_STAGE20_CRON ?? "").trim() || "*/10 * * * *";
 
-  const effectiveCronExpr = cron.validate(cronExpr)
-    ? cronExpr
-    : "*/10 * * * *";
+  const effectiveCronExpr = cron.validate(cronExpr) ? cronExpr : "*/10 * * * *";
 
   if (effectiveCronExpr !== cronExpr) {
     log.warn(
@@ -97,26 +102,52 @@ export function startOmieOrdersStage20SyncJob(
         );
       }
 
+      // ✅ 1) Sync stage20 orders (Omie -> DB)
       const { useCases: omieUseCases } = createOmieSalesOrdersModule(app);
       const syncResult = await omieUseCases.syncStage20Orders.execute();
+
+      // ✅ 2) Sync missing clients (referenced by orders but absent in 'clientes')
+      // Usa DI do Fastify (decorations já existentes no registerClientModule)
+      const clientRepository = (app as any).clientRepository;
+      const omieClientGateway = (app as any).omieClientGateway;
+
+      let missingClientsResult: any = null;
+      if (clientRepository && omieClientGateway) {
+        const syncMissingClients = createSyncMissingClientsUseCase({
+          clientRepository,
+          omieClientGateway,
+        });
+
+        missingClientsResult = await syncMissingClients.execute();
+      } else {
+        missingClientsResult = {
+          ok: false,
+          reason: "CLIENT_DEPS_NOT_AVAILABLE",
+          message:
+            "clientRepository/omieClientGateway not decorated on Fastify instance",
+        };
+      }
+
+      // ✅ 3) Backfill order client names (DB-only, no Omie)
+      const backfillResult = await backfillOrderClientNames();
 
       const durationMs = Date.now() - startTime;
 
       log.info(
-        { durationMs, syncResult },
-        "omie orders stage20 sync completed successfully"
+        { durationMs, syncResult, missingClientsResult, backfillResult },
+        "omie orders stage20 sync + client reconciliation completed"
       );
     } catch (err: any) {
       const durationMs = Date.now() - startTime;
 
       if (err instanceof AppError && err.code === "SYNC_IN_PROGRESS") {
         log.warn(
-          { errorCode: err.code },
+          { durationMs, errorCode: err.code },
           "omie orders stage20 sync skipped (already in progress)"
         );
       } else {
         log.error(
-          { error: err.message, stack: err.stack },
+          { durationMs, error: err?.message, stack: err?.stack },
           "omie orders stage20 sync failed"
         );
       }

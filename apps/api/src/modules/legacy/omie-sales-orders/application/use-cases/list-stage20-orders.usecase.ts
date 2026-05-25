@@ -1,40 +1,44 @@
-export function createListStage20OrdersUseCase(deps: { prisma: any }) {
+import { prisma } from "@/infra/db";
+
+type Input = {
+  page: number;
+  pageSize: number;
+  q?: string;
+};
+
+export function createListStage20OrdersUseCase() {
   return {
-    /**
-     * Replica a lógica legacy:
-     * - page, pageSize (1..200)
-     * - filtro opcional q (busca por descrição nos itens)
-     * - apenas etapa 20, não cancelado, não encerrado
-     * - orderBy lastSyncAt desc
-     * - retorna { data, meta }
-     */
-    async execute(input: { page: number; pageSize: number; q?: string }) {
-      const page = Math.max(Number(input?.page ?? 1), 1);
-      const pageSize = Math.min(Math.max(Number(input?.pageSize ?? 50), 1), 200);
-      const q = input?.q?.trim();
+    async execute(input: Input) {
+      const page = input.page;
+      const pageSize = input.pageSize;
+      const skip = (page - 1) * pageSize;
 
       const where: any = {
         etapa: "20",
         cancelado: "N",
         encerrado: "N",
-        ...(q
-          ? {
-              items: {
-                some: {
-                  description: {
-                    contains: q,
-                    mode: "insensitive" as const,
-                  },
-                },
-              },
-            }
-          : {}),
       };
 
-      const [total, data] = await Promise.all([
-        deps.prisma.omieOrder.count({ where }),
-        deps.prisma.omieOrder.findMany({
+      if (input.q && input.q.trim().length > 0) {
+        const q = input.q.trim();
+
+        where.OR = [
+          { numeroPedido: { contains: q, mode: "insensitive" } },
+          { omieCode: { contains: q, mode: "insensitive" } },
+
+          // ✅ Busca direta pelo nome do cliente (denormalizado)
+          { clientLegalName: { contains: q, mode: "insensitive" } },
+          { clientTradeName: { contains: q, mode: "insensitive" } },
+        ];
+      }
+
+      const [total, orders] = await Promise.all([
+        prisma.omieOrder.count({ where }),
+        prisma.omieOrder.findMany({
           where,
+          orderBy: { lastSyncAt: "desc" },
+          skip,
+          take: pageSize,
           include: {
             items: {
               select: {
@@ -43,14 +47,50 @@ export function createListStage20OrdersUseCase(deps: { prisma: any }) {
               },
             },
           },
-          orderBy: { lastSyncAt: "desc" },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
         }),
       ]);
 
-      // legado retornava paginated(data, { page, pageSize, total }, { self: ... })
-      return { data, meta: { page, pageSize, total } };
+      const data = orders.map((order) => ({
+        id: order.id,
+        omieCode: order.omieCode,
+        numeroPedido: order.numeroPedido,
+        codigoCliente: order.codigoCliente,
+
+        etapa: order.etapa,
+        cancelado: order.cancelado,
+        encerrado: order.encerrado,
+
+        dataPrevisao: order.dataPrevisao,
+        lastSyncAt: order.lastSyncAt,
+
+        // ✅ CAMPOS DENORMALIZADOS
+        clientLegalName: (order as any).clientLegalName ?? null,
+        clientTradeName: (order as any).clientTradeName ?? null,
+
+        // ✅ CAMPO PRONTO PARA UX
+        clientName:
+          (order as any).clientTradeName ??
+          (order as any).clientLegalName ??
+          null,
+
+        items: order.items.map((item) => ({
+          description: item.description,
+          quantity: String(item.quantity),
+        })),
+
+        // ⚠️ opcional: mantenha apenas se ainda precisar
+        rawPayload: order.rawPayload,
+      }));
+
+      return {
+        data,
+        meta: {
+          page,
+          pageSize,
+          total,
+        },
+      };
+  return { data, meta: { page, pageSize, total } };
     },
   };
 }

@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { backfillOrderClientNamesController } from "./backfill-order-client-names.controller";
 
 export async function registerOmieSalesOrdersRoutes(app: FastifyInstance, controller: any) {
   // lista geral
@@ -13,4 +14,8 @@ export async function registerOmieSalesOrdersRoutes(app: FastifyInstance, contro
   app.post("/v1/admin/omie/orders/stage20/sync", controller.syncStage20);
   app.get("/v1/admin/omie/orders/stage20/sync", controller.syncStage20Info);
   app.get("/v1/admin/omie/orders/stage20/ping", controller.ping);
+  
+ // ✅ NOVO: backfill manual (DB-only, sem Omie)
+  app.post("/v1/admin/orders/backfill-client-names", backfillOrderClientNamesController);
+
 }

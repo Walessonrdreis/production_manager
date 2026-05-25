@@ -1,4 +1,4 @@
-// File: apps/api/src/modules/client/register.ts
+// File: apps/api/src/modules/legacy/client/register.ts
 
 import { FastifyInstance } from 'fastify';
 import { PrismaClient } from '@prisma/client';
@@ -13,11 +13,12 @@ import { clientRoutes } from './presentation/http/client.routes';
 import { ListClientsUseCase } from "./application/use-cases/list-clients.usecase";
 import { clientListRoutes } from "./presentation/http/client-list.routes";
 // shared Omie client
-import { OmieClient } from '../../../shared/integrations/omie/omie.client';
+import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
+import { syncMissingClientsController } from "./presentation/http/sync-missing-clients.controller";
 
 export async function registerClientModule(app: FastifyInstance) {
   const prisma = app.prisma as PrismaClient;
-  const omieClient = app.omieClient as OmieClient;
+ const omieClient = app.omieClient as OmieHttpClientPort;
 
   // repository
   const clientRepository = new ClientPrismaRepository(prisma);
@@ -53,7 +54,10 @@ export async function registerClientModule(app: FastifyInstance) {
     lastFinishedAt: null as Date | null,
   });
 
-
+app.post(
+  "/v1/admin/omie/clients/sync-missing",
+  syncMissingClientsController
+);
   // ✅ REGISTRO DAS ROTAS (NO PADRÃO DO PROJETO)
   await app.register(clientRoutes, { prefix: '/v1' });
 await app.register(clientAdminRoutes, { prefix: "/v1" });
