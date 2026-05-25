@@ -1,9 +1,9 @@
-import { OmieStockPositionGateway } from "../infrastructure/omie-stock-position.gateway";
+import { OmieOrdersStage20Gateway } from "../infrastructure/omie-orders-stage20.gateway";
 import { OmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
 import { env } from "@/config";
 
-export class GetStockPositionUseCase {
-  private gateway: OmieStockPositionGateway;
+export class GetOrdersStage20UseCase {
+  private gateway: OmieOrdersStage20Gateway;
 
   constructor() {
     const omieClient = new OmieClientWithCircuitBreaker({
@@ -12,10 +12,10 @@ export class GetStockPositionUseCase {
       baseUrl: env.OMIE_BASE_URL ?? "https://app.omie.com.br",
     });
 
-    this.gateway = new OmieStockPositionGateway(omieClient);
+    this.gateway = new OmieOrdersStage20Gateway(omieClient);
   }
 
-  async execute(command: { productId: string }) {
-    return this.gateway.getPosition(command.productId);
+  async execute() {
+    return this.gateway.listStage20();
   }
 }
