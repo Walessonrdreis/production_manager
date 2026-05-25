@@ -12,8 +12,12 @@ export async function getOrdersStage20Controller(
   } catch (error: any) {
     const msg = String(error?.message || "");
 
-    // ✅ modo B (produção): não bloquear request; devolver 429 + Retry-After
-    if (error?.code === "OMIE_REDUNDANT" || msg.includes("REDUNDANT") || msg.includes("Consumo redundante detectado")) {
+    // ✅ MODO B: Omie REDUNDANT → 429 + Retry-After (não bloqueia request)
+    if (
+      error?.code === "OMIE_REDUNDANT" ||
+      msg.includes("REDUNDANT") ||
+      msg.includes("Consumo redundante detectado")
+    ) {
       const retryAfter = Number(error?.retryAfterSeconds ?? extractRetryAfterSeconds(msg) ?? 60);
 
       return reply
@@ -27,6 +31,7 @@ export async function getOrdersStage20Controller(
         });
     }
 
+    // Qualquer outro erro: mantém contrato
     return reply.code(500).send({
       success: false,
       error: "INTERNAL_ERROR",
