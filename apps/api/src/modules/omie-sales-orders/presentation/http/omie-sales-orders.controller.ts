@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { paginated, sendOk, ok } from "@/shared/http/response";
 
-/**
- * Controller do módulo legacy omie-sales-orders.
- * Mantém assinatura atual: recebe useCases já montados pelo módulo.
- */
 export function createOmieSalesOrdersController(useCases: any) {
   return {
     async ping(request: any, reply: any) {
@@ -28,20 +24,6 @@ export function createOmieSalesOrdersController(useCases: any) {
             endpoint: "/v1/admin/omie/orders/stage20/sync",
             idempotent: true,
             lockStrategy: "exclusive",
-          },
-          status: {
-            running: false,
-            locked: false,
-            lockedUntil: null,
-          },
-          lastExecution: {
-            supported: false,
-            note: "Ainda não há persistência de histórico de execução",
-          },
-          behavior: {
-            onSuccess: "Pedidos são persistidos/atualizados no banco",
-            onLocked: "Retorna reason=LOCKED sem executar",
-            onError: "Retorna AppError com código específico",
           },
         })
       );
@@ -72,9 +54,7 @@ export function createOmieSalesOrdersController(useCases: any) {
 
       return reply.send(
         paginated(result.data, result.meta, {
-          self: `/v1/admin/orders/stage20?page=${result.meta.page}&pageSize=${result.meta.pageSize}${
-            q.q ? `&q=${encodeURIComponent(q.q)}` : ""
-          }`,
+          self: `/v1/admin/orders/stage20?page=${result.meta.page}&pageSize=${result.meta.pageSize}`,
         })
       );
     },
@@ -90,12 +70,3 @@ export function createOmieSalesOrdersController(useCases: any) {
     },
   };
 }
-
-/**
- * ✅ Compat: se em algum lugar antigo tiver importado outro nome,
- * você pode manter aliases aqui (sem mudar nada no runtime).
- *
- * Exemplo: se já existia `createOmieSalesOrdersController`, está ok.
- * Se em algum momento renomearam, crie alias:
- */
-// export const createOmieSalesOrdersController = createOmieSalesOrdersController;
