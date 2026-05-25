@@ -1,6 +1,19 @@
 import { AppError } from "@/shared/errors/AppError";
 import { isEligibleStage20, mapOrder } from "@/shared/integrations/omie";
 
+/**
+ * Mitigação pragmática (sem refatorar arquitetura):
+ * - Cooldown em memória para evitar "sync em rajada" no startup/re-render.
+ * - Mantém contrato e lock atual intactos.
+ *
+ * Observação: Em ambiente multi-instância, isso reduz mas não elimina 100% (o lock cobre concorrência).
+ */
+
+// ✅ cooldown em memória (mínima mudança, grande impacto)
+let lastSyncStartedAt: number | null = null;
+// ajuste fino: 60–180s costuma ser suficiente para evitar REDUNDANT pós-start
+const STARTUP_SYNC_COOLDOWN_MS = 90 * 1000;
+
 export function createSyncStage20OrdersUseCase(deps: {
   jobLock: {
     runExclusive: <T>(
@@ -26,6 +39,21 @@ export function createSyncStage20OrdersUseCase(deps: {
 
   return {
     async execute() {
+      // ✅ Freio 1: cooldown em memória (evita rajada em re-render/startup)
+      const now = Date.now();
+      if (lastSyncStartedAt && now - lastSyncStartedAt < STARTUP_SYNC_COOLDOWN_MS) {
+        return {
+          ok: true,
+          reason: "COOLDOWN",
+          cooldownMs: STARTUP_SYNC_COOLDOWN_MS,
+          nextAllowedAt: new Date(lastSyncStartedAt + STARTUP_SYNC_COOLDOWN_MS).toISOString(),
+          syncedOrders: 0,
+          skippedOrders: 0,
+          pages: 0,
+        };
+      }
+      lastSyncStartedAt = now;
+
       const lockRun = await deps.jobLock.runExclusive(LOCK_KEY, LOCK_TTL_MS, async ({ renew }) => {
         let page = 1;
         let totalPages = 1;
@@ -56,7 +84,10 @@ export function createSyncStage20OrdersUseCase(deps: {
               activeStage20OmieCodes.add(String(order.omieCode));
 
               const validItems = items.filter(
-                (i: any) => i?.omieItemCode && i?.description && String(i.description).trim().length > 0
+                (i: any) =>
+                  i?.omieItemCode &&
+                  i?.description &&
+                  String(i.description).trim().length > 0
               );
 
               await deps.omieOrdersRepo.upsertOrderWithItems(order, validItems);
