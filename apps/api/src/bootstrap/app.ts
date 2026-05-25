@@ -15,16 +15,16 @@ import { createOmieClientWithCircuitBreaker } from "@/shared/integrations/omie/o
 import { createOmieStockCache } from "@/shared/integrations/omie/omie-stock-cache";
 
 // jobs (nova arquitetura)
-import { startStockRefreshJob } from "@/modules/products/infrastructure/jobs/stock-refresh.job";
-import { startOmieProductSyncJob } from "@/modules/products/infrastructure/jobs/omie-product-sync.job";
-import { startOmieOrdersStage20SyncJob } from "@/modules/omie-sales-orders/infrastructure/jobs/omie-orders-stage20.job";
-import { startOmieProductionOrdersSyncJob } from "@/modules/omie-production-orders/infrastructure/jobs/omie-production-orders-sync.job";
-import { startOmieClientSyncJob } from "@/modules/client/infrastructure/jobs/sync-omie-clients.job"; 
+import { startStockRefreshJob } from "@/modules/legacy/products/infrastructure/jobs/stock-refresh.job";
+import { startOmieProductSyncJob } from "@/modules/legacy/products/infrastructure/jobs/omie-product-sync.job";
+import { startOmieOrdersStage20SyncJob } from "@/modules/legacy/omie-sales-orders/infrastructure/jobs/omie-orders-stage20.job";
+import { startOmieProductionOrdersSyncJob } from "@/modules/legacy/omie-production-orders/infrastructure/jobs/omie-production-orders-sync.job";
+import { startOmieClientSyncJob } from "@/modules/legacy/client/infrastructure/jobs/sync-omie-clients.job"; 
 
-import { ListOrdersViewUseCase } from "@/modules/orders-view/application/list-orders-view.usecase";
-import type { ListClientsUseCase } from "@/modules/client/application/use-cases/list-clients.usecase";
-import type { ListStage20OrdersEnrichedUseCase } from "@/modules/orders-enriched/application/use-cases/list-stage20-orders-enriched.usecase";
-import { startOmieProductStructureSyncJob } from "@/modules/product-structure/infrastructure/jobs/omie-product-structure-sync.job";
+import { ListOrdersViewUseCase } from "@/modules/legacy/orders-view/application/list-orders-view.usecase";
+import type { ListClientsUseCase } from "@/modules/legacy/client/application/use-cases/list-clients.usecase";
+import type { ListStage20OrdersEnrichedUseCase } from "@/modules/legacy/orders-enriched/application/use-cases/list-stage20-orders-enriched.usecase";
+import { startOmieProductStructureSyncJob } from "@/modules/legacy/product-structure/infrastructure/jobs/omie-product-structure-sync.job";
 // Documentação OpenAPI simplificada
 import { registerOpenAPIDocumentation } from "./openapi-simple";
 

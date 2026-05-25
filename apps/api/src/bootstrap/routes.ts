@@ -2,25 +2,25 @@ import type { FastifyInstance } from "fastify";
 import { sendOk } from "@/shared/http/response";
 
 // módulos
-import { registerClientModule } from '../modules/client/register'; // <-- novo
-import { createProductsModule } from "@/modules/products";
-import { registerSectorsModule } from "@/modules/sectors";
-import { registerProductSectorModule } from "@/modules/product-sector";
-import { registerPlansModule } from "@/modules/plans";
-import { createOmieSalesOrdersModule } from "@/modules/omie-sales-orders"; // dependendo de como você exportou
-import { registerOmieSalesOrdersModule } from "@/modules/omie-sales-orders/register";
-import { createOmieProductionOrdersModule } from "@/modules/omie-production-orders";
-import { registerOmieProductionOrdersModule } from "@/modules/omie-production-orders/register";
-import { registerOrdersEnrichedModule } from "@/modules/orders-enriched/register";
-import { registerOrdersViewModule } from "@/modules/orders-view/register";
-import { registerSyncModule } from "@/modules/sync/register";
-import { registerAlertsModule } from "@/modules/alerts/register";
-import { registerProductionQueueModule } from "@/modules/production-queue/register";
-import { registerSalesProductionIntegrationModule } from "@/modules/sales-production-integration/register";
-import { registerProductStructureModule } from "@/modules/product-structure/register";
-import { registerInternalProductionOrdersModule } from "@/modules/internal-production-orders/register";
-import { registerTrelloIntegrationModule } from "@/modules/trello-integration/register";
-import { registerProductSectorsModule } from "@/modules/product-sectors";
+import { registerClientModule } from '../modules/legacy/client/register'; // <-- novo
+import { createProductsModule } from "@/modules/legacy/products";
+import { registerSectorsModule } from "@/modules/legacy/sectors";
+import { registerProductSectorModule } from "@/modules/legacy/product-sector";
+import { registerPlansModule } from "@/modules/legacy/plans";
+import { createOmieSalesOrdersModule } from "@/modules/legacy/omie-sales-orders"; // dependendo de como você exportou
+import { registerOmieSalesOrdersModule } from "@/modules/legacy/omie-sales-orders/register";
+import { createOmieProductionOrdersModule } from "@/modules/legacy/omie-production-orders";
+import { registerOmieProductionOrdersModule } from "@/modules/legacy/omie-production-orders/register";
+import { registerOrdersEnrichedModule } from "@/modules/legacy/orders-enriched/register";
+import { registerOrdersViewModule } from "@/modules/legacy/orders-view/register";
+import { registerSyncModule } from "@/modules/legacy/sync/register";
+import { registerAlertsModule } from "@/modules/legacy/alerts/register";
+import { registerProductionQueueModule } from "@/modules/legacy/production-queue/register";
+import { registerSalesProductionIntegrationModule } from "@/modules/legacy/sales-production-integration/register";
+import { registerProductStructureModule } from "@/modules/legacy/product-structure/register";
+import { registerInternalProductionOrdersModule } from "@/modules/legacy/internal-production-orders/register";
+import { registerTrelloIntegrationModule } from "@/modules/legacy/trello-integration/register";
+import { registerProductSectorsModule } from "@/modules/legacy/product-sectors";
 import { registerIntegrationModule } from "@/modules/integration/register";
 import { registerStockModule } from "@/modules/integration/stock/register-stock-module";
 import { registerOrdersModule } from "@/modules/integration/orders/register-orders-module";
@@ -280,6 +280,8 @@ export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
   // register modules (new architecture)
   // ---------------------------------------------------------------------------
+
+  // ✅ Mantém: rotas internas/infra e módulos estáveis que não disparam Omie automaticamente
   await registerOrdersEnrichedModule(app);
 
   await createProductsModule(app);
@@ -287,20 +289,28 @@ export async function registerRoutes(app: FastifyInstance) {
   await registerProductSectorModule(app);
   await registerPlansModule(app);
 
-  // ✅ NOVO (malha/estrutura de produtos)
+  // ✅ Mantém: malha/estrutura de produtos (se não disparar sync automático)
   await registerProductStructureModule(app);
 
-  // omie sales orders
-  await registerOmieSalesOrdersModule(app);
-  const omieSalesOrders = createOmieSalesOrdersModule(app);
-  
-  // omie production orders
-  await registerOmieProductionOrdersModule(app);
-  const omieProductionOrders = createOmieProductionOrdersModule(app);
-  
+  // ---------------------------------------------------------------------------
+  // 🔕 LEGACY / OMIE módulos (DESATIVADOS temporariamente para evitar REDUNDANT)
+  // ---------------------------------------------------------------------------
+
+  // ❌ DESATIVAR: omie sales orders (é o principal suspeito de sync indireto/REDUNDANT)
+  // await registerOmieSalesOrdersModule(app);
+  // const omieSalesOrders = createOmieSalesOrdersModule(app);
+
+  // ❌ DESATIVAR: omie production orders (se estiver chamando Omie no startup)
+  // await registerOmieProductionOrdersModule(app);
+  // const omieProductionOrders = createOmieProductionOrdersModule(app);
+
+  // ---------------------------------------------------------------------------
+  // ✅ Mantém: módulos que usam banco local / admin / UI sem chamar Omie diretamente
+  // ---------------------------------------------------------------------------
+
   await registerOrdersViewModule(app);
 
-  // client module (sync Omie clients)
+  // client module (sync Omie clients) -> se isso também estiver causando sync automático, comente
   await registerClientModule(app);
 
   // internal production orders (API Avançada - Fase 2)
@@ -310,28 +320,32 @@ export async function registerRoutes(app: FastifyInstance) {
   await registerTrelloIntegrationModule(app);
 
   // integration module (API 1 - Command Integration Flow)
+  // ⚠️ Se esse módulo estiver chamando Omie ao vivo em endpoints de integração, mantenha só o que você precisa.
   await registerIntegrationModule(app);
 
-  // product-sectors module (defaults: Refino, Temperagem, Confeitaria, Embalagem)
+  // product-sectors module
   await registerProductSectorsModule(app);
 
-  
-  // sync module (API Core - Fase 2) - TEMPORARILY DISABLED DUE TO ZOD SCHEMA ERROR
+  // sync module - já estava desativado
   // registerSyncModule(app);
-  
-  // alerts module (API Core - Fase 2)
+
+  // alerts module
   registerAlertsModule(app);
-  
-  // production queue module (API Core - Fase 2) - TEMPORARILY DISABLED DUE TO FST_ERR_DEC_ALREADY_PRESENT
+
+  // production queue module - já estava desativado
   // registerProductionQueueModule(app);
-  
-  // sales production integration module (API Core - Fase 2)
+
+  // sales production integration module
   registerSalesProductionIntegrationModule(app);
- // stock module (integration module)
+
+  // stock module (integration module)
   await registerStockModule(app);
 
+  // ⚠️ Se este registerOrdersModule for o seu novo módulo de integração "orders", mantenha.
+  // Se for legacy, comente também.
   await registerOrdersModule(app);
-  
-  void omieSalesOrders;
-  void omieProductionOrders;
+
+  // ❌ Como os módulos omie acima foram comentados, não precisa do void deles
+  // void omieSalesOrders;
+  // void omieProductionOrders;
 }
