@@ -126,6 +126,10 @@ numeroPedido String? @db.VarChar(64)
   /// cabecalho.codigo_cliente
   codigoCliente String?  @db.VarChar(64)
 
+  // ✅ NOVOS CAMPOS
+  clientLegalName String?  @db.Text
+  clientTradeName String?  @db.Text
+
   codigoEmpresa String?  @db.VarChar(64)
   etapa         String   @db.VarChar(10)
 
