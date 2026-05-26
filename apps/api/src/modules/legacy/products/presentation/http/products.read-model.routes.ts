@@ -6,13 +6,19 @@ import { prisma } from "@/infra/db";
  * Produto Omie + flags derivadas de estrutura (BOM)
  * - NÃO escreve
  * - NÃO chama Omie
+ * - NÃO executa regra de domínio mutável
  */
 export async function registerProductsReadModelRoutes(app: FastifyInstance) {
+  // ---------------------------------------------------------------------------
+  // LISTAGEM: Produtos Omie + visão resumida da estrutura
   // GET /v1/admin/read/products
+  // ---------------------------------------------------------------------------
   app.get(
     "/v1/admin/read/products",
     async (
-      request: FastifyRequest<{ Querystring: { page?: string; pageSize?: string; q?: string } }>,
+      request: FastifyRequest<{
+        Querystring: { page?: string; pageSize?: string; q?: string };
+      }>,
       reply: FastifyReply
     ) => {
       const page = Math.max(1, Number(request.query.page ?? 1));
@@ -59,7 +65,11 @@ export async function registerProductsReadModelRoutes(app: FastifyInstance) {
           })
         : [];
 
-      const structureMap = new Map<string, { itemsCount: number; updatedAt: string | null }>();
+      const structureMap = new Map<
+        string,
+        { itemsCount: number; updatedAt: string | null }
+      >();
+
       for (const s of structures) {
         structureMap.set(s.codProduto, {
           itemsCount: s._count.items ?? 0,
@@ -102,10 +112,16 @@ export async function registerProductsReadModelRoutes(app: FastifyInstance) {
     }
   );
 
+  // ---------------------------------------------------------------------------
+  // DETALHE: Estrutura (BOM) do produto
   // GET /v1/admin/read/products/:omieCode/structure
+  // ---------------------------------------------------------------------------
   app.get(
     "/v1/admin/read/products/:omieCode/structure",
-    async (request: FastifyRequest<{ Params: { omieCode: string } }>, reply: FastifyReply) => {
+    async (
+      request: FastifyRequest<{ Params: { omieCode: string } }>,
+      reply: FastifyReply
+    ) => {
       const { omieCode } = request.params;
 
       const structure = await prisma.productStructure.findUnique({
@@ -122,7 +138,7 @@ export async function registerProductsReadModelRoutes(app: FastifyInstance) {
               quantidade: true,
               unidade: true,
               percentualPerda: true,
-              idMalhaOmie: true,
+              idMalhaOmie: true, // BigInt
             },
             orderBy: { codProdutoComponente: "asc" },
           },
@@ -151,7 +167,9 @@ export async function registerProductsReadModelRoutes(app: FastifyInstance) {
             quantidade: i.quantidade,
             unidade: i.unidade ?? null,
             percentualPerda: i.percentualPerda ?? null,
-            idMalhaOmie: i.idMalhaOmie ?? null,
+
+            // ✅ BigInt convertido corretamente para JSON
+            idMalhaOmie: i.idMalhaOmie ? i.idMalhaOmie.toString() : null,
           })),
         },
       });
