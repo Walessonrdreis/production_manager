@@ -1,6 +1,7 @@
 import { AppError } from "@/shared/errors/AppError";
 import { isEligibleStage20, mapOrder } from "@/shared/integrations/omie";
-
+import { backfillOrderClientNames }
+  from "@/modules/legacy/omie-sales-orders/application/use-cases/backfill-order-client-names.usecase";
 /**
  * Mitigação pragmática (sem refatorar arquitetura):
  * - Flag de ambiente para ligar/desligar sync via infra (Render)
@@ -47,8 +48,7 @@ export function createSyncStage20OrdersUseCase(deps: {
   return {
     async execute() {
       /**
-       * ✅ FREIO 0 — FLAG DE AMBIENTE (controle via Render)
-       * Se estiver false, NADA toca Omie.
+       * ✅ FREIO 0 — FLAG DE AMBIENTE
        */
       if (process.env.OMIE_STAGE20_SYNC_ENABLED === "false") {
         return {
@@ -62,7 +62,6 @@ export function createSyncStage20OrdersUseCase(deps: {
 
       /**
        * ✅ FREIO 1 — COOLDOWN EM MEMÓRIA
-       * Evita múltiplos syncs em sequência no startup / re-render
        */
       const now = Date.now();
       if (lastSyncStartedAt && now - lastSyncStartedAt < STARTUP_SYNC_COOLDOWN_MS) {
@@ -83,7 +82,6 @@ export function createSyncStage20OrdersUseCase(deps: {
 
       /**
        * ✅ FREIO 2 — LOCK DISTRIBUÍDO
-       * Garante exclusividade entre instâncias
        */
       const lockRun = await deps.jobLock.runExclusive(
         LOCK_KEY,
@@ -133,9 +131,16 @@ export function createSyncStage20OrdersUseCase(deps: {
               page++;
             } while (page <= totalPages);
 
+            // ✅ reconciliação final
             await deps.omieOrdersRepo.reconcileMissingStage20Orders([
               ...activeStage20OmieCodes,
             ]);
+
+            // ✅ BACKFILL AUTOMÁTICO (READ MODEL CONSISTENCY)
+            // - idempotente
+            // - seguro
+            // - elimina necessidade de curl manual
+            await backfillOrderClientNames();
 
             return {
               ok: true,

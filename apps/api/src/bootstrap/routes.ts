@@ -67,10 +67,10 @@ export async function registerRoutes(app: FastifyInstance) {
   await registerProductStructureModule(app);
 
    await registerOmieSalesOrdersModule(app);
-  // const omieSalesOrders = createOmieSalesOrdersModule(app);
+   const omieSalesOrders = createOmieSalesOrdersModule(app);
 
   // await registerOmieProductionOrdersModule(app);
-  // const omieProductionOrders = createOmieProductionOrdersModule(app);
+   const omieProductionOrders = createOmieProductionOrdersModule(app);
 
   // await registerOrdersViewModule(app);
 
@@ -84,12 +84,12 @@ export async function registerRoutes(app: FastifyInstance) {
 
   // registerAlertsModule(app);
 
-  // registerSalesProductionIntegrationModule(app);
+   registerSalesProductionIntegrationModule(app);
 
   // sync / production queue já estavam instáveis antes
   // registerSyncModule(app);
   // registerProductionQueueModule(app);
 
-  // void omieSalesOrders;
+   void omieSalesOrders;
   // void omieProductionOrders;
 }
