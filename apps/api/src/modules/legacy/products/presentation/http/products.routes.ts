@@ -1,6 +1,7 @@
-// src/modules/products/presentation/http/products.routes.ts
+// src/modules/legacy/products/presentation/http/products.routes.ts
 import type { FastifyInstance } from "fastify";
 import { markDeprecated } from "@/shared/http/response";
+import { registerProductsReadModelRoutes } from "./products.read-model.routes";
 
 export async function registerProductsRoutes(app: FastifyInstance, controller: any) {
   // ---------------------------------------------------------------------------
@@ -217,5 +218,5 @@ export async function registerProductsRoutes(app: FastifyInstance, controller: a
     markDeprecated(req, rep, "/v1/omie/products/by-code/:omieCode/stock", "/v1/admin/omie/products/by-code/:omieCode/stock");
     return controller.adminOmieProductStockByCode(req, rep);
   });
-  
+  await registerProductsReadModelRoutes(app);
 }

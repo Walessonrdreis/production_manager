@@ -60,11 +60,11 @@ export async function registerRoutes(app: FastifyInstance) {
 
   // await registerOrdersEnrichedModule(app);
 
-  // await createProductsModule(app);
+  await createProductsModule(app);
   // await registerSectorsModule(app);
   // await registerProductSectorModule(app);
   // await registerPlansModule(app);
-  // await registerProductStructureModule(app);
+  await registerProductStructureModule(app);
 
    await registerOmieSalesOrdersModule(app);
   // const omieSalesOrders = createOmieSalesOrdersModule(app);
