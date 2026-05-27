@@ -5,6 +5,9 @@ import { createListOmieOrdersPageUseCase } from "./application/use-cases/list-om
 import { createSyncStage20OrdersUseCase } from "./application/use-cases/sync-stage20-orders.usecase";
 import { createOmieOrdersRepoPrisma } from "./infrastructure/db/omie-orders.repo.prisma";
 
+// ✅ NOVO: sync-missing-clients (para automatizar no mesmo fluxo)
+import { createSyncMissingClientsUseCase } from "@/modules/legacy/client/application/use-cases/sync-missing-clients.usecase";
+
 // sync products (omie catalog)
 import { createFetchOmieProductsPageUseCase } from "./application/use-cases/fetch-omie-products-page.usecase";
 import { createSyncOmieProductsUseCase } from "./application/use-cases/sync-omie-products.usecase";
@@ -35,6 +38,18 @@ export function createOmieSalesOrdersModule(app: any) {
   const omieOrdersRepo = createOmieOrdersRepoPrisma(prisma);
 
   // ---------------------------------------------------------------------------
+  // ✅ deps opcionais do módulo legacy/client (para sync-missing-clients)
+  // ---------------------------------------------------------------------------
+  // Esses deps existem se você registrou registerClientModule(app) no bootstrap.
+  const clientRepository = (app as any).clientRepository;
+  const omieClientGateway = (app as any).omieClientGateway;
+
+  const syncMissingClients =
+    clientRepository && omieClientGateway
+      ? createSyncMissingClientsUseCase({ clientRepository, omieClientGateway })
+      : undefined;
+
+  // ---------------------------------------------------------------------------
   // sync de pedidos (stage 20)
   // ---------------------------------------------------------------------------
   const listOmieOrdersPage = createListOmieOrdersPageUseCase({ omieClient });
@@ -43,6 +58,9 @@ export function createOmieSalesOrdersModule(app: any) {
     jobLock,
     listOmieOrdersPage,
     omieOrdersRepo,
+
+    // ✅ NOVO: injeta automação (se disponível)
+    syncMissingClients,
   });
 
   // ---------------------------------------------------------------------------
