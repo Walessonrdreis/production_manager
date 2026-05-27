@@ -28,7 +28,8 @@ export const InternalErrorResponseSchema = z.object({
   message: z.string(),
 });
 
-export type CreateProductionOrderRequest = z.infer<typeof CreateProductionOrderRequestSchema>;
-export type CreateProductionOrderResponse = z.infer<typeof CreateProductionOrderResponseSchema>;
-export type ValidationErrorResponse = z.infer<typeof ValidationErrorResponseSchema>;
-export type InternalErrorResponse = z.infer<typeof InternalErrorResponseSchema>;
+export type CreateProductionOrderRequest =
+  z.infer<typeof CreateProductionOrderRequestSchema>;
+
+export type CreateProductionOrderResponse =
+  z.infer<typeof CreateProductionOrderResponseSchema>;

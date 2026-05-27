@@ -1,31 +1,39 @@
+import { z } from "zod";
 import type { FastifyRequest, FastifyReply } from "fastify";
+
 import {
   CreateProductionOrderRequestSchema,
-  CreateProductionOrderResponseSchema,
   ValidationErrorResponseSchema,
   InternalErrorResponseSchema,
 } from "../schemas";
+
 import { CreateProductionOrderUseCase } from "../../../application/use-cases/create-production-order.usecase";
 
 export async function createProductionOrderController(
   request: FastifyRequest<{
-    Body: typeof CreateProductionOrderRequestSchema._type;
+    Body: z.infer<typeof CreateProductionOrderRequestSchema>;
   }>,
   reply: FastifyReply,
   useCase?: CreateProductionOrderUseCase
 ) {
   try {
-    // Validar payload
-    const validatedData = CreateProductionOrderRequestSchema.parse(request.body);
+    console.log("[OP][CONTROLLER] entrada", {
+      externalRequestId: request.body?.externalRequestId,
+    });
 
-    // Chamar use case (sem lógica de negócio no controller)
+    const validatedData =
+      CreateProductionOrderRequestSchema.parse(request.body);
+
     const useCaseInstance = useCase || new CreateProductionOrderUseCase();
-    const successResponse = await useCaseInstance.execute(validatedData);
+    const successResponse =
+      await useCaseInstance.execute(validatedData);
 
     return reply.code(202).send(successResponse);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const validationError: typeof ValidationErrorResponseSchema._type = {
+      const validationError: z.infer<
+        typeof ValidationErrorResponseSchema
+      > = {
         success: false,
         error: "VALIDATION_ERROR",
         message: "Invalid request payload",
@@ -34,7 +42,11 @@ export async function createProductionOrderController(
       return reply.code(400).send(validationError);
     }
 
-    const internalError: typeof InternalErrorResponseSchema._type = {
+    console.error("[OP][CONTROLLER][ERROR]", error);
+
+    const internalError: z.infer<
+      typeof InternalErrorResponseSchema
+    > = {
       success: false,
       error: "INTERNAL_ERROR",
       message: "An unexpected error occurred",
@@ -43,6 +55,3 @@ export async function createProductionOrderController(
     return reply.code(500).send(internalError);
   }
 }
-
-// Import necessário para o catch block
-import { z } from "zod";

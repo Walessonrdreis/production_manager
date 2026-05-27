@@ -9,8 +9,8 @@ declare module "fastify" {
     description?: string;
     summary?: string;
     tags?: string[];
-  prisma: PrismaClient;
-    omieClient: OmieHttpClientPort;
+    prisma?: PrismaClient;
+    omieClient?: OmieHttpClientPort;
 
   }
 }

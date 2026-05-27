@@ -25,10 +25,13 @@ import { registerInternalProductionOrdersModule } from "@/modules/legacy/interna
 import { registerTrelloIntegrationModule } from "@/modules/legacy/trello-integration/register";
 import { registerProductSectorsModule } from "@/modules/legacy/product-sectors";
 
+import { registerProductionOrdersIntegrationModule } 
+  from "@/modules/integration/production-orders";
+
 // ---------------------------------------------------------------------------
 // NOVO/FUTURO (integration)
 // ---------------------------------------------------------------------------
-import { registerIntegrationModule } from "@/modules/integration/register";
+
 import { registerStockModule } from "@/modules/integration/stock/register-stock-module";
 import { registerOrdersModule } from "@/modules/integration/orders/register-orders-module";
 
@@ -49,9 +52,10 @@ export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
 
   // ✅ NOVO/FUTURO — manter ligados
-  await registerIntegrationModule(app);
+ 
   await registerStockModule(app);
   await registerOrdersModule(app);
+  await registerProductionOrdersIntegrationModule(app);
 
   // ---------------------------------------------------------------------------
   // 🔕 LEGACY — DESATIVADO TEMPORARIAMENTE
@@ -71,7 +75,7 @@ export async function registerRoutes(app: FastifyInstance) {
 
   // await registerOmieProductionOrdersModule(app);
    const omieProductionOrders = createOmieProductionOrdersModule(app);
-
+ 
   // await registerOrdersViewModule(app);
 
    await registerClientModule(app);
