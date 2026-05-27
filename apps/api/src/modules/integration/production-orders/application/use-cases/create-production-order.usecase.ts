@@ -44,6 +44,7 @@ export class CreateProductionOrderUseCase {
       return;
     }
 
+    // ✅ Strategy por env (fake primeiro)
     const gatewayType = process.env.PRODUCTION_ORDER_GATEWAY;
 
     if (gatewayType === "real") {
@@ -56,13 +57,18 @@ export class CreateProductionOrderUseCase {
   async execute(
     request: CreateProductionOrderRequest
   ): Promise<CreateProductionOrderResponse> {
-    const result = await this.gateway.createProductionOrder(request);
+    console.log("[OP][USECASE] execute", {
+      externalRequestId: request.externalRequestId,
+      gateway: process.env.PRODUCTION_ORDER_GATEWAY ?? "fake",
+    });
+
+    const integrationResult = await this.gateway.createProductionOrder(request);
 
     return {
       success: true,
       data: {
-        externalRequestId: result.externalRequestId,
-        status: result.status,
+        externalRequestId: integrationResult.externalRequestId,
+        status: integrationResult.status,
       },
     };
   }

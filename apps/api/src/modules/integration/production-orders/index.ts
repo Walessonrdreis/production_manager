@@ -1,2 +1,2 @@
-export * from "./production-orders-integration-register";
-export * from "./presentation/http/schemas";
+export { registerProductionOrdersIntegrationModule }
+  from "./production-orders-integration-register";
