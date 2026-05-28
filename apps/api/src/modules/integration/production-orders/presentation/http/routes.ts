@@ -4,9 +4,10 @@ import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-cl
 
 import { createProductionOrderController } from "./controllers/create-production-order.controller";
 import { getProductionOrderStatusController } from "./controllers/get-production-order-status.controller";
+import { confirmProductionOrderController } from "./controllers/confirm-production-order.controller";
+import { failProductionOrderController } from "./controllers/fail-production-order.controller";
 
 export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
-  // ✅ Compat com o seu legado de tipagem (FastifySchema estendido)
   const prisma = (app as any).prisma as PrismaClient;
   const omieClient = (app as any).omieClient as OmieHttpClientPort;
 
@@ -16,25 +17,47 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
     omieClient,
   };
 
-  // POST /v1/integration/production-order
+  // CREATE
   app.route({
     method: "POST",
     url: "/v1/integration/production-order",
     schema: {
       ...baseSchema,
-      description: "Create production order integration (API 1)",
+      description: "Create production order (integration)",
     },
     handler: createProductionOrderController,
   });
 
-  // ✅ NOVO: GET /v1/integration/production-order/:externalRequestId
+  // STATUS
   app.route({
     method: "GET",
     url: "/v1/integration/production-order/:externalRequestId",
     schema: {
       ...baseSchema,
-      description: "Get production order integration status by externalRequestId",
+      description: "Get production order integration status",
     },
     handler: getProductionOrderStatusController,
+  });
+
+  // ✅ FAKE — CONFIRM
+  app.route({
+    method: "POST",
+    url: "/v1/integration/production-order/:externalRequestId/confirm",
+    schema: {
+      ...baseSchema,
+      description: "FAKE – confirm production order",
+    },
+    handler: confirmProductionOrderController,
+  });
+
+  // ✅ FAKE — FAIL
+  app.route({
+    method: "POST",
+    url: "/v1/integration/production-order/:externalRequestId/fail",
+    schema: {
+      ...baseSchema,
+      description: "FAKE – fail production order",
+    },
+    handler: failProductionOrderController,
   });
 }
