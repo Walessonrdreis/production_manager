@@ -1,12 +1,11 @@
-import type { ProductionOrderIntegrationGateway } from "../../application/ports/production-order-integration.gateway";
-import type { CreateProductionOrderRequest } from "../../presentation/http/schemas";
+import type { ProductionOrderCreationGateway } from "./production-order-creation.gateway";
+import type { CreateProductionOrderRequest } from "../../../presentation/http/schemas";
 import { env } from "@/config";
 import type { OmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
+import { productionOrderIntegrationStore } from "../../db/production-order-integration.store";
 
-import { productionOrderIntegrationStore } from "../db/production-order-integration.store";
-
-export class RealProductionOrderIntegrationGateway
-  implements ProductionOrderIntegrationGateway
+export class RealProductionOrderCreationGateway
+  implements ProductionOrderCreationGateway
 {
   constructor(
     private readonly omieClient: OmieClientWithCircuitBreaker
@@ -22,7 +21,7 @@ export class RealProductionOrderIntegrationGateway
       throw new Error("OMIE_CLIENT_NOT_CONFIGURED");
     }
 
-    console.log("[OP][REAL][GATEWAY] create", {
+    console.log("[OP][REAL][CREATION] create", {
       externalRequestId: command.externalRequestId,
     });
 
@@ -79,32 +78,22 @@ export class RealProductionOrderIntegrationGateway
           response?.faultstring || response?.error || "Unknown error"
         );
 
-        productionOrderIntegrationStore.markFailed(
-          command.externalRequestId,
-          {
-            code: "OMIE_ERROR",
-            message,
-          }
-        );
+        productionOrderIntegrationStore.markFailed(command.externalRequestId, {
+          code: "OMIE_ERROR",
+          message,
+        });
 
         throw new Error(message);
       }
 
-      return {
-        externalRequestId: command.externalRequestId,
-        status: "ACCEPTED",
-      };
+      return { externalRequestId: command.externalRequestId, status: "ACCEPTED" };
     } catch (error: any) {
-      const message =
-        error?.message ?? "Omie unknown error";
+      const message = error?.message ?? "Omie unknown error";
 
-      productionOrderIntegrationStore.markFailed(
-        command.externalRequestId,
-        {
-          code: "OMIE_EXCEPTION",
-          message,
-        }
-      );
+      productionOrderIntegrationStore.markFailed(command.externalRequestId, {
+        code: "OMIE_EXCEPTION",
+        message,
+      });
 
       throw new Error(message);
     }
@@ -126,9 +115,7 @@ export class RealProductionOrderIntegrationGateway
     return `${day}/${month}/${year}`;
   }
 
-  private validateRequiredFields(
-    command: CreateProductionOrderRequest
-  ): void {
+  private validateRequiredFields(command: CreateProductionOrderRequest): void {
     const missingFields: string[] = [];
 
     if (!command.productId || command.productId.trim() === "") {
@@ -139,17 +126,12 @@ export class RealProductionOrderIntegrationGateway
       missingFields.push("quantity");
     }
 
-    if (
-      !command.externalRequestId ||
-      command.externalRequestId.trim() === ""
-    ) {
+    if (!command.externalRequestId || command.externalRequestId.trim() === "") {
       missingFields.push("externalRequestId");
     }
 
     if (missingFields.length > 0) {
-      throw new Error(
-        `Missing required fields: ${missingFields.join(", ")}`
-      );
+      throw new Error(`Missing required fields: ${missingFields.join(", ")}`);
     }
   }
 }

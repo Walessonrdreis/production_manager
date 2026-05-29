@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { productionOrderIntegrationStore } from "../../../infrastructure/db/production-order-integration.store";
+import { FakeProductionOrderLifecycleGateway } from "../../../infrastructure/gateways/lifecycle/fake-production-order-lifecycle.gateway";
 
 const FailBodySchema = z.object({
   code: z.string(),
@@ -16,14 +16,21 @@ export async function failProductionOrderController(
 ) {
   const { externalRequestId } = request.params;
 
-  console.log("[OP][FAKE][FAIL] entrada", { externalRequestId });
+  // ✅ Segurança operacional: lifecycle fake só quando gateway=fake
+  if (process.env.PRODUCTION_ORDER_GATEWAY === "real") {
+    return reply.code(405).send({
+      success: false,
+      error: "METHOD_NOT_ALLOWED",
+      message: "Fail is available only when PRODUCTION_ORDER_GATEWAY=fake",
+    });
+  }
+
+  console.log("[OP][CONTROLLER][FAIL] entrada", { externalRequestId });
 
   const body = FailBodySchema.parse(request.body);
 
-  const record = productionOrderIntegrationStore.markFailed(
-    externalRequestId,
-    body
-  );
+  const lifecycle = new FakeProductionOrderLifecycleGateway();
+  const record = await lifecycle.fail(externalRequestId, body);
 
   if (!record) {
     return reply.code(404).send({

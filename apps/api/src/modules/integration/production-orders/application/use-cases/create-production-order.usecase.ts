@@ -3,15 +3,15 @@ import type {
   CreateProductionOrderResponse,
 } from "../../presentation/http/schemas";
 
-import type { ProductionOrderIntegrationGateway } from "../ports/production-order-integration.gateway";
-import { FakeProductionOrderIntegrationGateway } from "../../infrastructure/gateways/fake-production-order-integration.gateway";
-import { RealProductionOrderIntegrationGateway } from "../../infrastructure/gateways/real-production-order-integration.gateway";
-
 import { env } from "@/config";
 import {
   createOmieClientWithCircuitBreaker,
   type OmieClientWithCircuitBreaker,
 } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
+
+import type { ProductionOrderCreationGateway } from "../../infrastructure/gateways/creation/production-order-creation.gateway";
+import { FakeProductionOrderCreationGateway } from "../../infrastructure/gateways/creation/fake-production-order-creation.gateway";
+import { RealProductionOrderCreationGateway } from "../../infrastructure/gateways/creation/real-production-order-creation.gateway";
 
 let omieClientSingleton: OmieClientWithCircuitBreaker | null = null;
 
@@ -36,21 +36,20 @@ function getOmieClient(): OmieClientWithCircuitBreaker {
 }
 
 export class CreateProductionOrderUseCase {
-  private gateway: ProductionOrderIntegrationGateway;
+  private gateway: ProductionOrderCreationGateway;
 
-  constructor(gateway?: ProductionOrderIntegrationGateway) {
+  constructor(gateway?: ProductionOrderCreationGateway) {
     if (gateway) {
       this.gateway = gateway;
       return;
     }
 
-    // ✅ Strategy por env (fake primeiro)
     const gatewayType = process.env.PRODUCTION_ORDER_GATEWAY;
 
     if (gatewayType === "real") {
-      this.gateway = new RealProductionOrderIntegrationGateway(getOmieClient());
+      this.gateway = new RealProductionOrderCreationGateway(getOmieClient());
     } else {
-      this.gateway = new FakeProductionOrderIntegrationGateway();
+      this.gateway = new FakeProductionOrderCreationGateway();
     }
   }
 

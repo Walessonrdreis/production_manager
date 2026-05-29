@@ -73,7 +73,7 @@ export async function registerRoutes(app: FastifyInstance) {
    await registerOmieSalesOrdersModule(app);
    const omieSalesOrders = createOmieSalesOrdersModule(app);
 
-  // await registerOmieProductionOrdersModule(app);
+   await registerOmieProductionOrdersModule(app);
    const omieProductionOrders = createOmieProductionOrdersModule(app);
  
   // await registerOrdersViewModule(app);
@@ -95,5 +95,5 @@ export async function registerRoutes(app: FastifyInstance) {
   // registerProductionQueueModule(app);
 
    void omieSalesOrders;
-  // void omieProductionOrders;
+  void omieProductionOrders;
 }

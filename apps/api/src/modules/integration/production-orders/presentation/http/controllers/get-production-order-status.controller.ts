@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { productionOrderIntegrationStore } from "../../../infrastructure/db/production-order-integration.store";
+import { FakeProductionOrderQueryGateway } from "../../../infrastructure/gateways/query/fake-production-order-query.gateway";
 
 export async function getProductionOrderStatusController(
   request: FastifyRequest<{ Params: { externalRequestId: string } }>,
@@ -9,8 +9,9 @@ export async function getProductionOrderStatusController(
 
   console.log("[OP][CONTROLLER][STATUS] entrada", { externalRequestId });
 
-  const record =
-    productionOrderIntegrationStore.getByExternalRequestId(externalRequestId);
+  // ✅ capacidade Query (hoje: fake lendo do store)
+  const query = new FakeProductionOrderQueryGateway();
+  const record = await query.getByExternalRequestId(externalRequestId);
 
   if (!record) {
     return reply.code(404).send({

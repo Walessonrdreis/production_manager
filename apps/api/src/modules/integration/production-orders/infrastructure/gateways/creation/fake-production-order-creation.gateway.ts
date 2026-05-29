@@ -1,15 +1,17 @@
-import type { ProductionOrderIntegrationGateway } from "../../application/ports/production-order-integration.gateway";
-import type { CreateProductionOrderRequest } from "../../presentation/http/schemas";
-import { productionOrderIntegrationStore } from "../db/production-order-integration.store";
+import type { ProductionOrderCreationGateway } from "./production-order-creation.gateway";
+import type { CreateProductionOrderRequest } from "../../../presentation/http/schemas";
+import { productionOrderIntegrationStore } from "../../db/production-order-integration.store";
 
-export class FakeProductionOrderIntegrationGateway
-  implements ProductionOrderIntegrationGateway
+export class FakeProductionOrderCreationGateway
+  implements ProductionOrderCreationGateway
 {
-  async createProductionOrder(command: CreateProductionOrderRequest): Promise<{
+  async createProductionOrder(
+    command: CreateProductionOrderRequest
+  ): Promise<{
     externalRequestId: string;
     status: "ACCEPTED";
   }> {
-    console.log("[OP][FAKE][GATEWAY] create", {
+    console.log("[OP][FAKE][CREATION] create", {
       externalRequestId: command.externalRequestId,
     });
 

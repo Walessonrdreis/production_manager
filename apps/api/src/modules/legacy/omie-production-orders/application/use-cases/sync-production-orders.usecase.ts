@@ -1,6 +1,8 @@
 import { AppError } from "@/shared/errors/AppError";
-import { OMIE_ENDPOINTS } from "@/shared/integrations/omie/omie.constants";
 import { mapProductionOrder } from "@/shared/integrations/omie/OmieProductionOrdersAdapter";
+
+// ✅ Store de tracking da integração de OP (API 1)
+import { productionOrderIntegrationStore } from "@/modules/integration/production-orders/infrastructure/db/production-order-integration.store";
 
 export function createSyncProductionOrdersUseCase(deps: {
   jobLock: {
@@ -11,8 +13,8 @@ export function createSyncProductionOrdersUseCase(deps: {
     ) => Promise<{ acquired: true; result: T } | { acquired: false; lockedUntil?: Date }>;
   };
   listProductionOrdersPage: {
-    execute: (input: { 
-      page: number; 
+    execute: (input: {
+      page: number;
       pageSize: number;
       filterCompleted?: boolean;
       filterCompletionDateStart?: string;
@@ -36,72 +38,146 @@ export function createSyncProductionOrdersUseCase(deps: {
   const LOCK_TTL_MS = 5 * 60 * 1000;
   const PAGE_SIZE = 50;
 
+  // ✅ util: primeira string válida
+  const pickNonEmptyString = (...values: any[]): string | null => {
+    for (const v of values) {
+      if (typeof v === "string" && v.trim() !== "") return v.trim();
+    }
+    return null;
+  };
+
+  // ✅ util: número válido
+  const toValidNumber = (v: any): number | null => {
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  // ✅ EXTRAÇÃO CORRETA DO externalRequestId
+  // O adapter mapeia identificacao.cCodIntOP → order.internalCode
+  const extractExternalRequestId = (cadastro: any, order: any): string | null => {
+    return pickNonEmptyString(
+      // ✅ PRIORIDADE CORRETA
+      order?.internalCode,
+
+      // fallback defensivo
+      order?.externalRequestId,
+      order?.integrationCode,
+      order?.omieIntegrationCode,
+      order?.cCodIntOP,
+
+      cadastro?.cCodIntOP,
+      cadastro?.codIntOP,
+      cadastro?.cCodInt,
+      cadastro?.codigo_integracao,
+
+      cadastro?.identificacao?.cCodIntOP,
+      cadastro?.identificacao?.codIntOP,
+      cadastro?.identificacao?.cCodInt
+    );
+  };
+
   return {
     async execute(options?: {
       filterCompleted?: boolean;
       filterCompletionDateStart?: string;
       filterCompletionDateEnd?: string;
     }) {
-      const lockRun = await deps.jobLock.runExclusive(LOCK_KEY, LOCK_TTL_MS, async ({ renew }) => {
-        let page = 1;
-        let totalPages = 1;
-        let syncedOrders = 0;
-        let skippedOrders = 0;
-        const activeOmieCodes = new Set<string>();
+      const lockRun = await deps.jobLock.runExclusive(
+        LOCK_KEY,
+        LOCK_TTL_MS,
+        async ({ renew }) => {
+          let page = 1;
+          let totalPages = 1;
+          let syncedOrders = 0;
+          let skippedOrders = 0;
+          const activeOmieCodes = new Set<string>();
 
-        try {
-          let resolvedOmieEndpoint: { path: string; call: string } | null = null;
-          
-          do {
-            const { resp, resolvedOmieEndpoint: resolved } = await deps.listProductionOrdersPage.execute({
-              page,
-              pageSize: PAGE_SIZE,
-              filterCompleted: options?.filterCompleted,
-              filterCompletionDateStart: options?.filterCompletionDateStart,
-              filterCompletionDateEnd: options?.filterCompletionDateEnd,
-            });
+          try {
+            let resolvedOmieEndpoint: { path: string; call: string } | null = null;
 
-            if (!resolvedOmieEndpoint) resolvedOmieEndpoint = resolved;
+            do {
+              const { resp, resolvedOmieEndpoint: resolved } =
+                await deps.listProductionOrdersPage.execute({
+                  page,
+                  pageSize: PAGE_SIZE,
+                  filterCompleted: options?.filterCompleted,
+                  filterCompletionDateStart: options?.filterCompletionDateStart,
+                  filterCompletionDateEnd: options?.filterCompletionDateEnd,
+                });
 
-            totalPages = Number(resp?.total_de_paginas ?? 1);
-            const cadastros: any[] = resp?.cadastros ?? [];
+              if (!resolvedOmieEndpoint) resolvedOmieEndpoint = resolved;
 
-            for (const cadastro of cadastros) {
-              const { order, items } = mapProductionOrder(cadastro);
-              activeOmieCodes.add(String(order.omieCode));
+              totalPages = Number(resp?.total_de_paginas ?? 1);
+              const cadastros: any[] = resp?.cadastros ?? [];
 
-              const validItems = items.filter(
-                (i: any) => i?.omieItemCode && i?.productMeshId
-              );
+              for (const cadastro of cadastros) {
+                const { order, items } = mapProductionOrder(cadastro);
 
-              await deps.productionOrdersRepo.upsertOrderWithItems(order, validItems);
-              syncedOrders++;
-            }
+                // ✅ usado no reconcile do legacy
+                activeOmieCodes.add(String(order.omieCode));
 
-            await renew();
-            page++;
-          } while (page <= totalPages);
+                const validItems = items.filter(
+                  (i: any) => i?.omieItemCode && i?.productMeshId
+                );
 
-          const reconciledCount = await deps.productionOrdersRepo.reconcileMissingOrders([...activeOmieCodes]);
+                await deps.productionOrdersRepo.upsertOrderWithItems(
+                  order,
+                  validItems
+                );
+                syncedOrders++;
 
-          return {
-            ok: true,
-            reason: "DONE",
-            syncedOrders,
-            skippedOrders,
-            reconciledCount,
-            pages: totalPages,
-            ...(resolvedOmieEndpoint ? { omieEndpoint: resolvedOmieEndpoint } : {}),
-          };
-        } catch (err: any) {
-          if (err instanceof AppError) throw err;
+                // ✅ CONFIRMAÇÃO DA OP VIA SYNC
+                const externalRequestId = extractExternalRequestId(cadastro, order);
+                const omieProductionOrderId = toValidNumber(order?.omieCode);
 
-          throw new AppError("OMIE_PRODUCTION_ORDERS_SYNC_FAILED", 500, "Falha ao sincronizar ordens de produção", {
-            message: err?.message,
-            stack: err?.stack,
-          });
+                if (externalRequestId && omieProductionOrderId) {
+                  productionOrderIntegrationStore.markConfirmed(
+                    externalRequestId,
+                    omieProductionOrderId
+                  );
+
+                  deps.logger?.info?.("[OP][SYNC] confirmed tracking", {
+                    externalRequestId,
+                    omieProductionOrderId,
+                  });
+                }
+              }
+
+              await renew();
+              page++;
+            } while (page <= totalPages);
+
+            const reconciledCount =
+              await deps.productionOrdersRepo.reconcileMissingOrders([
+                ...activeOmieCodes,
+              ]);
+
+            return {
+              ok: true,
+              reason: "DONE",
+              syncedOrders,
+              skippedOrders,
+              reconciledCount,
+              pages: totalPages,
+              ...(resolvedOmieEndpoint
+                ? { omieEndpoint: resolvedOmieEndpoint }
+                : {}),
+            };
+          } catch (err: any) {
+            if (err instanceof AppError) throw err;
+
+            throw new AppError(
+              "OMIE_PRODUCTION_ORDERS_SYNC_FAILED",
+              500,
+              "Falha ao sincronizar ordens de produção",
+              {
+                message: err?.message,
+                stack: err?.stack,
+              }
+            );
+          }
         }
-      });
+      );
 
       if (!lockRun.acquired) {
         return {
