@@ -5,18 +5,22 @@ export function createGetOmieStockInfoUseCase(deps: { prisma: any }) {
         Array<{ lastRefreshAt: Date | null; totalItems: bigint | number | null }>
       >`
         SELECT
-          MAX("capturedAt") AS "lastRefreshAt",
-          COUNT(DISTINCT "omieCode") AS "totalItems"
+          MAX("captured_at") AS "lastRefreshAt",
+          COUNT(DISTINCT "omie_code") AS "totalItems"
         FROM "product_stock"
       `;
 
       const row = rows[0] ?? { lastRefreshAt: null, totalItems: 0 };
 
       const totalItems =
-        typeof row.totalItems === "bigint" ? Number(row.totalItems) : row.totalItems ?? 0;
+        typeof row.totalItems === "bigint"
+          ? Number(row.totalItems)
+          : row.totalItems ?? 0;
 
       return {
-        lastRefreshAt: row.lastRefreshAt ? row.lastRefreshAt.toISOString() : null,
+        lastRefreshAt: row.lastRefreshAt
+          ? row.lastRefreshAt.toISOString()
+          : null,
         totalItems,
         source: "database",
       };
