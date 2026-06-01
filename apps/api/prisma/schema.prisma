@@ -529,6 +529,35 @@ model ProductStructureItem {
   @@index([codProdutoPai])
   @@unique([codProdutoPai, codProdutoComponente, idMalhaOmie])
 }
+enum ProductionOrderIntegrationStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+}
+
+model ProductionOrderIntegration {
+  id String @id @default(uuid())
+
+  externalRequestId String @db.VarChar(64) @unique @map("external_request_id")
+
+  omieProductionOrderId String? @db.VarChar(64) @map("omie_production_order_id")
+
+  productId String @db.VarChar(64) @map("product_id")
+
+  quantity Int
+
+  status ProductionOrderIntegrationStatus
+
+  lastError Json? @map("last_error")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([externalRequestId])
+  @@index([omieProductionOrderId])
+  @@index([status])
+  @@map("production_order_integration")
+}
 
 // ============================================
 // MÓDULO: PRODUCTION-CONTROL

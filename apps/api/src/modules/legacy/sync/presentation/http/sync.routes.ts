@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+
 import type { SyncStockUseCase } from "../application/use-cases/sync-stock.usecase";
 import type { SyncOrdersUseCase } from "../application/use-cases/sync-orders.usecase";
 import type { GetSyncStatusUseCase } from "../application/use-cases/get-sync-status.usecase";

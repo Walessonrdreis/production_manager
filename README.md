@@ -69,7 +69,11 @@ docker compose up -d
 Depois aplique as migrations no backend:
 
 ```bash
-pnpm --filter @production-manager/api run db:migrate
+// Para aplicar as migrations em desenvolvimento:
+pnpm --filter @production-manager/api run db:migrate:dev
+
+// Para aplicar as migrations em produção:
+pnpm --filter @production-manager/api run db:migrate:prod
 ```
 
 Para abrir o Prisma Studio:

@@ -7,23 +7,18 @@ export class FakeProductionOrderCreationGateway
 {
   async createProductionOrder(
     command: CreateProductionOrderRequest
-  ): Promise<{
-    externalRequestId: string;
-    status: "ACCEPTED";
-  }> {
+  ): Promise<{ externalRequestId: string; status: "ACCEPTED" }> {
     console.log("[OP][FAKE][CREATION] create", {
       externalRequestId: command.externalRequestId,
     });
 
-    // ✅ idempotência: mesmo externalRequestId -> re-upsert sem duplicar
-    productionOrderIntegrationStore.upsertAccepted({
+    await productionOrderIntegrationStore.upsertAccepted({
       externalRequestId: command.externalRequestId,
       productId: command.productId,
       quantity: command.quantity,
       scheduledDate: command.scheduledDate,
       notes: command.notes,
       omieProductionOrderId: undefined,
-      lastError: undefined,
     });
 
     return { externalRequestId: command.externalRequestId, status: "ACCEPTED" };

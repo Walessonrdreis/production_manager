@@ -7,16 +7,11 @@ import { productionOrderIntegrationStore } from "../../db/production-order-integ
 export class RealProductionOrderCreationGateway
   implements ProductionOrderCreationGateway
 {
-  constructor(
-    private readonly omieClient: OmieClientWithCircuitBreaker
-  ) {}
+  constructor(private readonly omieClient: OmieClientWithCircuitBreaker) {}
 
   async createProductionOrder(
     command: CreateProductionOrderRequest
-  ): Promise<{
-    externalRequestId: string;
-    status: "ACCEPTED";
-  }> {
+  ): Promise<{ externalRequestId: string; status: "ACCEPTED" }> {
     if (!this.omieClient) {
       throw new Error("OMIE_CLIENT_NOT_CONFIGURED");
     }
@@ -27,15 +22,14 @@ export class RealProductionOrderCreationGateway
 
     this.validateRequiredFields(command);
 
-    // ✅ registra intenção (tracking)
-    productionOrderIntegrationStore.upsertAccepted({
+    // ✅ tracking ACCEPTED persistido
+    await productionOrderIntegrationStore.upsertAccepted({
       externalRequestId: command.externalRequestId,
       productId: command.productId,
       quantity: command.quantity,
       scheduledDate: command.scheduledDate,
       notes: command.notes,
       omieProductionOrderId: undefined,
-      lastError: undefined,
     });
 
     const payload = {
@@ -78,10 +72,10 @@ export class RealProductionOrderCreationGateway
           response?.faultstring || response?.error || "Unknown error"
         );
 
-        productionOrderIntegrationStore.markFailed(command.externalRequestId, {
-          code: "OMIE_ERROR",
-          message,
-        });
+        await productionOrderIntegrationStore.markFailed(
+          command.externalRequestId,
+          { code: "OMIE_ERROR", message }
+        );
 
         throw new Error(message);
       }
@@ -90,7 +84,7 @@ export class RealProductionOrderCreationGateway
     } catch (error: any) {
       const message = error?.message ?? "Omie unknown error";
 
-      productionOrderIntegrationStore.markFailed(command.externalRequestId, {
+      await productionOrderIntegrationStore.markFailed(command.externalRequestId, {
         code: "OMIE_EXCEPTION",
         message,
       });
