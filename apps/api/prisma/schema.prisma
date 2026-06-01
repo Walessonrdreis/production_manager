@@ -3,145 +3,82 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model SyncLock {
-  key         String   @id
-  lockedUntil DateTime
+  key           String   @id
+  lockedUntil   DateTime @map("locked_until")
+
+  @@map("sync_lock")
 }
 
 model JobLock {
-  key         String   @id @db.VarChar(64)
-  lockedUntil DateTime
-  updatedAt   DateTime @updatedAt
+  key           String   @id @db.VarChar(64)
+  lockedUntil   DateTime @map("locked_until")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("job_lock")
 }
 
 model OmieProduct {
-  id                String   @id @default(uuid())
-  omieCode          String   @db.VarChar(64)
-  omieId            String?  @db.VarChar(64)
-  sku               String?  @db.VarChar(128)
-  description       String   @db.Text
-  familyDescription String?  @db.Text
-  active            Boolean  @default(true)
-  rawPayload        Json
-  lastSyncAt        DateTime @default(now())
+  id                  String   @id @default(uuid())
 
-  product Product?
+  omieCode            String   @db.VarChar(64)  @map("omie_code")
+  omieId              String?  @db.VarChar(64)  @map("omie_id")
+
+  sku                 String?  @db.VarChar(128)
+  description         String   @db.Text
+  familyDescription   String?  @db.Text         @map("family_description")
+
+  active              Boolean  @default(true)
+
+  rawPayload           Json     @map("raw_payload")
+  lastSyncAt           DateTime @default(now()) @map("last_sync_at")
 
   @@unique([omieCode])
   @@index([description])
-}
-
-model Product {
-  id            String      @id @default(uuid())
-  omieProductId String      @unique
-  omieProduct   OmieProduct @relation(fields: [omieProductId], references: [id], onDelete: Cascade)
-  nickname      String?
-  active        Boolean     @default(true)
-
-  productSector ProductSector?
-  planItems     ProductionPlanItem[]
-}
-
-model Sector {
-  id     String  @id @default(uuid())
-  name   String  @unique
-  order  Int     @default(0)
-  active Boolean @default(true)
-
-  productSectors ProductSector[]
-  planItems      ProductionPlanItem[]
-}
-
-model ProductSector {
-  productId String  @id
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sectorId  String
-  sector    Sector  @relation(fields: [sectorId], references: [id], onDelete: Restrict)
-  notes     String?
-}
-
-enum PlanStatus {
-  DRAFT
-  PUBLISHED
-  CLOSED
-}
-
-model ProductionPlan {
-  id        String     @id @default(uuid())
-  name      String
-  startDate DateTime
-  endDate   DateTime
-  status    PlanStatus @default(DRAFT)
-  createdAt DateTime   @default(now())
-
-  items ProductionPlanItem[]
-
-  @@index([startDate, endDate])
-}
-
-model ProductionPlanItem {
-  id        String         @id @default(uuid())
-  planId    String
-  plan      ProductionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-  productId String
-  product   Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
-  sectorId  String
-  sector    Sector         @relation(fields: [sectorId], references: [id], onDelete: Restrict)
-  quantity  Int
-  notes     String?
-
-  @@index([planId, sectorId])
-  @@index([productId])
+  @@map("omie_product")
 }
 
 model ProductStock {
-  id            String   @id @default(uuid()) @db.Uuid
-  omieCode      String   @db.VarChar(64)
-  stockQuantity Decimal  @db.Decimal(18, 4)
-  minimumStock  Decimal  @db.Decimal(18, 4)
-  updatedAt     DateTime @updatedAt
-  capturedAt    DateTime @default(now())
+  id             String   @id @default(uuid()) @db.Uuid
+
+  omieCode       String   @db.VarChar(64) @map("omie_code")
+  stockQuantity  Decimal  @db.Decimal(18, 4) @map("stock_quantity")
+  minimumStock   Decimal  @db.Decimal(18, 4) @map("minimum_stock")
+
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  capturedAt     DateTime @default(now()) @map("captured_at")
 
   @@unique([omieCode])
   @@map("product_stock")
 }
 
 model OmieOrder {
-  id           String  @id @default(uuid())
+  id               String   @id @default(uuid())
 
-/// cabecalho.codigo_pedido
-omieCode     String  @db.VarChar(64)
+  omieCode         String   @db.VarChar(64) @map("omie_code")
+  numeroPedido     String?  @db.VarChar(64) @map("numero_pedido")
+  codigoCliente    String?  @db.VarChar(64) @map("codigo_cliente")
 
-/// cabecalho.numero_pedido (ex: "1305")
-numeroPedido String? @db.VarChar(64)
+  clientLegalName  String?  @db.Text @map("client_legal_name")
+  clientTradeName  String?  @db.Text @map("client_trade_name")
 
+  codigoEmpresa    String?  @db.VarChar(64) @map("codigo_empresa")
+  etapa            String   @db.VarChar(10)
 
-  /// cabecalho.codigo_cliente
-  codigoCliente String?  @db.VarChar(64)
+  cancelado        String   @default("N") @db.Char(1)
+  encerrado        String   @default("N") @db.Char(1)
 
-  // ✅ NOVOS CAMPOS
-  clientLegalName String?  @db.Text
-  clientTradeName String?  @db.Text
+  dataPrevisao     DateTime? @map("data_previsao")
 
-  codigoEmpresa String?  @db.VarChar(64)
-  etapa         String   @db.VarChar(10)
+  rawPayload        Json     @map("raw_payload")
+  lastSyncAt        DateTime @default(now()) @map("last_sync_at")
 
-  cancelado     String   @default("N") @db.Char(1)
-  encerrado     String   @default("N") @db.Char(1)
-
-  dataPrevisao  DateTime?
-
-  rawPayload    Json
-  lastSyncAt    DateTime @default(now())
-
-  items         OmieOrderItem[]
+  items            OmieOrderItem[]
 
   @@unique([omieCode])
   @@index([etapa])
@@ -150,37 +87,26 @@ numeroPedido String? @db.VarChar(64)
   @@map("omie_order")
 }
 
-
-
 model OmieOrderItem {
-  id           String   @id @default(uuid())
+  id                 String   @id @default(uuid())
 
-  /// ide.codigo_item
-  omieItemCode String   @db.VarChar(64)
+  omieItemCode       String   @db.VarChar(64) @map("omie_item_code")
+  omieOrderId        String   @map("omie_order_id")
 
-  /// relação com pedido
-  omieOrderId  String
-  order        OmieOrder @relation(fields: [omieOrderId], references: [id], onDelete: Cascade)
+  omieProductCode    String?  @db.VarChar(64) @map("omie_product_code")
+  sku                String?  @db.VarChar(128)
 
-  /// produto.codigo_produto / produto.codigo (SKU)
-  omieProductCode String? @db.VarChar(64)
-  sku             String? @db.VarChar(128)
+  description        String   @db.Text
+  unit               String?  @db.VarChar(16)
+  quantity           Decimal  @db.Decimal(18, 4)
 
-  /// produto.descricao
-  description     String  @db.Text
+  unitPrice          Decimal? @db.Decimal(18, 6) @map("unit_price")
+  totalPrice         Decimal? @db.Decimal(18, 2) @map("total_price")
 
-  /// produto.unidade
-  unit            String? @db.VarChar(16)
+  rawPayload         Json     @map("raw_payload")
+  lastSyncAt         DateTime @default(now()) @map("last_sync_at")
 
-  /// produto.quantidade (vem como número; guardamos Decimal)
-  quantity        Decimal @db.Decimal(18, 4)
-
-  /// opcionais úteis
-  unitPrice       Decimal? @db.Decimal(18, 6)
-  totalPrice      Decimal? @db.Decimal(18, 2)
-
-  rawPayload      Json
-  lastSyncAt      DateTime @default(now())
+  order              OmieOrder @relation(fields: [omieOrderId], references: [id], onDelete: Cascade)
 
   @@unique([omieItemCode])
   @@index([omieOrderId])
@@ -188,79 +114,66 @@ model OmieOrderItem {
   @@index([description])
   @@map("omie_order_item")
 }
+
 model Client {
-  id String @id @default(uuid())
+  id                 String   @id @default(uuid())
 
-  omieClientCode BigInt @unique @map("codigo_cliente_omie")
+  omieClientCode     BigInt   @unique @map("codigo_cliente_omie")
 
-  legalName  String  @map("razao_social")
-  tradeName  String? @map("nome_fantasia")
-  document   String  @map("documento")
+  legalName          String   @map("razao_social")
+  tradeName          String?  @map("nome_fantasia")
+  document           String   @map("documento")
 
-  personType PersonType @map("tipo_pessoa")
+  personType         PersonType @map("tipo_pessoa")
 
-  email String?
-  phone String? @map("telefone")
+  email              String?
+  phone              String?  @map("telefone")
 
-  isActive         Boolean @default(true)
-  isBlocked        Boolean @default(false)
-  isBillingBlocked Boolean @default(false)
+  isActive           Boolean  @default(true) @map("is_active")
+  isBlocked          Boolean  @default(false) @map("is_blocked")
+  isBillingBlocked   Boolean  @default(false) @map("is_billing_blocked")
 
-  createdAtOmie DateTime?
-  updatedAtOmie DateTime?
+  createdAtOmie      DateTime? @map("created_at_omie")
+  updatedAtOmie      DateTime? @map("updated_at_omie")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // relacionamento lógico apenas (sem FK)
-  // orders OmieOrder[]
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("clientes")
 }
 
+enum PersonType {
+  INDIVIDUAL @map("FISICA")
+  COMPANY    @map("JURIDICA")
+
+  @@map("TipoPessoa")
+}
+
 model OmieProductionOrder {
-  id           String  @id @default(uuid())
+  id                     String   @id @default(uuid())
 
-  /// identificacao.nCodOP
-  omieCode     String  @db.VarChar(64)
+  omieCode               String   @db.VarChar(64) @map("omie_code")
+  internalCode           String?  @db.VarChar(64) @map("internal_code")
 
-  /// identificacao.cCodIntOP
-  internalCode String? @db.VarChar(64)
+  productCode            String?  @db.VarChar(64) @map("product_code")
+  productIntegrationCode String?  @db.VarChar(128) @map("product_integration_code")
 
-  /// identificacao.nCodProduto
-  productCode  String? @db.VarChar(64)
+  quantity               String   @db.VarChar(32)
 
-  /// identificacao.cCodIntProd
-  productIntegrationCode String? @db.VarChar(128)
+  forecastDate           DateTime? @map("forecast_date")
+  startDate              DateTime? @map("start_date")
+  completionDate         DateTime? @map("completion_date")
 
-  /// identificacao.nQtde
-  quantity     String  @db.VarChar(32)
+  stage                  String?  @db.VarChar(10)
+  projectCode            String?  @db.VarChar(64) @map("project_code")
 
-  /// identificacao.dDtPrevisao
-  forecastDate DateTime?
+  completed              Boolean  @default(false)
+  active                 Boolean  @default(true)
 
-  /// infAdicionais.dDtInicio
-  startDate    DateTime?
+  rawPayload              Json     @map("raw_payload")
+  lastSyncAt              DateTime @default(now()) @map("last_sync_at")
 
-  /// infAdicionais.dDtConclusao
-  completionDate DateTime?
-
-  /// infAdicionais.cEtapa
-  stage        String? @db.VarChar(10)
-
-  /// infAdicionais.nCodProjeto
-  projectCode  String? @db.VarChar(64)
-
-  /// outrasInf.cConcluida
-  completed    Boolean @default(false)
-
-  /// Flag para controle de reconciliação
-  active       Boolean @default(true)
-
-  rawPayload   Json
-  lastSyncAt   DateTime @default(now())
-
-  items        OmieProductionOrderItem[]
+  items                  OmieProductionOrderItem[]
 
   @@unique([omieCode])
   @@index([productCode])
@@ -272,32 +185,22 @@ model OmieProductionOrder {
 }
 
 model OmieProductionOrderItem {
-  id           String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  /// Código único do item (gerado internamente)
-  omieItemCode String   @db.VarChar(128)
+  omieItemCode          String @db.VarChar(128) @map("omie_item_code")
+  omieProductionOrderId String @map("omie_production_order_id")
 
-  /// relação com ordem de produção
-  omieProductionOrderId  String
-  productionOrder        OmieProductionOrder @relation(fields: [omieProductionOrderId], references: [id], onDelete: Cascade)
+  productMeshId      BigInt? @map("product_mesh_id")
+  useFromStock       String? @db.Char(1) @map("use_from_stock")
+  quantity           String? @db.VarChar(32)
+  stockLocationCode  BigInt? @map("stock_location_code")
+  observation        String? @db.Text
 
-  /// nIdProdutoMalha
-  productMeshId BigInt?
+  rawPayload         Json     @map("raw_payload")
+  lastSyncAt         DateTime @default(now()) @map("last_sync_at")
 
-  /// cUtilizarDoEstoque
-  useFromStock  String? @db.Char(1)
-
-  /// nQtde (itensDetalhes)
-  quantity      String? @db.VarChar(32)
-
-  /// codigo_local_estoque
-  stockLocationCode BigInt?
-
-  /// cObs
-  observation   String? @db.Text
-
-  rawPayload    Json
-  lastSyncAt    DateTime @default(now())
+  // ✅ CORRETO: relation em uma linha
+  productionOrder OmieProductionOrder @relation(fields: [omieProductionOrderId], references: [id], onDelete: Cascade)
 
   @@unique([omieItemCode])
   @@index([omieProductionOrderId])
@@ -305,230 +208,66 @@ model OmieProductionOrderItem {
   @@map("omie_production_order_item")
 }
 
-model SyncRecord {
-  id            String   @id @default(uuid())
-  syncType      String   @db.VarChar(32)
-  status        String   @db.VarChar(32)
-  startedAt     DateTime
-  completedAt   DateTime?
-  durationMs    Int?
-  itemsProcessed Int     @default(0)
-  itemsFailed   Int      @default(0)
-  error         String?  @db.Text
-  metadata      Json?
-
-  @@index([syncType])
-  @@index([status])
-  @@index([startedAt])
-  @@map("sync_record")
-}
-
-model StockAlert {
-  id                 String   @id @default(uuid())
-  productCode        String   @db.VarChar(64)
-  productDescription String   @db.Text
-  currentStock       Decimal  @db.Decimal(18, 4)
-  minimumStock       Decimal  @db.Decimal(18, 4)
-  severity           String   @db.VarChar(16)
-  status             String   @db.VarChar(16)
-  createdAt          DateTime @default(now())
-  resolvedAt         DateTime?
-  metadata           Json?
-
-  @@index([productCode])
-  @@index([severity])
-  @@index([status])
-  @@index([createdAt])
-  @@map("stock_alert")
-}
-
-model AlertConfig {
-  id                   String   @id @default(uuid())
-  productCode          String?  @db.VarChar(64)
-  criticalThreshold    Decimal  @db.Decimal(18, 4)
-  warningThreshold     Decimal  @db.Decimal(18, 4)
-  notificationChannels String[] // Array de strings para canais
-  autoResolveDays      Int      @default(7)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  @@unique([productCode])
-  @@index([productCode])
-  @@map("alert_config")
-}
-
-enum InternalProductionOrderSource {
-  MANUAL
-  TRELLO
-
-  @@map("internal_production_order_source")
-}
-
-enum InternalProductionOrderStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-
-  @@map("internal_production_order_status")
-}
-
-enum InternalProductionOrderQuantityUnit {
-  UN
-  B
-  G
-  KG
-
-  @@map("internal_production_order_quantity_unit")
-}
-
-enum InternalProductionOrderActorType {
-  SYSTEM
-  INTEGRATION
-  USER
-
-  @@map("internal_production_order_actor_type")
-}
-
-enum InternalProductionOrderEventSource {
-  TRELLO
-  MANUAL
-  SYSTEM
-
-  @@map("internal_production_order_event_source")
-}
-
-model InternalProductionOrder {
-  id                String                                @id @default(uuid())
-  trelloCardId      String?                               @unique @db.VarChar(128)
-  trelloCardUrl     String?                               @db.VarChar(1024)
-  source            InternalProductionOrderSource          @default(MANUAL)
-  status            InternalProductionOrderStatus          @default(PENDING)
-
-  lote              String                                @db.VarChar(64)
-  quantityValue     Decimal                               @db.Decimal(18, 4)
-  quantityUnit      InternalProductionOrderQuantityUnit    @default(UN)
-
-  omieCode          String?                               @db.VarChar(64)
-  parsedProductName String?                               @db.VarChar(512)
-  productDescription String?                              @db.Text
-  stockQuantity     Decimal?                              @db.Decimal(18, 4)
-  minimumStock      Decimal?                              @db.Decimal(18, 4)
-
-  startedAt         DateTime?
-  completedAt       DateTime?
-  createdAt         DateTime                              @default(now())
-  updatedAt         DateTime                              @updatedAt
-
-  events            InternalProductionOrderEvent[]
-
-  @@index([status])
-  @@index([source])
-  @@index([createdAt])
-  @@index([omieCode])
-  @@map("internal_production_order")
-}
-
-model InternalProductionOrderEvent {
-  id        String                            @id @default(uuid())
-  orderId   String
-  type      String                            @db.VarChar(64)
-  actorType InternalProductionOrderActorType
-  actorId   String?                           @db.VarChar(128)
-  source    InternalProductionOrderEventSource
-  message   String                            @db.VarChar(512)
-
-  createdAt DateTime                          @default(now())
-
-  order     InternalProductionOrder           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  changes   InternalProductionOrderChange[]
-
-  @@index([orderId])
-  @@index([type])
-  @@index([createdAt])
-  @@map("internal_production_order_event")
-}
-
-model InternalProductionOrderChange {
-  id       String                               @id @default(uuid())
-  eventId  String
-  field    String                               @db.VarChar(128)
-  before   String?                              @db.Text
-  after    String?                              @db.Text
-
-  event    InternalProductionOrderEvent          @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  @@index([eventId])
-  @@map("internal_production_order_change")
-}
-
-enum PersonType {
-  INDIVIDUAL @map("FISICA")
-  COMPANY    @map("JURIDICA")
-
-  // Se o tipo enum no Postgres já se chama "TipoPessoa", mantenha:
-  @@map("TipoPessoa")
-}
-
 model ProductStructure {
-  id              String   @id @default(cuid())
+  id                  String   @id @default(cuid())
 
-  // Domínio estável
-  codProduto      String   @unique
+  codProduto           String   @map("cod_produto")
+  descrProduto         String?  @map("descr_produto")
 
-  descrProduto    String?
-  codFamilia      String?
-  descrFamilia    String?
-  tipoProduto     String?
-  unidProduto     String?
+  codFamilia           String?  @map("cod_familia")
+  descrFamilia         String?  @map("descr_familia")
 
-  pesoBruto       Decimal? @db.Decimal(18, 6)
-  pesoLiquido     Decimal? @db.Decimal(18, 6)
+  tipoProduto          String?  @map("tipo_produto")
+  unidProduto          String?  @map("unid_produto")
 
-  hasStructure    Boolean  @default(false)
+  pesoBruto            Decimal? @db.Decimal(18, 6) @map("peso_bruto")
+  pesoLiquido          Decimal? @db.Decimal(18, 6) @map("peso_liquido")
 
-  // Integração Omie (IDs podem ultrapassar INT4)
-  idProdutoOmie   BigInt?
-  intProdutoOmie  String?
+  hasStructure         Boolean  @default(false) @map("has_structure")
 
-  // Idempotência
-  structureHash   String?
+  idProdutoOmie        BigInt?  @map("id_produto_omie")
+  intProdutoOmie       String?  @map("int_produto_omie")
 
-  items           ProductStructureItem[]
+  structureHash        String?  @map("structure_hash")
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
+  items                ProductStructureItem[]
+
+  @@unique([codProduto])
   @@index([codProduto])
+  @@map("product_structure")
 }
 
 model ProductStructureItem {
-  id                      String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  // FK lógica -> ProductStructure.codProduto
-  codProdutoPai           String
+  codProdutoPai        String @map("cod_produto_pai")
+  codProdutoComponente String @map("cod_produto_componente")
 
-  // Produto componente
-  codProdutoComponente    String
-  descrProdutoComponente  String?
-  codFamiliaComponente    String?
-  descrFamiliaComponente  String?
+  descrProdutoComponente String? @map("descr_produto_componente")
+  codFamiliaComponente   String? @map("cod_familia_componente")
+  descrFamiliaComponente String? @map("descr_familia_componente")
 
-  quantidade              Decimal  @db.Decimal(18, 6)
-  unidade                 String?
-  tipoProdutoComponente   String?
-  percentualPerda         Decimal? @db.Decimal(18, 6)
+  quantidade        Decimal @db.Decimal(18, 6)
+  unidade           String?
+  tipoProdutoComponente String? @map("tipo_produto_componente")
+  percentualPerda   Decimal? @db.Decimal(18, 6) @map("percentual_perda")
 
-  // Integração Omie (IDs podem ultrapassar INT4)
-  idMalhaOmie             BigInt?
+  idMalhaOmie       BigInt? @map("id_malha_omie")
 
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
 
+  // ✅ CORRETO: relation em uma linha
   parent ProductStructure @relation(fields: [codProdutoPai], references: [codProduto], onDelete: Cascade)
 
-  @@index([codProdutoPai])
   @@unique([codProdutoPai, codProdutoComponente, idMalhaOmie])
+  @@index([codProdutoPai])
+  @@map("product_structure_item")
 }
+
 enum ProductionOrderIntegrationStatus {
   ACCEPTED
   CONFIRMED
@@ -536,119 +275,22 @@ enum ProductionOrderIntegrationStatus {
 }
 
 model ProductionOrderIntegration {
-  id String @id @default(uuid())
+  id                      String   @id @default(uuid())
 
-  externalRequestId String @db.VarChar(64) @unique @map("external_request_id")
+  externalRequestId       String   @db.VarChar(64) @unique @map("external_request_id")
+  omieProductionOrderId   String?  @db.VarChar(64) @map("omie_production_order_id")
 
-  omieProductionOrderId String? @db.VarChar(64) @map("omie_production_order_id")
+  productId               String   @db.VarChar(64) @map("product_id")
+  quantity                Int
 
-  productId String @db.VarChar(64) @map("product_id")
+  status                  ProductionOrderIntegrationStatus
+  lastError               Json?    @map("last_error")
 
-  quantity Int
-
-  status ProductionOrderIntegrationStatus
-
-  lastError Json? @map("last_error")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
 
   @@index([externalRequestId])
   @@index([omieProductionOrderId])
   @@index([status])
   @@map("production_order_integration")
-}
-
-// ============================================
-// MÓDULO: PRODUCTION-CONTROL
-// ============================================
-
-enum ProductionControlStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-
-  @@map("production_control_status")
-}
-
-enum ProductionControlHistoryAction {
-  SNAPSHOT_CREATED
-  ORDER_CHECKED
-  ORDER_UNCHECKED
-  PRODUCT_CHECKED
-  PRODUCT_UNCHECKED
-  DATE_UPDATED
-  AUTO_COMPLETED
-
-  @@map("production_control_history_action")
-}
-
-model ProductionControlSnapshot {
-  id          String   @id @default(uuid())
-  snapshotId  String   @unique @db.VarChar(64)
-  description String?  @db.Text
-  createdAt   DateTime @default(now())
-
-  products    ProductionControlProduct[]
-
-  @@index([snapshotId])
-  @@index([createdAt])
-  @@map("production_control_snapshot")
-}
-
-model ProductionControlProduct {
-  id          String   @id @default(uuid())
-  snapshotId  String
-  snapshot    ProductionControlSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
-  description String   @db.Text
-  totalQuantity Decimal @db.Decimal(18, 4)
-  pendingQuantity Decimal @db.Decimal(18, 4)
-  status      ProductionControlStatus @default(PENDING)
-  scheduledDate DateTime?
-  actualDate   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  orders      ProductionControlOrder[]
-  history     ProductionControlHistory[]
-
-  @@index([snapshotId])
-  @@index([description])
-  @@index([status])
-  @@map("production_control_product")
-}
-
-model ProductionControlOrder {
-  id          String   @id @default(uuid())
-  productId   String
-  product     ProductionControlProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
-  orderNumber String?  @db.VarChar(64)
-  clientName  String?  @db.Text
-  quantity    Decimal  @db.Decimal(18, 4)
-  checked     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  history     ProductionControlHistory[]
-
-  @@index([productId])
-  @@index([orderNumber])
-  @@map("production_control_order")
-}
-
-model ProductionControlHistory {
-  id          String   @id @default(uuid())
-  orderId     String?
-  order       ProductionControlOrder? @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId   String?
-  product     ProductionControlProduct? @relation(fields: [productId], references: [id], onDelete: Cascade)
-  action      ProductionControlHistoryAction
-  details     Json?
-  createdAt   DateTime @default(now())
-
-  @@index([orderId])
-  @@index([productId])
-  @@index([action])
-  @@index([createdAt])
-  @@map("production_control_history")
 }

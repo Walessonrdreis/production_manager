@@ -1,10 +1,11 @@
 import type { CreateProductionOrderRequest } from "../../../presentation/http/schemas";
+import type { IntegrationStatus } from "../../db/production-order-integration.store";
 
-export type ProductionOrderCreationGateway = {
+export interface ProductionOrderCreationGateway {
   createProductionOrder(
     command: CreateProductionOrderRequest
   ): Promise<{
     externalRequestId: string;
-    status: "ACCEPTED";
+    status: IntegrationStatus;
   }>;
-};
+}

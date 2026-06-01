@@ -81,7 +81,10 @@ Para abrir o Prisma Studio:
 ```bash
 pnpm --filter @production-manager/api run db:studio
 ```
-
+```bash
+// Para criar arquivos rapidamente em duas etapas
+ pnpm --filter @production-manager/api run create:file
+```
 ## Variáveis de Ambiente
 
 ### Backend

@@ -61,13 +61,15 @@ export class CreateProductionOrderUseCase {
       gateway: process.env.PRODUCTION_ORDER_GATEWAY ?? "fake",
     });
 
+    // ✅ Opção A pode existir no gateway (ele pode devolver ACCEPTED|CONFIRMED|FAILED)
+    // Mas o contrato do POST continua sendo ACCEPTED (ack do comando).
     const integrationResult = await this.gateway.createProductionOrder(request);
 
     return {
       success: true,
       data: {
         externalRequestId: integrationResult.externalRequestId,
-        status: integrationResult.status,
+        status: "ACCEPTED", // ✅ NORMALIZAÇÃO DO CONTRATO DO POST
       },
     };
   }

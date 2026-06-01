@@ -2,7 +2,10 @@ import type { ProductionOrderCreationGateway } from "./production-order-creation
 import type { CreateProductionOrderRequest } from "../../../presentation/http/schemas";
 import { env } from "@/config";
 import type { OmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
-import { productionOrderIntegrationStore } from "../../db/production-order-integration.store";
+import {
+  productionOrderIntegrationStore,
+  type IntegrationStatus,
+} from "../../db/production-order-integration.store";
 
 export class RealProductionOrderCreationGateway
   implements ProductionOrderCreationGateway
@@ -11,25 +14,31 @@ export class RealProductionOrderCreationGateway
 
   async createProductionOrder(
     command: CreateProductionOrderRequest
-  ): Promise<{ externalRequestId: string; status: "ACCEPTED" }> {
+  ): Promise<{ externalRequestId: string; status: IntegrationStatus }> {
     if (!this.omieClient) {
       throw new Error("OMIE_CLIENT_NOT_CONFIGURED");
     }
 
-    console.log("[OP][REAL][CREATION] create", {
-      externalRequestId: command.externalRequestId,
-    });
-
     this.validateRequiredFields(command);
 
-    // ✅ tracking ACCEPTED persistido
+    // ✅ Opção A: idempotência ANTES de chamar Omie
+    const existing =
+      await productionOrderIntegrationStore.getByExternalRequestId(
+        command.externalRequestId
+      );
+
+    if (existing) {
+      return {
+        externalRequestId: existing.externalRequestId,
+        status: existing.status,
+      };
+    }
+
+    // ✅ Persistir ACCEPTED antes do efeito colateral
     await productionOrderIntegrationStore.upsertAccepted({
       externalRequestId: command.externalRequestId,
       productId: command.productId,
       quantity: command.quantity,
-      scheduledDate: command.scheduledDate,
-      notes: command.notes,
-      omieProductionOrderId: undefined,
     });
 
     const payload = {
@@ -40,9 +49,7 @@ export class RealProductionOrderCreationGateway
         {
           identificacao: {
             cCodIntOP: command.externalRequestId,
-            dDtPrevisao: command.scheduledDate
-              ? this.formatDate(command.scheduledDate)
-              : this.getCurrentDate(),
+            dDtPrevisao: this.getCurrentDate(),
             nCodProduto: Number(command.productId),
             nQtde: command.quantity,
           },
@@ -77,10 +84,16 @@ export class RealProductionOrderCreationGateway
           { code: "OMIE_ERROR", message }
         );
 
-        throw new Error(message);
+        return {
+          externalRequestId: command.externalRequestId,
+          status: "FAILED",
+        };
       }
 
-      return { externalRequestId: command.externalRequestId, status: "ACCEPTED" };
+      return {
+        externalRequestId: command.externalRequestId,
+        status: "ACCEPTED",
+      };
     } catch (error: any) {
       const message = error?.message ?? "Omie unknown error";
 
@@ -89,43 +102,28 @@ export class RealProductionOrderCreationGateway
         message,
       });
 
-      throw new Error(message);
+      return {
+        externalRequestId: command.externalRequestId,
+        status: "FAILED",
+      };
     }
-  }
-
-  private formatDate(date: string): string {
-    const parsedDate = new Date(date);
-    const day = String(parsedDate.getDate()).padStart(2, "0");
-    const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
-    const year = parsedDate.getFullYear();
-    return `${day}/${month}/${year}`;
   }
 
   private getCurrentDate(): string {
     const today = new Date();
-    const day = String(today.getDate()).padStart(2, "0");
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const year = today.getFullYear();
-    return `${day}/${month}/${year}`;
+    const d = String(today.getDate()).padStart(2, "0");
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const y = today.getFullYear();
+    return `${d}/${m}/${y}`;
   }
 
   private validateRequiredFields(command: CreateProductionOrderRequest): void {
-    const missingFields: string[] = [];
-
-    if (!command.productId || command.productId.trim() === "") {
-      missingFields.push("productId");
-    }
-
-    if (!command.quantity || command.quantity <= 0) {
-      missingFields.push("quantity");
-    }
-
-    if (!command.externalRequestId || command.externalRequestId.trim() === "") {
-      missingFields.push("externalRequestId");
-    }
-
-    if (missingFields.length > 0) {
-      throw new Error(`Missing required fields: ${missingFields.join(", ")}`);
+    const missing: string[] = [];
+    if (!command.productId?.trim()) missing.push("productId");
+    if (!command.quantity || command.quantity <= 0) missing.push("quantity");
+    if (!command.externalRequestId?.trim()) missing.push("externalRequestId");
+    if (missing.length) {
+      throw new Error(`Missing required fields: ${missing.join(", ")}`);
     }
   }
 }

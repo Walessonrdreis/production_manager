@@ -1,13 +1,20 @@
 import { prisma } from "@/shared/db/prisma";
+import { Prisma } from "@prisma/client";
+import type { ProductionOrderIntegration as PrismaPOI } from "@prisma/client";
 
+/**
+ * Estados possíveis da integração de OP
+ */
 export type IntegrationStatus = "ACCEPTED" | "CONFIRMED" | "FAILED";
 
+/**
+ * Contrato do tracking de integração
+ * (persistido no DB, ownership da API 1)
+ */
 export type ProductionOrderIntegrationRecord = {
   externalRequestId: string;
   productId: string;
   quantity: number;
-  scheduledDate?: string;
-  notes?: string;
 
   status: IntegrationStatus;
 
@@ -22,85 +29,129 @@ export type ProductionOrderIntegrationRecord = {
   };
 };
 
+/**
+ * Mapper Prisma → contrato do módulo
+ */
+function toRecord(record: PrismaPOI): ProductionOrderIntegrationRecord {
+  return {
+    externalRequestId: record.externalRequestId,
+    productId: record.productId,
+    quantity: record.quantity,
+    status: record.status as IntegrationStatus,
+    omieProductionOrderId: record.omieProductionOrderId
+      ? Number(record.omieProductionOrderId)
+      : undefined,
+    lastError: (record.lastError as any) ?? undefined,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+  };
+}
+
+/**
+ * HARDENING DO LIFECYCLE (estado monotônico)
+ *
+ * Estados:
+ * - ACCEPTED → CONFIRMED ✅
+ * - ACCEPTED → FAILED ✅
+ *
+ * Regras:
+ * - CONFIRMED é terminal (por enquanto)
+ * - FAILED é terminal
+ * - Nunca regredir estado
+ * - Métodos idempotentes
+ */
 export const productionOrderIntegrationStore = {
-  async upsertAccepted(
-    input: Omit<
-      ProductionOrderIntegrationRecord,
-      "status" | "createdAt" | "updatedAt" | "lastError"
-    >
-  ): Promise<ProductionOrderIntegrationRecord> {
-    const record = await prisma.productionOrderIntegration.upsert({
+  /**
+   * Registra a intenção de criação da OP.
+   *
+   * HARDENING:
+   * - Se já CONFIRMED → noop
+   * - Se já FAILED → noop
+   * - Se ACCEPTED → atualiza dados
+   */
+  async upsertAccepted(input: {
+    externalRequestId: string;
+    productId: string;
+    quantity: number;
+  }): Promise<ProductionOrderIntegrationRecord> {
+    const existing = await prisma.productionOrderIntegration.findUnique({
       where: { externalRequestId: input.externalRequestId },
-      create: {
+    });
+
+    if (existing) {
+      if (existing.status === "CONFIRMED" || existing.status === "FAILED") {
+        return toRecord(existing);
+      }
+
+      const updated = await prisma.productionOrderIntegration.update({
+        where: { externalRequestId: input.externalRequestId },
+        data: {
+          productId: input.productId,
+          quantity: input.quantity,
+          status: "ACCEPTED",
+          lastError: Prisma.JsonNull,
+
+        },
+      });
+
+      return toRecord(updated);
+    }
+
+    const created = await prisma.productionOrderIntegration.create({
+      data: {
         externalRequestId: input.externalRequestId,
         productId: input.productId,
         quantity: input.quantity,
-        scheduledDate: input.scheduledDate,
-        notes: input.notes,
         status: "ACCEPTED",
-      },
-      update: {
-        productId: input.productId,
-        quantity: input.quantity,
-        scheduledDate: input.scheduledDate,
-        notes: input.notes,
-        status: "ACCEPTED",
-        lastError: null,
       },
     });
 
-    return {
-      externalRequestId: record.externalRequestId,
-      productId: record.productId,
-      quantity: record.quantity,
-      scheduledDate: record.scheduledDate ?? undefined,
-      notes: record.notes ?? undefined,
-      status: record.status as IntegrationStatus,
-      omieProductionOrderId: record.omieProductionOrderId
-        ? Number(record.omieProductionOrderId)
-        : undefined,
-      lastError: (record.lastError as any) ?? undefined,
-      createdAt: record.createdAt.toISOString(),
-      updatedAt: record.updatedAt.toISOString(),
-    };
+    return toRecord(created);
   },
 
+  /**
+   * Marca como CONFIRMED.
+   *
+   * HARDENING:
+   * - Idempotente
+   * - Não confirma se FAILED
+   */
   async markConfirmed(
     externalRequestId: string,
     omieProductionOrderId?: number
   ): Promise<ProductionOrderIntegrationRecord | null> {
-    // se não existir, retorna null (mantém sem quebrar)
     const existing = await prisma.productionOrderIntegration.findUnique({
       where: { externalRequestId },
     });
     if (!existing) return null;
 
-    const record = await prisma.productionOrderIntegration.update({
+    if (existing.status === "CONFIRMED" || existing.status === "FAILED") {
+      return toRecord(existing);
+    }
+
+    const updated = await prisma.productionOrderIntegration.update({
       where: { externalRequestId },
       data: {
         status: "CONFIRMED",
         omieProductionOrderId:
-          omieProductionOrderId != null ? String(omieProductionOrderId) : undefined,
-        lastError: null,
+          omieProductionOrderId != null
+            ? String(omieProductionOrderId)
+            : existing.omieProductionOrderId,
+        lastError: Prisma.JsonNull,
+
       },
     });
 
-    return {
-      externalRequestId: record.externalRequestId,
-      productId: record.productId,
-      quantity: record.quantity,
-      scheduledDate: record.scheduledDate ?? undefined,
-      notes: record.notes ?? undefined,
-      status: record.status as IntegrationStatus,
-      omieProductionOrderId: record.omieProductionOrderId
-        ? Number(record.omieProductionOrderId)
-        : undefined,
-      lastError: (record.lastError as any) ?? undefined,
-      createdAt: record.createdAt.toISOString(),
-      updatedAt: record.updatedAt.toISOString(),
-    };
+    return toRecord(updated);
   },
 
+  /**
+   * Marca como FAILED.
+   *
+   * HARDENING:
+   * - Idempotente
+   * - Não derruba CONFIRMED
+   */
   async markFailed(
     externalRequestId: string,
     err: { code: string; message: string }
@@ -110,7 +161,11 @@ export const productionOrderIntegrationStore = {
     });
     if (!existing) return null;
 
-    const record = await prisma.productionOrderIntegration.update({
+    if (existing.status === "FAILED" || existing.status === "CONFIRMED") {
+      return toRecord(existing);
+    }
+
+    const updated = await prisma.productionOrderIntegration.update({
       where: { externalRequestId },
       data: {
         status: "FAILED",
@@ -118,22 +173,12 @@ export const productionOrderIntegrationStore = {
       },
     });
 
-    return {
-      externalRequestId: record.externalRequestId,
-      productId: record.productId,
-      quantity: record.quantity,
-      scheduledDate: record.scheduledDate ?? undefined,
-      notes: record.notes ?? undefined,
-      status: record.status as IntegrationStatus,
-      omieProductionOrderId: record.omieProductionOrderId
-        ? Number(record.omieProductionOrderId)
-        : undefined,
-      lastError: (record.lastError as any) ?? undefined,
-      createdAt: record.createdAt.toISOString(),
-      updatedAt: record.updatedAt.toISOString(),
-    };
+    return toRecord(updated);
   },
 
+  /**
+   * Consulta por externalRequestId
+   */
   async getByExternalRequestId(
     externalRequestId: string
   ): Promise<ProductionOrderIntegrationRecord | null> {
@@ -142,42 +187,20 @@ export const productionOrderIntegrationStore = {
     });
 
     if (!record) return null;
-
-    return {
-      externalRequestId: record.externalRequestId,
-      productId: record.productId,
-      quantity: record.quantity,
-      scheduledDate: record.scheduledDate ?? undefined,
-      notes: record.notes ?? undefined,
-      status: record.status as IntegrationStatus,
-      omieProductionOrderId: record.omieProductionOrderId
-        ? Number(record.omieProductionOrderId)
-        : undefined,
-      lastError: (record.lastError as any) ?? undefined,
-      createdAt: record.createdAt.toISOString(),
-      updatedAt: record.updatedAt.toISOString(),
-    };
+    return toRecord(record);
   },
 
-  async listByProductId(productId: string): Promise<ProductionOrderIntegrationRecord[]> {
+  /**
+   * Lista integrações por produto
+   */
+  async listByProductId(
+    productId: string
+  ): Promise<ProductionOrderIntegrationRecord[]> {
     const records = await prisma.productionOrderIntegration.findMany({
       where: { productId },
       orderBy: { createdAt: "desc" },
     });
 
-    return records.map((record) => ({
-      externalRequestId: record.externalRequestId,
-      productId: record.productId,
-      quantity: record.quantity,
-      scheduledDate: record.scheduledDate ?? undefined,
-      notes: record.notes ?? undefined,
-      status: record.status as IntegrationStatus,
-      omieProductionOrderId: record.omieProductionOrderId
-        ? Number(record.omieProductionOrderId)
-        : undefined,
-      lastError: (record.lastError as any) ?? undefined,
-      createdAt: record.createdAt.toISOString(),
-      updatedAt: record.updatedAt.toISOString(),
-    }));
+    return records.map(toRecord);
   },
 };
