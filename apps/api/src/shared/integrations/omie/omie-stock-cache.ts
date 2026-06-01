@@ -1,5 +1,5 @@
 import { OmieAdapter } from "@/shared/integrations/omie/omie.adapter";
-import type { OmieClient } from "@/shared/integrations/omie/omie.client";
+import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 
 export type OmieStockEntry = {
   stockQuantity: string | null;
@@ -50,7 +50,13 @@ function formatOmieBrDate(date: Date): string {
   return `${day}/${month}/${year}`;
 }
 
-export function createOmieStockCache(omieClient: OmieClient, options: OmieStockCacheOptions = {}) {
+/**
+ * ✅ Depende apenas da porta HTTP (post), não do OmieClient "rico".
+ */
+export function createOmieStockCache(
+  omieClient: OmieHttpClientPort,
+  options: OmieStockCacheOptions = {}
+) {
   const {
     path = "estoque/consulta/",
     call = "ListarPosEstoque",
