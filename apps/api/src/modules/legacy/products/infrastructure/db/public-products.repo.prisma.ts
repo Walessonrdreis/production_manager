@@ -26,33 +26,33 @@ export function createPublicProductsRepoPrisma(prisma: any) {
 
       const rows = await prisma.$queryRaw<PublicProductRow[]>`
         WITH latest_stock AS (
-          SELECT DISTINCT ON ("omieCode")
-            "omieCode",
-            "stockQuantity",
-            "minimumStock",
-            "capturedAt"
+          SELECT DISTINCT ON ("omie_code")
+            "omie_code",
+            "stock_quantity",
+            "minimum_stock",
+            "captured_at"
           FROM "product_stock"
-          ORDER BY "omieCode", "capturedAt" DESC
+          ORDER BY "omie_code", "captured_at" DESC
         )
         SELECT
-          o."omieCode" AS "omieCode",
+          o."omie_code" AS "omieCode",
           o."description" AS "description",
           o."sku" AS "sku",
-          o."familyDescription" AS "family",
+          o."family_description" AS "family",
           o."active" AS "active",
-          COALESCE(to_char(latest_stock."stockQuantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
-          COALESCE(to_char(latest_stock."minimumStock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
-          latest_stock."capturedAt" AS "stockUpdatedAt"
-        FROM "OmieProduct" o
+          COALESCE(to_char(latest_stock."stock_quantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
+          COALESCE(to_char(latest_stock."minimum_stock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
+          latest_stock."captured_at" AS "stockUpdatedAt"
+        FROM "omie_product" o
         LEFT JOIN latest_stock
-          ON latest_stock."omieCode" = o."omieCode"
+          ON latest_stock."omie_code" = o."omie_code"
         WHERE
           (${activeOnly}::boolean = false OR o."active" = true)
           AND (
             ${normalizedQ}::text IS NULL
             OR o."description" ILIKE ('%' || ${normalizedQ}::text || '%')
             OR COALESCE(o."sku", '') ILIKE ('%' || ${normalizedQ}::text || '%')
-            OR o."omieCode" ILIKE ('%' || ${normalizedQ}::text || '%')
+            OR o."omie_code" ILIKE ('%' || ${normalizedQ}::text || '%')
           )
         ORDER BY o."description" ASC
         LIMIT ${pageSize}
@@ -61,14 +61,14 @@ export function createPublicProductsRepoPrisma(prisma: any) {
 
       const totalRows = await prisma.$queryRaw<Array<{ total: bigint | number }>>`
         SELECT COUNT(*) AS "total"
-        FROM "OmieProduct" o
+        FROM "omie_product" o
         WHERE
           (${activeOnly}::boolean = false OR o."active" = true)
           AND (
             ${normalizedQ}::text IS NULL
             OR o."description" ILIKE ('%' || ${normalizedQ}::text || '%')
             OR COALESCE(o."sku", '') ILIKE ('%' || ${normalizedQ}::text || '%')
-            OR o."omieCode" ILIKE ('%' || ${normalizedQ}::text || '%')
+            OR o."omie_code" ILIKE ('%' || ${normalizedQ}::text || '%')
           )
       `;
 
@@ -81,27 +81,27 @@ export function createPublicProductsRepoPrisma(prisma: any) {
     async getByOmieCode(normalizedCode: string): Promise<PublicProductRow | null> {
       const rows = await prisma.$queryRaw<PublicProductRow[]>`
         WITH latest_stock AS (
-          SELECT DISTINCT ON ("omieCode")
-            "omieCode",
-            "stockQuantity",
-            "minimumStock",
-            "capturedAt"
+          SELECT DISTINCT ON ("omie_code")
+            "omie_code",
+            "stock_quantity",
+            "minimum_stock",
+            "captured_at"
           FROM "product_stock"
-          ORDER BY "omieCode", "capturedAt" DESC
+          ORDER BY "omie_code", "captured_at" DESC
         )
         SELECT
-          o."omieCode" AS "omieCode",
+          o."omie_code" AS "omieCode",
           o."description" AS "description",
           o."sku" AS "sku",
-          o."familyDescription" AS "family",
+          o."family_description" AS "family",
           o."active" AS "active",
-          COALESCE(to_char(latest_stock."stockQuantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
-          COALESCE(to_char(latest_stock."minimumStock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
-          latest_stock."capturedAt" AS "stockUpdatedAt"
-        FROM "OmieProduct" o
+          COALESCE(to_char(latest_stock."stock_quantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
+          COALESCE(to_char(latest_stock."minimum_stock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
+          latest_stock."captured_at" AS "stockUpdatedAt"
+        FROM "omie_product" o
         LEFT JOIN latest_stock
-          ON latest_stock."omieCode" = o."omieCode"
-        WHERE o."omieCode" = ${normalizedCode}::text
+          ON latest_stock."omie_code" = o."omie_code"
+        WHERE o."omie_code" = ${normalizedCode}::text
         LIMIT 1
       `;
 
