@@ -7,7 +7,8 @@
     "lib": ["ES2022"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@shared/*": ["src/shared/*"]
     },
     "outDir": "./dist",
     "rootDir": "./src",

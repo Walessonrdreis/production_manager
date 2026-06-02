@@ -17,4 +17,3 @@ export class FakeProductionOrderLifecycleGateway
     return productionOrderIntegrationStore.markFailed(externalRequestId, err);
   }
 }
-``
