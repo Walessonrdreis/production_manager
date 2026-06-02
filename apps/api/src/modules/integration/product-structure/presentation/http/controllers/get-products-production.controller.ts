@@ -8,7 +8,7 @@ export class GetProductsProductionController {
     private readonly useCase: GetProductsProductionReadModelUseCase
   ) {}
 
-  async handle(request: FastifyRequest, reply: FastifyReply) {
+  async handle(_request: FastifyRequest, reply: FastifyReply) {
     const data = await this.useCase.execute();
     return reply.send({ success: true, data });
   }

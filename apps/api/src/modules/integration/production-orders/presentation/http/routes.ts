@@ -11,11 +11,11 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
   const prisma = (app as any).prisma as PrismaClient;
   const omieClient = (app as any).omieClient as OmieHttpClientPort;
 
-  const baseSchema: FastifySchema = {
+  const baseSchema = {
     tags: ["integration"],
     prisma,
     omieClient,
-  };
+  } as FastifySchema & { prisma: PrismaClient; omieClient: OmieHttpClientPort };
 
   // CREATE
   app.route({

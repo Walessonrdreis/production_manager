@@ -12,32 +12,24 @@ import { GetProductsProductionController } from "./controllers/get-products-prod
 
 export async function productStructureIntegrationRoutes(app: FastifyInstance) {
   // ✅ store (injeta Prisma do Fastify)
-  const store = new ProductStructureIntegrationStore(app.prisma);
+  const store = new ProductStructureIntegrationStore((app as any).prisma);
 
   // ✅ seleção Real/Fake CENTRALIZADA (somente aqui)
   const gateway =
     env.PRODUCT_STRUCTURE_GATEWAY === "fake"
       ? new FakeProductStructureFetchGateway()
-      : new RealProductStructureFetchGateway(app.omieClient);
+      : new RealProductStructureFetchGateway((app as any).omieClient);
 
   // ✅ usecases
-  const syncUseCase = new SyncProductStructureUseCase(gateway, store);
-  void syncUseCase; // pronto para job / lazy fetch (não usado ainda)
+  // SyncProductStructureUseCase pronto para job / lazy fetch (não usado ainda)
+  // const syncUseCase = new SyncProductStructureUseCase(gateway, store);
 
-  const readModelUseCase = new GetProductsProductionReadModelUseCase(app.prisma);
+  const readModelUseCase = new GetProductsProductionReadModelUseCase();
   const controller = new GetProductsProductionController(readModelUseCase);
 
   // ✅ endpoint agregado (read-model)
   app.get(
     "/v1/admin/read/products/production",
-    {
-      schema: {
-        tags: ["product-structure"],
-        summary: "Lista produtos com readiness para produção",
-        description:
-          "Read-model agregado: retorna hasStructure e canCreateProductionOrder (sem chamar Omie).",
-      },
-    },
     controller.handle.bind(controller)
   );
 
