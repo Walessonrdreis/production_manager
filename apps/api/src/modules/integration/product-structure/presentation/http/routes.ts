@@ -1,41 +1,66 @@
 import type { FastifyInstance } from "fastify";
-import { env } from "@/config";
-
-import { ProductStructureIntegrationStore } from "../../infrastructure/db/product-structure-integration.store";
-import { FakeProductStructureFetchGateway } from "../../infrastructure/gateways/fetch/fake-product-structure-fetch.gateway";
-import { RealProductStructureFetchGateway } from "../../infrastructure/gateways/fetch/real-product-structure-fetch.gateway";
-
-import { SyncProductStructureUseCase } from "../../application/use-cases/sync-product-structure.usecase";
 import { GetProductsProductionReadModelUseCase } from "../../application/use-cases/get-products-production-read-model.usecase";
 
-import { GetProductsProductionController } from "./controllers/get-products-production.controller";
+function toBool(v: any, defaultValue = false) {
+  if (v === undefined || v === null) return defaultValue;
+  if (typeof v === "boolean") return v;
+  const s = String(v).toLowerCase().trim();
+  return s === "true" || s === "1" || s === "yes" || s === "y";
+}
+
+function toNum(v: any, defaultValue: number) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : defaultValue;
+}
 
 export async function productStructureIntegrationRoutes(app: FastifyInstance) {
-  // ✅ store (injeta Prisma do Fastify)
-  const store = new ProductStructureIntegrationStore((app as any).prisma);
-
-  // ✅ seleção Real/Fake CENTRALIZADA (somente aqui)
-  const gateway =
-    env.PRODUCT_STRUCTURE_GATEWAY === "fake"
-      ? new FakeProductStructureFetchGateway()
-      : new RealProductStructureFetchGateway((app as any).omieClient);
-
-  // ✅ usecases
-  // SyncProductStructureUseCase pronto para job / lazy fetch (não usado ainda)
-  // const syncUseCase = new SyncProductStructureUseCase(gateway, store);
-
   const readModelUseCase = new GetProductsProductionReadModelUseCase();
-  const controller = new GetProductsProductionController(readModelUseCase);
 
-  // ✅ endpoint agregado (read-model)
   app.get(
-    "/v1/admin/read/products/production",
-    controller.handle.bind(controller)
-  );
+    "/v1/admin/read/products/production-readiness",
+    {
+      schema: {
+        tags: ["product-structure"],
+        summary: "Readiness de produtos para produção",
+        description:
+          "Read-model que indica se um produto está apto a gerar Ordem de Produção. Suporta summary e data via view.",
+        querystring: {
+          type: "object",
+          properties: {
+            view: { type: "string", enum: ["summary", "data"] },
+            q: { type: "string" },
+            activeOnly: { type: "boolean" },
+            onlyWithoutStructure: { type: "boolean" },
+            structureStatus: { type: "string", enum: ["with", "without"] },
+            limit: { type: "number" },
+            offset: { type: "number" },
+            sort: { type: "string", enum: ["description", "productCode", "hasStructure"] },
+            order: { type: "string", enum: ["asc", "desc"] },
+            since: { type: "string" },
+            includeItems: { type: "boolean" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const q = (request.query as any)?.q ?? null;
 
-  /**
-   * Opcional (futuro): endpoint para disparar sync/refresh sob demanda:
-   * POST /v1/admin/omie/product-structure/:productCode/sync
-   * - chamaria syncUseCase.execute(productCode)
-   */
+      const params = {
+        view: (request.query as any)?.view,
+        q: q ? String(q) : null,
+        activeOnly: toBool((request.query as any)?.activeOnly, true),
+        onlyWithoutStructure: toBool((request.query as any)?.onlyWithoutStructure, false),
+        structureStatus: (request.query as any)?.structureStatus,
+        limit: toNum((request.query as any)?.limit, 50),
+        offset: toNum((request.query as any)?.offset, 0),
+        sort: (request.query as any)?.sort ?? "description",
+        order: (request.query as any)?.order ?? "asc",
+        since: (request.query as any)?.since ? String((request.query as any)?.since) : null,
+        includeItems: toBool((request.query as any)?.includeItems, false),
+      };
+
+      const result = await readModelUseCase.execute(params);
+      return reply.send({ success: true, ...result });
+    }
+  );
 }

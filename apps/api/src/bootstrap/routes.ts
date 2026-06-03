@@ -27,6 +27,7 @@ import { registerProductSectorsModule } from "@/modules/legacy/product-sectors";
 
 import { registerProductionOrdersIntegrationModule } 
   from "@/modules/integration/production-orders";
+import { registerProductStructureIntegrationModule } from "@/modules/integration/product-structure";
 
 // ---------------------------------------------------------------------------
 // NOVO/FUTURO (integration)
@@ -56,6 +57,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await registerStockModule(app);
   await registerOrdersModule(app);
   await registerProductionOrdersIntegrationModule(app);
+  await registerProductStructureIntegrationModule(app);
 
   // ---------------------------------------------------------------------------
   // 🔕 LEGACY — DESATIVADO TEMPORARIAMENTE
