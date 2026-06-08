@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 scene: development
 ---
 # SRP GLOBAL - RESPONSABILIDADE ÚNICA

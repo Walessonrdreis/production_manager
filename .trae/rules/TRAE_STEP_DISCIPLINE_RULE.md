@@ -1,3 +1,6 @@
+---
+alwaysApply: false
+---
 # ⚠️ REGRA CRÍTICA — DISCIPLINA DE STEP (OBRIGATÓRIA)
 
 Você deve operar com disciplina absoluta de execução.

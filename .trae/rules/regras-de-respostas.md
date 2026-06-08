@@ -1,38 +1,11 @@
----
-alwaysApply: false
----
-# REGRAS DE RESPOSTAS - SEGURANÇA
+# REGRAS DE RESPOSTAS
 
-## REGRA 1: SEM QUEBRAS DE COMPILAÇÃO
-- Nunca commitar código que não compila
-- Verificar TypeScript antes de cada commit
-- Corrigir erros imediatamente
+    - Quando na pergunta estiver "não code" ou "não implementar", não deve ser feito nehum código as respostas devem ser via chat.
+    
+    - Quando tiver a palavra "documentar" ou "documente" na pergunta, a resposta deve ser via chat e o arquivo em .md será criado e explicado via chat o que foi criado.
 
-## REGRA 2: TRABALHO INCREMENTAL OBRIGATÓRIO
-- **Máximo 3 arquivos** por ação
-- **Máximo 5 minutos** por ação
-- **Uma tarefa** específica por ação
-- Mostrar progresso após cada ação
-- Não implementar múltiplas features de uma vez
-- Fassa passo a passo, um passo para explica o que fez e agura confirmação do usuário.
--
+    - Enquanto em não disser "pode codar", não deve ser feito nenhum código. Será um dialogo de construção de ideias para a implementação.
 
-## REGRA 3: CONFIRMAÇÃO PARA MUDANÇAS CRÍTICAS
-- Se haver uma chance de quebrar a aplicação, sempre pedir confirmação
-- Explicar impacto das mudanças
-- Oferecer opções quando possível
+    - Quando na pergunta estiver "crie os passos" ou "crie os passos de implementação", a resposta deve ser via chat e os passos serão criados e explicados via chat.
 
-## REGRA 4: VERIFICAÇÃO DE LOGS
-- Monitorar logs após cada mudança
-- Corrigir warnings e erros antes de continuar
-- Não acumular problemas entre ações
-
-## REGRA 5: ECONOMIA DE CRÉDITOS
-- Ações curtas e focadas
-- Progresso visível passo a passo
-- Facilita revisão e controle
-
-## REFERÊNCIAS
-- [Trabalho Incremental](./trabalho-incremental.md)
-- [TDD Princípios](./tdd-principios.md)
-- [SRP Granularidade](./srp-granularidade.md)
+    - Quando disser "pode codar", pode ser feito o código. Seguindo os passos determinados na conversa um passo por vez

@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 scene: development
 ---
 # PRINCÍPIOS TDD - DESENVOLVIMENTO GUIADO POR TESTES

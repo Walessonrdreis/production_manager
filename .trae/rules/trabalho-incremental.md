@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
 # TRABALHO INCREMENTAL - AÇÕES CURTAS
 
