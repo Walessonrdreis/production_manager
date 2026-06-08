@@ -152,3 +152,25 @@ O arquivo `presentation/http/routes.ts`:
 * Demais módulos de integração
 
 
+# ✅ 3) ROUTES.md — ENTRADAS DO MÓDULO
+
+📍 **Caminho**
+
+apps/api/ROUTES.md
+
+### ✅ Adicionar
+
+## Product Structure (BOM)
+
+### Read‑Models
+- `GET /v1/admin/read/products/production-readiness`
+
+### Comandos de Integração
+- `POST /v1/integration/product-structure/:productCode/sync`
+- `POST /v1/integration/product-structure/:productCode/apply`
+- `POST /v1/integration/product-structure/:productCode/delete`
+
+### Jobs
+- Product Structure Sync (cron)
+  - Controlado por `ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB`
+  - Agenda via `OMIE_PRODUCT_STRUCTURE_SYNC_CRON`
