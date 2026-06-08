@@ -22,12 +22,10 @@ export function registerAlertsModule(app: FastifyInstance): void {
   
   const configureAlertsUseCase = createConfigureAlertsUseCase({
     alertsRepository,
-    logger: app.log,
   });
   
   const updateAlertStatusUseCase = createUpdateAlertStatusUseCase({
     alertsRepository,
-    logger: app.log,
   });
   
   // Criar controller

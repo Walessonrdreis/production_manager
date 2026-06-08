@@ -294,3 +294,45 @@ model ProductionOrderIntegration {
   @@index([status])
   @@map("production_order_integration")
 }
+
+enum ProductStructureCommandType {
+  SYNC
+  APPLY
+  DELETE
+}
+
+enum ProductStructureCommandStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+}
+
+enum ProductStructureCommandSource {
+  API2
+  JOB
+  ADMIN
+}
+
+model ProductStructureCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @map("external_request_id")
+  productCode       String @db.VarChar(64) @map("product_code")
+
+  commandType ProductStructureCommandType @map("command_type")
+  status      ProductStructureCommandStatus @default(ACCEPTED)
+
+  source   ProductStructureCommandSource @default(API2)
+  lastError Json? @map("last_error")
+
+  executedAt  DateTime? @map("executed_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([productCode])
+  @@index([status])
+  @@index([commandType])
+  @@map("product_structure_command")
+}

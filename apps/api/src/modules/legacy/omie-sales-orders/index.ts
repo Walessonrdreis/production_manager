@@ -89,7 +89,7 @@ export function createOmieSalesOrdersModule(app: any) {
   const listOrders = createListOrdersUseCase({ prisma });
   const listStage20Orders = createListStage20OrdersUseCase({ prisma });
   const getStage20Totals = createGetStage20TotalsUseCase({ prisma });
-  const getStage20TotalsDetailed = createGetStage20TotalsDetailedUseCase({ prisma });
+  const getStage20TotalsDetailed = createGetStage20TotalsDetailedUseCase();
 
   // ---------------------------------------------------------------------------
   // expose use cases

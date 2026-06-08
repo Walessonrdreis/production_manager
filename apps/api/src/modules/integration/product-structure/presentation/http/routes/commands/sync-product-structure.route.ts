@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { env } from "@/config";
 
 import { ProductStructureIntegrationStore } from "../../../../infrastructure/db/product-structure-integration.store";
+import { ProductStructureCommandStore } from "../../../../infrastructure/db/product-structure-command.store";
+
 import { SyncProductStructureUseCase } from "../../../../application/use-cases/sync-product-structure.usecase";
 
 import { FakeProductStructureFetchGateway } from "../../../../infrastructure/gateways/fetch/fake-product-structure-fetch.gateway";
@@ -15,20 +17,16 @@ export function registerSyncProductStructureRoute(app: FastifyInstance) {
         tags: ["product-structure"],
         summary: "Sincronizar estrutura do produto (BOM) via Omie",
         description:
-          "Comando de integração. Usa Fake/Real conforme env.PRODUCT_STRUCTURE_GATEWAY. Idempotente por externalRequestId.",
+          "Comando de integração. Fake no-write. Real é idempotente por externalRequestId.",
         params: {
           type: "object",
           required: ["productCode"],
-          properties: {
-            productCode: { type: "string" },
-          },
+          properties: { productCode: { type: "string" } },
         },
         body: {
           type: "object",
           required: ["externalRequestId"],
-          properties: {
-            externalRequestId: { type: "string" },
-          },
+          properties: { externalRequestId: { type: "string" } },
         },
       },
     },
@@ -36,7 +34,8 @@ export function registerSyncProductStructureRoute(app: FastifyInstance) {
       const { productCode } = request.params as any;
       const { externalRequestId } = (request.body as any) ?? {};
 
-      if (!externalRequestId || String(externalRequestId).trim() === "") {
+      const ext = String(externalRequestId ?? "").trim();
+      if (!ext) {
         return reply.status(400).send({
           success: false,
           error: "VALIDATION_ERROR",
@@ -44,24 +43,34 @@ export function registerSyncProductStructureRoute(app: FastifyInstance) {
         });
       }
 
-      // Seleção Real/Fake centralizada
-      const gateway =
-        env.PRODUCT_STRUCTURE_GATEWAY === "fake"
-          ? new FakeProductStructureFetchGateway()
-          : new RealProductStructureFetchGateway((app as any).omieClient);
+      const isFake = env.PRODUCT_STRUCTURE_GATEWAY === "fake";
 
-      const store = new ProductStructureIntegrationStore((app as any).prisma);
-      const useCase = new SyncProductStructureUseCase(gateway, store);
+      const fetchGateway = isFake
+        ? new FakeProductStructureFetchGateway()
+        : new RealProductStructureFetchGateway((app as any).omieClient);
 
-      // Execução (efeito colateral: escreve no DB; Real chama Omie)
-      await useCase.execute(String(productCode));
+      const integrationStore = new ProductStructureIntegrationStore((app as any).prisma);
+      const commandStore = new ProductStructureCommandStore((app as any).prisma);
 
-      // ACK do comando (padrão do projeto: comandos respondem ACCEPTED)
+      const useCase = new SyncProductStructureUseCase(
+        fetchGateway,
+        integrationStore,
+        commandStore,
+        { noWrite: isFake }
+      );
+
+      const result = await useCase.execute({
+        externalRequestId: ext,
+        productCode: String(productCode),
+        source: "API2",
+      });
+
+      // Padrão: sempre ACK 202
       return reply.status(202).send({
         success: true,
         data: {
-          externalRequestId: String(externalRequestId),
-          status: "ACCEPTED",
+          externalRequestId: ext,
+          status: result.status,
           productCode: String(productCode),
         },
       });

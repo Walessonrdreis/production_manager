@@ -1,10 +1,9 @@
 import { PrismaClient } from '@prisma/client'
-import type { InternalProductionOrder as PrismaInternalProductionOrder } from '@prisma/client'
 import type { InternalProductionOrder as InternalProductionOrderEntity } from '../../application/entities/internal-production-order.entity'
 import type { InternalProductionOrderRepositoryPort, CreateEventInput, CreateChangeInput } from '../../application/ports/internal-production-order.repository.port'
 import type { CreateInternalProductionOrderInput, UpdateInternalProductionOrderInput, ListInternalProductionOrdersInput } from '../../application/dtos/internal-production-order.dto'
 
-function mapToDomain(record: PrismaInternalProductionOrder): InternalProductionOrderEntity {
+function mapToDomain(record: any): InternalProductionOrderEntity {
   return {
     id: record.id,
     trelloCardId: record.trelloCardId,
@@ -30,7 +29,7 @@ export class InternalProductionOrderRepositoryPrisma implements InternalProducti
   constructor(private readonly prisma: PrismaClient) {}
 
   async create(data: CreateInternalProductionOrderInput): Promise<InternalProductionOrderEntity> {
-    const record = await this.prisma.internalProductionOrder.create({
+    const record = await (this.prisma as any).internalProductionOrder.create({
       data: {
         lote: data.lote,
         quantityValue: data.quantityValue,
@@ -82,12 +81,14 @@ export class InternalProductionOrderRepositoryPrisma implements InternalProducti
   }
 
   async findById(id: string): Promise<InternalProductionOrderEntity | null> {
-    const record = await this.prisma.internalProductionOrder.findUnique({ where: { id } })
+    const record = await (this.prisma as any).internalProductionOrder.findUnique({
+      where: { id },
+    })
     return record ? mapToDomain(record) : null
   }
 
   async findByTrelloCardId(trelloCardId: string): Promise<InternalProductionOrderEntity | null> {
-    const record = await this.prisma.internalProductionOrder.findUnique({ where: { trelloCardId } })
+    const record = await (this.prisma as any).internalProductionOrder.findUnique({ where: { trelloCardId } })
     return record ? mapToDomain(record) : null
   }
 
@@ -105,13 +106,13 @@ export class InternalProductionOrderRepositoryPrisma implements InternalProducti
     }
 
     const [records, total] = await Promise.all([
-      this.prisma.internalProductionOrder.findMany({
+      (this.prisma as any).internalProductionOrder.findMany({
         where,
         skip,
         take: pageSize,
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.internalProductionOrder.count({ where }),
+      (this.prisma as any).internalProductionOrder.count({ where }),
     ])
 
     return { items: records.map(mapToDomain), total }
@@ -119,13 +120,13 @@ export class InternalProductionOrderRepositoryPrisma implements InternalProducti
 
   async delete(id: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      await tx.internalProductionOrderChange.deleteMany({
+      await (tx as any).internalProductionOrderChange.deleteMany({
         where: { event: { orderId: id } },
       })
-      await tx.internalProductionOrderEvent.deleteMany({
+      await (tx as any).internalProductionOrderEvent.deleteMany({
         where: { orderId: id },
       })
-      await tx.internalProductionOrder.delete({ where: { id } })
+      await (tx as any).internalProductionOrder.delete({ where: { id } })
     })
   }
 

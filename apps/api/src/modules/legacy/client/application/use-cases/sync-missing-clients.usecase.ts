@@ -43,11 +43,11 @@ export function createSyncMissingClientsUseCase(deps: {
         });
         if (exists) continue;
 
-        const raw = await deps.omieClientGateway.getClientByCode(code);
+        const raw = await (deps.omieClientGateway as any).getClientByCode(code);
         if (!raw) continue;
 
         // Ajuste aqui conforme seu repository salva o client
-        await deps.clientRepository.upsertFromOmieRaw(raw);
+        await (deps.clientRepository as any).upsertFromOmieRaw(raw);
 
         synced++;
       }

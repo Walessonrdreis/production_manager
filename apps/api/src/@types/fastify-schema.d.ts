@@ -13,5 +13,6 @@ declare module "fastify" {
     description?: string;
     summary?: string;
     tags?: string[];
+    hide?: boolean;
   }
 }

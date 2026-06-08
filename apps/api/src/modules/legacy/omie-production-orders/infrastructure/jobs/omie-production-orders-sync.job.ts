@@ -113,7 +113,7 @@ export function startOmieProductionOrdersSyncJob(
           startedAt: startedAtIso,
           finishedAt: new Date().toISOString(),
           durationMs,
-          ordersSynced: syncResult.data?.ordersSynced || 0,
+          ordersSynced: (syncResult as any).data?.ordersSynced || 0,
         },
         "omie production orders sync job finished"
       );
@@ -128,7 +128,6 @@ export function startOmieProductionOrdersSyncJob(
   };
 
   const task = cron.schedule(effectiveCronExpr, tick, {
-    scheduled: true,
     timezone: "America/Sao_Paulo",
   });
 

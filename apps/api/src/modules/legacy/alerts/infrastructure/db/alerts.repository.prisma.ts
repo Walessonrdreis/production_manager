@@ -9,7 +9,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
 
   // Alertas de estoque
   async createStockAlert(alert: Omit<StockAlert, "id" | "createdAt">): Promise<StockAlert> {
-    const record = await this.prisma.stockAlert.create({
+    const record = await (this.prisma as any).stockAlert.create({
       data: {
         productCode: alert.productCode,
         productDescription: alert.productDescription,
@@ -26,7 +26,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
   }
 
   async updateStockAlert(id: string, updates: Partial<StockAlert>): Promise<StockAlert> {
-    const record = await this.prisma.stockAlert.update({
+    const record = await (this.prisma as any).stockAlert.update({
       where: { id },
       data: {
         productCode: updates.productCode,
@@ -44,7 +44,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
   }
 
   async getStockAlertById(id: string): Promise<StockAlert | null> {
-    const record = await this.prisma.stockAlert.findUnique({
+    const record = await (this.prisma as any).stockAlert.findUnique({
       where: { id },
     });
 
@@ -87,13 +87,13 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
     }
 
     const [alerts, total] = await Promise.all([
-      this.prisma.stockAlert.findMany({
+      (this.prisma as any).stockAlert.findMany({
         where,
         orderBy: { createdAt: "desc" },
         skip: (params.page - 1) * params.pageSize,
         take: params.pageSize,
       }),
-      this.prisma.stockAlert.count({ where }),
+      (this.prisma as any).stockAlert.count({ where }),
     ]);
 
     return {
@@ -103,7 +103,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
   }
 
   async getActiveStockAlerts(): Promise<StockAlert[]> {
-    const records = await this.prisma.stockAlert.findMany({
+    const records = await (this.prisma as any).stockAlert.findMany({
       where: { status: "active" },
       orderBy: { createdAt: "desc" },
     });
@@ -112,7 +112,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
   }
 
   async resolveStockAlert(id: string, notes?: string): Promise<StockAlert> {
-    const record = await this.prisma.stockAlert.update({
+    const record = await (this.prisma as any).stockAlert.update({
       where: { id },
       data: {
         status: "resolved",
@@ -126,7 +126,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
 
   // Configurações de alerta
   async createAlertConfig(config: Omit<AlertConfig, "id" | "createdAt" | "updatedAt">): Promise<AlertConfig> {
-    const record = await this.prisma.alertConfig.create({
+    const record = await (this.prisma as any).alertConfig.create({
       data: {
         productCode: config.productCode,
         criticalThreshold: config.criticalThreshold,
@@ -140,7 +140,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
   }
 
   async updateAlertConfig(id: string, updates: Partial<AlertConfig>): Promise<AlertConfig> {
-    const record = await this.prisma.alertConfig.update({
+    const record = await (this.prisma as any).alertConfig.update({
       where: { id },
       data: {
         productCode: updates.productCode,
@@ -155,7 +155,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
   }
 
   async getAlertConfigById(id: string): Promise<AlertConfig | null> {
-    const record = await this.prisma.alertConfig.findUnique({
+    const record = await (this.prisma as any).alertConfig.findUnique({
       where: { id },
     });
 
@@ -163,7 +163,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
   }
 
   async getAlertConfigByProductCode(productCode: string): Promise<AlertConfig | null> {
-    const record = await this.prisma.alertConfig.findUnique({
+    const record = await (this.prisma as any).alertConfig.findUnique({
       where: { productCode },
     });
 
@@ -171,7 +171,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
   }
 
   async getDefaultAlertConfig(): Promise<AlertConfig | null> {
-    const record = await this.prisma.alertConfig.findFirst({
+    const record = await (this.prisma as any).alertConfig.findFirst({
       where: { productCode: null },
     });
 
@@ -179,7 +179,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
   }
 
   async listAlertConfigs(): Promise<AlertConfig[]> {
-    const records = await this.prisma.alertConfig.findMany({
+    const records = await (this.prisma as any).alertConfig.findMany({
       orderBy: [{ productCode: "asc" }, { updatedAt: "desc" }],
     });
 
@@ -209,13 +209,13 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
       infoCount,
       byProductRaw,
     ] = await Promise.all([
-      this.prisma.stockAlert.count(),
-      this.prisma.stockAlert.count({ where: { status: "active" } }),
-      this.prisma.stockAlert.count({ where: { status: { in: ["resolved", "acknowledged"] } } }),
-      this.prisma.stockAlert.count({ where: { severity: "critical" } }),
-      this.prisma.stockAlert.count({ where: { severity: "warning" } }),
-      this.prisma.stockAlert.count({ where: { severity: "info" } }),
-      this.prisma.stockAlert.groupBy({
+      (this.prisma as any).stockAlert.count(),
+      (this.prisma as any).stockAlert.count({ where: { status: "active" } }),
+      (this.prisma as any).stockAlert.count({ where: { status: { in: ["resolved", "acknowledged"] } } }),
+      (this.prisma as any).stockAlert.count({ where: { severity: "critical" } }),
+      (this.prisma as any).stockAlert.count({ where: { severity: "warning" } }),
+      (this.prisma as any).stockAlert.count({ where: { severity: "info" } }),
+      (this.prisma as any).stockAlert.groupBy({
         by: ["productCode", "productDescription"],
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
@@ -245,7 +245,7 @@ export class AlertsRepositoryPrisma implements AlertsRepositoryPort {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
 
-    const result = await this.prisma.stockAlert.deleteMany({
+    const result = await (this.prisma as any).stockAlert.deleteMany({
       where: {
         createdAt: { lt: cutoffDate },
         status: { in: ["resolved", "acknowledged"] },

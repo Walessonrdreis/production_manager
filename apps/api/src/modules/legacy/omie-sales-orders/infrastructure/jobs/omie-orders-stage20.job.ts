@@ -158,7 +158,6 @@ export function startOmieOrdersStage20SyncJob(
 
   // ✅ Agenda execução com cron simples
   const scheduledJob = cron.schedule(effectiveCronExpr, tick, {
-    scheduled: true,
     timezone: "America/Sao_Paulo",
   });
 

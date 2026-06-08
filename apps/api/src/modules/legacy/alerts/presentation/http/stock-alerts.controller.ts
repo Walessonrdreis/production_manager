@@ -34,7 +34,7 @@ export class StockAlertsController {
         message: "Alertas de estoque recuperados com sucesso",
       });
     } catch (error) {
-      request.log.error("Erro ao listar alertas de estoque:", error);
+      request.log.error("Erro ao listar alertas de estoque:", error as any);
       
       if (error instanceof Error && error.name === "ZodError") {
         return reply.code(400).send({
@@ -68,7 +68,7 @@ export class StockAlertsController {
         message: "Alertas críticos de estoque recuperados com sucesso",
       });
     } catch (error) {
-      request.log.error("Erro ao listar alertas críticos de estoque:", error);
+      request.log.error("Erro ao listar alertas críticos de estoque:", error as any);
       
       if (error instanceof Error && error.name === "ZodError") {
         return reply.code(400).send({
@@ -98,7 +98,7 @@ export class StockAlertsController {
         message: "Configuração de alertas atualizada com sucesso",
       });
     } catch (error) {
-      request.log.error("Erro ao configurar alertas:", error);
+      request.log.error("Erro ao configurar alertas:", error as any);
       
       if (error instanceof Error && error.name === "ZodError") {
         return reply.code(400).send({
@@ -129,7 +129,7 @@ export class StockAlertsController {
         message: "Status do alerta atualizado com sucesso",
       });
     } catch (error) {
-      request.log.error("Erro ao atualizar status do alerta:", error);
+      request.log.error("Erro ao atualizar status do alerta:", error as any);
       
       if (error instanceof Error && error.name === "ZodError") {
         return reply.code(400).send({
@@ -161,13 +161,13 @@ export class StockAlertsController {
       const result = await this.listStockAlertsUseCase.execute(validatedQuery);
       
       const statistics = {
-        total: result.total,
-        critical: result.statistics.critical,
-        warning: result.statistics.warning,
-        info: result.statistics.info,
-        active: result.statistics.active,
-        resolved: result.statistics.resolved,
-        acknowledged: result.statistics.acknowledged,
+        total: (result as any).total,
+        critical: (result as any).statistics?.critical || 0,
+        warning: (result as any).statistics?.warning || 0,
+        info: (result as any).statistics?.info || 0,
+        active: (result as any).statistics?.active || 0,
+        resolved: (result as any).statistics?.resolved || 0,
+        acknowledged: (result as any).statistics?.acknowledged || 0,
       };
       
       return reply.code(200).send({
@@ -176,7 +176,7 @@ export class StockAlertsController {
         message: "Estatísticas de alertas recuperadas com sucesso",
       });
     } catch (error) {
-      request.log.error("Erro ao obter estatísticas de alertas:", error);
+      request.log.error("Erro ao obter estatísticas de alertas:", error as any);
       
       if (error instanceof Error && error.name === "ZodError") {
         return reply.code(400).send({

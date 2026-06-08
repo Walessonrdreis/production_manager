@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { env } from "@/config";
 
 import { ProductStructureIntegrationStore } from "../../../../infrastructure/db/product-structure-integration.store";
+import { ProductStructureCommandStore } from "../../../../infrastructure/db/product-structure-command.store";
+
 import { RealProductStructureFetchGateway } from "../../../../infrastructure/gateways/fetch/real-product-structure-fetch.gateway";
 import { FakeProductStructureFetchGateway } from "../../../../infrastructure/gateways/fetch/fake-product-structure-fetch.gateway";
 
@@ -17,7 +19,7 @@ export function registerApplyProductStructureRoute(app: FastifyInstance) {
         tags: ["product-structure"],
         summary: "Aplicar estrutura (BOM) no Omie",
         description:
-          "Comando de integração: aplica a estrutura proposta no Omie usando IncluirEstrutura/AlterarEstrutura e sincroniza o espelho local.",
+          "Comando de integração: aplica estrutura no Omie (Incluir/Alterar) e sincroniza espelho. Real é idempotente.",
         params: {
           type: "object",
           required: ["productCode"],
@@ -83,26 +85,29 @@ export function registerApplyProductStructureRoute(app: FastifyInstance) {
         ? new FakeProductStructureFetchGateway()
         : new RealProductStructureFetchGateway((app as any).omieClient);
 
-      const store = new ProductStructureIntegrationStore((app as any).prisma);
+      const integrationStore = new ProductStructureIntegrationStore((app as any).prisma);
+      const commandStore = new ProductStructureCommandStore((app as any).prisma);
 
       const useCase = new ApplyProductStructureUseCase(
         applyGateway,
         fetchGateway,
-        store,
+        integrationStore,
+        commandStore,
         { noWrite: isFake }
       );
 
-      await useCase.execute({
+      const result = await useCase.execute({
         externalRequestId,
         productCode: String(productCode),
         items,
+        source: "API2",
       });
 
       return reply.status(202).send({
         success: true,
         data: {
           externalRequestId,
-          status: "ACCEPTED",
+          status: result.status,
           productCode: String(productCode),
         },
       });

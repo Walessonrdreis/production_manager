@@ -7,4 +7,3 @@ export const syncClientsFromOmieSchema = {
     204: { type: "null" },
   },
 } as const;
-``

@@ -16,9 +16,6 @@ export class FakeProductionOrderCreationGateway
       externalRequestId: command.externalRequestId,
       productId: command.productId,
       quantity: command.quantity,
-      scheduledDate: command.scheduledDate,
-      notes: command.notes,
-      omieProductionOrderId: undefined,
     });
 
     return { externalRequestId: command.externalRequestId, status: "ACCEPTED" };

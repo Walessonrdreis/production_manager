@@ -46,7 +46,7 @@ export class UpdateAlertStatusUseCase {
       message: `Status do alerta atualizado para ${validatedRequest.status}`,
       data: {
         id: updatedAlert.id,
-        status: updatedAlert.status,
+        status: validatedRequest.status,
         resolvedAt: updatedAlert.resolvedAt?.toISOString(),
         notes: validatedRequest.notes,
         updatedAt: new Date().toISOString(),

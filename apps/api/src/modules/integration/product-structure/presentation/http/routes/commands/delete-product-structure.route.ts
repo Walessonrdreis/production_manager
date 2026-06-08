@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { env } from "@/config";
 
 import { ProductStructureIntegrationStore } from "../../../../infrastructure/db/product-structure-integration.store";
+import { ProductStructureCommandStore } from "../../../../infrastructure/db/product-structure-command.store";
+
 import { RealProductStructureFetchGateway } from "../../../../infrastructure/gateways/fetch/real-product-structure-fetch.gateway";
 import { FakeProductStructureFetchGateway } from "../../../../infrastructure/gateways/fetch/fake-product-structure-fetch.gateway";
 
@@ -17,7 +19,7 @@ export function registerDeleteProductStructureRoute(app: FastifyInstance) {
         tags: ["product-structure"],
         summary: "Excluir estrutura (BOM) no Omie",
         description:
-          "Comando de integração: pede ao Omie para excluir a estrutura e sincroniza o espelho local.",
+          "Comando de integração: exclui estrutura no Omie e sincroniza espelho. Real é idempotente.",
         params: {
           type: "object",
           required: ["productCode"],
@@ -26,9 +28,7 @@ export function registerDeleteProductStructureRoute(app: FastifyInstance) {
         body: {
           type: "object",
           required: ["externalRequestId"],
-          properties: {
-            externalRequestId: { type: "string" },
-          },
+          properties: { externalRequestId: { type: "string" } },
         },
       },
     },
@@ -55,22 +55,28 @@ export function registerDeleteProductStructureRoute(app: FastifyInstance) {
         ? new FakeProductStructureFetchGateway()
         : new RealProductStructureFetchGateway((app as any).omieClient);
 
-      const store = new ProductStructureIntegrationStore((app as any).prisma);
+      const integrationStore = new ProductStructureIntegrationStore((app as any).prisma);
+      const commandStore = new ProductStructureCommandStore((app as any).prisma);
 
       const useCase = new DeleteProductStructureUseCase(
         deleteGateway,
         fetchGateway,
-        store,
+        integrationStore,
+        commandStore,
         { noWrite: isFake }
       );
 
-      await useCase.execute({ externalRequestId, productCode: String(productCode) });
+      const result = await useCase.execute({
+        externalRequestId,
+        productCode: String(productCode),
+        source: "API2",
+      });
 
       return reply.status(202).send({
         success: true,
         data: {
           externalRequestId,
-          status: "ACCEPTED",
+          status: result.status,
           productCode: String(productCode),
         },
       });
