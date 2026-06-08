@@ -21,6 +21,8 @@ import { startOmieOrdersStage20SyncJob } from "@/modules/legacy/omie-sales-order
 import { startOmieProductionOrdersSyncJob } from "@/modules/legacy/omie-production-orders/infrastructure/jobs/omie-production-orders-sync.job";
 import { startOmieClientSyncJob } from "@/modules/legacy/client/infrastructure/jobs/sync-omie-clients.job"; 
 
+import { registerProductStructureJobs } from "@/modules/integration/product-structure/infrastructure/jobs/product-structure-jobs.register";
+
 import { ListOrdersViewUseCase } from "@/modules/legacy/orders-view/application/list-orders-view.usecase";
 import type { ListClientsUseCase } from "@/modules/legacy/client/application/use-cases/list-clients.usecase";
 import type { ListStage20OrdersEnrichedUseCase } from "@/modules/legacy/orders-enriched/application/use-cases/list-stage20-orders-enriched.usecase";
@@ -179,7 +181,8 @@ if (env.ENABLE_OMIE_PRODUCT_SYNC_JOB) {
 }
 
 if (env.ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB) {
-  startOmieProductStructureSyncJob(app);
+  registerProductStructureJobs(app.omieClient);
+  // startOmieProductStructureSyncJob(app); // desativar legacy
 }
 
 if (env.OMIE_ORDERS_STAGE_SYNC) {
