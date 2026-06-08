@@ -1,5 +1,3 @@
-// apps/api/src/modules/integration/product-structure/infrastructure/gateways/fetch/real-product-structure-fetch.gateway.ts
-
 import { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 import {
   ProductStructureFetchGateway,
@@ -14,19 +12,20 @@ export class RealProductStructureFetchGateway
   async fetchByProductCode(productCode: string): Promise<ProductStructureFetchResult> {
     const response = await this.omieClient.post<any>("produto/estrutura/", {
       call: "ConsultarEstrutura",
-      param: [{ codigo_produto: productCode }],
+      param: [{ codProduto: productCode }],
     });
 
-    const items = (response?.itens ?? []).map((item: any) => ({
-      componentCode: item.codigo_produto_componente,
-      quantity: item.quantidade,
-      unit: item.unidade,
-    }));
+    const itens = response?.itens ?? [];
 
     return {
       productCode,
-      hasStructure: items.length > 0,
-      items,
+      hasStructure: itens.length > 0,
+      items: itens.map((item: any) => ({
+        componentCode: item.codProdMalha,
+        quantity: item.quantProdMalha,
+        unit: item.unidProdMalha,
+        loss: item.percPerdaProdMalha,
+      })),
       rawPayload: response,
     };
   }
