@@ -26,6 +26,7 @@ Para **qualquer pessoa ou agente AI** que precise entender o projeto, siga esta 
 | **📦 [MODULE_TEMPLATE.md](MODULE_TEMPLATE.md)** | Para **criar novos módulos** ou atualizar existentes | Template completo com ports, use case, store, gateways, jobs, routes, register |
 | **📚 [IMPORTS_LIBRARY.md](IMPORTS_LIBRARY.md)** | Para **resolver erros de importação** ou entender padrões | Diferenciação crítica `@/infra/db` vs `@/shared/db/prisma`, ordem de imports, erros comuns |
 | **📝 [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md)** | Para **padronizar nomes** de arquivos, funções, variáveis | kebab‑case, padrões de arquivos, palavras‑chave, exceções (acrônimos) |
+| **🏷️ [DOMAIN_NAMING_GUIDE.md](DOMAIN_NAMING_GUIDE.md)** | Para **nomenclatura canônica de domínio** | Entidade específica + capacidade, ownership explícito, categorias de entidades |
 | **🗄️ [DB_SCHEMA_GUIDE.md](DB_SCHEMA_GUIDE.md)** | Para **definir schema do banco** ou criar migrações | Padrão canônico de tabelas, campos obrigatórios, ownership, regras imutáveis |
 | **👨‍💻 [HOW_TO_CONTRIBUTE.md](HOW_TO_CONTRIBUTE.md)** | Para **desenvolvedores** que vão trabalhar no projeto | Guia prático de setup, desenvolvimento, testes, deploy |
 
@@ -48,6 +49,11 @@ Para **qualquer pessoa ou agente AI** que precise entender o projeto, siga esta 
 ### "Preciso definir schema do banco"
 1. Leia `DB_SCHEMA_GUIDE.md` (padrão canônico completo)
 2. Consulte a classificação de tipos de tabela
+
+### "Preciso nomear um novo módulo de domínio"
+1. Leia `DOMAIN_NAMING_GUIDE.md` (nomenclatura canônica)
+2. Aplique o princípio "Entidade Específica + Capacidade"
+3. Consulte `NAMING_CONVENTIONS.md` para padrões sintáticos
 3. Siga os campos obrigatórios por tipo
 
 ### "Preciso seguir padrões do projeto"

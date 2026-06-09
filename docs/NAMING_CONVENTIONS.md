@@ -1,12 +1,20 @@
 # Padrões de Nomenclatura - Production Manager
 
-Este documento define os padrões de nomenclatura obrigatórios para todos os módulos do projeto. Seguir estas convenções garante consistência, legibilidade e facilita a manutenção.
+**🔴 AUTORIDADE MÁXIMA PARA NOMENCLATURA SINTÁTICA**
+
+Este documento define os padrões **sintáticos** de nomenclatura obrigatórios para todos os módulos do projeto. Para **semântica de domínio**, consulte o guia canônico:
+
+**📌 DOCUMENTO RELACIONADO OBRIGATÓRIO**:  
+→ **[DOMAIN_NAMING_GUIDE.md](DOMAIN_NAMING_GUIDE.md)** - Guia canônico de nomenclatura de domínio
+
+Seguir estas convenções garante consistência, legibilidade e facilita a manutenção.
 
 ## 1. Estrutura de Pastas (Canônica)
 
 ### 1.1 Nome do Módulo
 - **Formato**: `kebab-case` (letras minúsculas separadas por hífen)
-- **Exemplo**: `product-structure`, `order-integration`, `customer-sync`
+- **Exemplo**: `product-structure`, `sales-order-sync`, `customer-management`
+  > **📌 IMPORTANTE**: Para semântica de domínio, consulte [DOMAIN_NAMING_GUIDE.md](./DOMAIN_NAMING_GUIDE.md). Use "Entidade Específica + Capacidade" (ex: `sales-order-sync`, não `order-integration`).
 
 ### 1.2 Diretórios Obrigatórios
 Cada módulo DEVE seguir esta estrutura exata:

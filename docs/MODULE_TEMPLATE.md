@@ -5,7 +5,7 @@ Este template define a estrutura canônica obrigatória para todos os novos mód
 ## 1. Estrutura Completa do Módulo
 
 ```
-nome-do-modulo/                          # kebab-case (ex: order-sync)
+nome-do-modulo/                          # kebab-case (ex: sales-order-sync)
 ├── application/
 │   ├── ports/
 │   │   └── nome-do-modulo-[ação].gateway.ts
@@ -755,36 +755,43 @@ const integrations = [
 - [ ] Testes unitários escritos
 - [ ] Documentação atualizada
 
-## 6. Exemplo Completo: Módulo `order-sync`
+## 6. Exemplo Completo: Módulo `sales-order-sync`
+
+> **⚠️ IMPORTANTE**: Usamos `sales-order-sync` (específico) em vez de `orders-sync` (genérico) para:
+> - **Clareza de domínio**: "sales order" vs "production order" vs "purchase order"
+> - **Ownership explícito**: API 1 escreve espelho Omie, API 2 escreve domínio interno
+> - **Consistência canônica**: Segue padrão "entidade específica + capacidade"
+> 
+> **📌 REFERÊNCIA OBRIGATÓRIA**: Consulte [DOMAIN_NAMING_GUIDE.md](./DOMAIN_NAMING_GUIDE.md) para padrões canônicos de nomenclatura de domínio.
 
 ```
-order-sync/
+sales-order-sync/
 ├── application/
 │   ├── ports/
-│   │   └── order-sync-fetch.gateway.ts
+│   │   └── sales-order-sync-fetch.gateway.ts
 │   └── use-cases/
-│       └── sync-order.usecase.ts
+│       └── sync-sales-order.usecase.ts
 ├── infrastructure/
 │   ├── db/
-│   │   └── order-sync-command.store.ts
+│   │   └── sales-order-sync-command.store.ts
 │   ├── gateways/
 │   │   ├── fetch/
-│   │   │   ├── real-order-sync-fetch.gateway.ts
-│   │   │   └── fake-order-sync-fetch.gateway.ts
+│   │   │   ├── real-sales-order-sync-fetch.gateway.ts
+│   │   │   └── fake-sales-order-sync-fetch.gateway.ts
 │   └── jobs/
-│       ├── reconcile-orders.job.ts
-│       └── order-sync-jobs.register.ts
+│       ├── reconcile-sales-orders.job.ts
+│       └── sales-order-sync-jobs.register.ts
 ├── presentation/
 │   └── http/
 │       ├── routes/
 │       │   ├── commands/
-│       │   │   └── sync-order.route.ts
+│       │   │   └── sync-sales-order.route.ts
 │       │   └── read/
-│       │       └── get-order-status.route.ts
+│       │       └── get-sales-order-status.route.ts
 │       ├── routes.ts
 │       └── index.ts
 ├── index.ts
-└── order-sync-integration-register.ts
+└── sales-order-sync-integration-register.ts
 ```
 
 ---

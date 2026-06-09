@@ -181,7 +181,7 @@ OMIE_PRODUCT_STRUCTURE_SYNC_CRON=0 */12 * * * *
 ```typescript
 const integrations = [
   createProductStructureIntegration(),
-  createOrderSyncIntegration(),
+  createSalesOrderSyncIntegration(),
   // ... outros módulos
 ];
 ```
@@ -419,7 +419,8 @@ import { ApplyProductStructureUseCase } from "../use-cases/apply-product-structu
 
 #### Nome do Módulo:
 - **Formato**: `kebab-case` (letras minúsculas separadas por hífen)
-- **Exemplo**: `product-structure`, `order-integration`, `customer-sync`
+- **Exemplo**: `product-structure`, `sales-order-sync`, `customer-management`
+  > **📌 IMPORTANTE**: Para semântica de domínio, consulte [DOMAIN_NAMING_GUIDE.md](./DOMAIN_NAMING_GUIDE.md). Use "Entidade Específica + Capacidade" (ex: `sales-order-sync`, não `order-integration`).
 
 #### Diretórios Obrigatórios:
 ```
@@ -654,7 +655,7 @@ pnpm --filter api metrics:update-docs
 ### 4. CRIANDO UM NOVO MÓDULO
 
 #### Passo a Passo:
-1. **Escolher nome**: `kebab-case` (ex: `order-sync`)
+1. **Escolher nome**: `kebab-case` (ex: `sales-order-sync`)
 2. **Gerar scaffold**: `pnpm --filter api gen:module`
 3. **Seguir estrutura canônica**: Verificar [Padrões de Nomenclatura](#-padrões-de-nomenclatura)
 4. **Implementar camadas**: Ports, use cases, gateways, stores, jobs, routes
@@ -1113,36 +1114,43 @@ const integrations = [
 - [ ] Testes unitários escritos
 - [ ] Documentação atualizada
 
-### 6. EXEMPLO COMPLETO: MÓDULO `order-sync`
+### 6. EXEMPLO COMPLETO: MÓDULO `sales-order-sync`
+
+> **⚠️ IMPORTANTE**: Usamos `sales-order-sync` (específico) em vez de `orders-sync` (genérico) para:
+> - **Clareza de domínio**: "sales order" vs "production order" vs "purchase order"
+> - **Ownership explícito**: API 1 escreve espelho Omie, API 2 escreve domínio interno
+> - **Consistência canônica**: Segue padrão "entidade específica + capacidade"
+> 
+> **📌 Consulte**: [DOMAIN_NAMING_GUIDE.md](DOMAIN_NAMING_GUIDE.md) para padrões completos de nomenclatura de domínio.
 
 ```
-order-sync/
+sales-order-sync/
 ├── application/
 │   ├── ports/
-│   │   └── order-sync-fetch.gateway.ts
+│   │   └── sales-order-sync-fetch.gateway.ts
 │   └── use-cases/
-│       └── sync-order.usecase.ts
+│       └── sync-sales-order.usecase.ts
 ├── infrastructure/
 │   ├── db/
-│   │   └── order-sync-command.store.ts
+│   │   └── sales-order-sync-command.store.ts
 │   ├── gateways/
 │   │   ├── fetch/
-│   │   │   ├── real-order-sync-fetch.gateway.ts
-│   │   │   └── fake-order-sync-fetch.gateway.ts
+│   │   │   ├── real-sales-order-sync-fetch.gateway.ts
+│   │   │   └── fake-sales-order-sync-fetch.gateway.ts
 │   └── jobs/
-│       ├── reconcile-orders.job.ts
-│       └── order-sync-jobs.register.ts
+│       ├── reconcile-sales-orders.job.ts
+│       └── sales-order-sync-jobs.register.ts
 ├── presentation/
 │   └── http/
 │       ├── routes/
 │       │   ├── commands/
-│       │   │   └── sync-order.route.ts
+│       │   │   └── sync-sales-order.route.ts
 │       │   └── read/
-│       │       └── get-order-status.route.ts
+│       │       └── get-sales-order-status.route.ts
 │       ├── routes.ts
 │       └── index.ts
 ├── index.ts
-└── order-sync-integration-register.ts
+└── sales-order-sync-integration-register.ts
 ```
 
 ---

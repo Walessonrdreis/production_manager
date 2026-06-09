@@ -142,7 +142,8 @@ pnpm --filter api metrics:update-docs
 ## 4. Criando um Novo Módulo
 
 ### 4.1 Passo a Passo
-1. **Escolher nome**: `kebab-case` (ex: `order-sync`)
+1. **Escolher nome**: `kebab-case` (ex: `sales-order-sync`)
+   > **📌 IMPORTANTE**: Consulte [DOMAIN_NAMING_GUIDE.md](./DOMAIN_NAMING_GUIDE.md) para padrões canônicos de nomenclatura de domínio. Use "Entidade Específica + Capacidade" (ex: `sales-order-sync`, não `orders-sync`).
 2. **Gerar scaffold**:
    ```bash
    pnpm --filter api gen:module
