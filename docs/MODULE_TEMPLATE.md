@@ -302,12 +302,14 @@ export class FakeNomeDoModuloAcaoGateway implements NomeDoModuloAcaoGateway {
 ```typescript
 // apps/api/src/modules/integration/nome-do-modulo/infrastructure/jobs/[açao]-nome-do-modulo.job.ts
 
-import cron from "node-cron";
-import { env } from "@/config";
-import { logger } from "@/shared/logger";
+import { getLogger } from "@/shared/logger";
+import { prisma } from "@/shared/db/prisma";
+import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 
 import { NomeDoModuloAcaoUseCase } from "../../application/use-cases/[açao]-nome-do-modulo.usecase";
-// Importe gateways, stores, etc.
+import { RealNomeDoModuloAcaoGateway } from "../gateways/[açao]/real-nome-do-modulo-[açao].gateway";
+import { NomeDoModuloStore } from "../db/nome-do-modulo.store";
+import { NomeDoModuloComandoStore } from "../db/nome-do-modulo-command.store";
 
 export class NomeDoModuloAcaoJob {
   constructor(
@@ -342,10 +344,14 @@ export class NomeDoModuloAcaoJob {
 
 // Função factory para criar job
 export function criarNomeDoModuloAcaoJob(
-  // Dependências
+  omieClient: OmieHttpClientPort
 ): NomeDoModuloAcaoJob {
   // Construir use case com gateways e stores
-  const useCase = new NomeDoModuloAcaoUseCase(/* ... */);
+  const gateway = new RealNomeDoModuloAcaoGateway(omieClient);
+  const store = new NomeDoModuloStore(prisma);
+  const commandStore = new NomeDoModuloComandoStore(prisma);
+  
+  const useCase = new NomeDoModuloAcaoUseCase(gateway, store, commandStore);
   return new NomeDoModuloAcaoJob(useCase);
 }
 ```
@@ -358,38 +364,44 @@ export function criarNomeDoModuloAcaoJob(
 // apps/api/src/modules/integration/nome-do-modulo/infrastructure/jobs/nome-do-modulo-jobs.register.ts
 
 import cron from "node-cron";
-import { env } from "@/config";
-import { logger } from "@/shared/logger";
-
+import { getLogger } from "@/shared/logger";
+import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 import { criarNomeDoModuloAcaoJob } from "./[açao]-nome-do-modulo.job";
 
-export function registerNomeDoModuloJobs() {
+export function registerNomeDoModuloJobs(omieClient: OmieHttpClientPort) {
+  const logger = getLogger("nome-do-modulo:cron");
+
   // Job agendado (se habilitado no .env)
-  if (env.HABILITAR_JOB_NOME_DO_MODULO_ACAO === "true") {
-    const expressaoCron = env.CRON_JOB_NOME_DO_MODULO_ACAO || "0 */5 * * * *";
+  if (process.env.ENABLE_OMIE_NOME_DO_MODULO_ACAO_JOB === "true") {
+    const schedule = process.env.OMIE_NOME_DO_MODULO_ACAO_CRON || "0 */5 * * * *";
     
-    cron.schedule(expressaoCron, async () => {
+    cron.schedule(schedule, async () => {
+      const runLogger = getLogger("nome-do-modulo:cron:run");
+      runLogger.info("Starting [ação] nome-do-modulo job");
+
       try {
-        const job = criarNomeDoModuloAcaoJob(/* dependências */);
+        const job = criarNomeDoModuloAcaoJob(omieClient);
         await job.executar();
-      } catch (erro) {
-        logger.error("Falha na execução agendada do job", { erro });
+        runLogger.info("Finished [ação] nome-do-modulo job");
+      } catch (error) {
+        runLogger.error("[Ação] nome-do-modulo job failed", error);
       }
     });
 
-    logger.info("Job de [ação] nome-do-modulo agendado", { expressaoCron });
+    logger.info("[Ação] nome-do-modulo job registered", { schedule });
   }
 
   // Job único (execução imediata)
-  if (env.EXECUTAR_JOB_NOME_DO_MODULO_ACAO_INICIO === "true") {
-    logger.info("Executando job de [ação] nome-do-modulo no início");
+  if (process.env.EXECUTE_OMIE_NOME_DO_MODULO_ACAO_JOB_ON_START === "true") {
+    logger.info("Executing [ação] nome-do-modulo job on start");
     
     setTimeout(async () => {
       try {
-        const job = criarNomeDoModuloAcaoJob(/* dependências */);
+        const job = criarNomeDoModuloAcaoJob(omieClient);
         await job.executar();
-      } catch (erro) {
-        logger.error("Falha na execução inicial do job", { erro });
+        logger.info("Initial [ação] nome-do-modulo job executed successfully");
+      } catch (error) {
+        logger.error("Initial [ação] nome-do-modulo job failed", error);
       }
     }, 5000); // Delay de 5 segundos após startup
   }
@@ -404,7 +416,6 @@ export function registerNomeDoModuloJobs() {
 // apps/api/src/modules/integration/nome-do-modulo/presentation/http/routes/commands/[açao]-nome-do-modulo.route.ts
 
 import type { FastifyInstance } from "fastify";
-import { env } from "@/config";
 
 // Importe stores
 import { NomeDoModuloStore } from "../../../../../infrastructure/db/nome-do-modulo.store";
@@ -417,10 +428,10 @@ import { FakeNomeDoModuloAcaoGateway } from "../../../../../infrastructure/gatew
 // Importe use case
 import { NomeDoModuloAcaoUseCase } from "../../../../../application/use-cases/[açao]-nome-do-modulo.usecase";
 
-// Importe cliente Omie (para gateway real)
-import { omieHttpClient } from "@/shared/integrations/omie/omie-http-client";
-
 export function registerNomeDoModuloAcaoRoute(app: FastifyInstance) {
+  // ⚠️ IMPORTANTE: Injeção de dependência via app
+  // O projeto injeta omieClient via bootstrap (app.omieClient), evitando singleton global.
+  // NÃO importe omieHttpClient globalmente - use app.omieClient.
   app.post(
     "/v1/integration/nome-do-modulo/:codigo/[açao]",
     {
@@ -485,8 +496,8 @@ export function registerNomeDoModuloAcaoRoute(app: FastifyInstance) {
 
       // Configura gateway (real/fake)
       const gateway =
-        env.GATEWAY_NOME_DO_MODULO === "real"
-          ? new RealNomeDoModuloAcaoGateway(omieHttpClient)
+        process.env.NOME_DO_MODULO_GATEWAY === "real"
+          ? new RealNomeDoModuloAcaoGateway(app.omieClient)
           : new FakeNomeDoModuloAcaoGateway();
 
       // Cria stores
@@ -649,8 +660,8 @@ export function createNomeDoModuloIntegration() {
       // Registra rotas HTTP
       app.register(nomeDoModuloIntegrationRoutes);
       
-      // Registra jobs agendados
-      registerNomeDoModuloJobs();
+      // Registra jobs agendados (passa omieClient injetado via bootstrap)
+      registerNomeDoModuloJobs(app.omieClient);
     }
   };
 }
@@ -675,14 +686,14 @@ O arquivo `index.ts` do módulo exporta **apenas** a função de registro (`cria
 Adicione ao `apps/api/.env`:
 
 ```env
-# Gateway (fake/real)
-GATEWAY_NOME_DO_MODULO=fake  # desenvolvimento
-# GATEWAY_NOME_DO_MODULO=real  # produção
+# Gateway (fake/real) - padrão canônico: {MODULO}_GATEWAY
+NOME_DO_MODULO_GATEWAY=fake  # desenvolvimento
+# NOME_DO_MODULO_GATEWAY=real  # produção
 
-# Jobs agendados
-HABILITAR_JOB_NOME_DO_MODULO_ACAO=false
-CRON_JOB_NOME_DO_MODULO_ACAO=0 */5 * * * *
-EXECUTAR_JOB_NOME_DO_MODULO_ACAO_INICIO=false
+# Jobs agendados (padrão canônico: ENABLE_OMIE_*)
+ENABLE_OMIE_NOME_DO_MODULO_ACAO_JOB=false
+OMIE_NOME_DO_MODULO_ACAO_CRON=0 */5 * * * *
+EXECUTE_OMIE_NOME_DO_MODULO_ACAO_JOB_ON_START=false
 ```
 
 ### 3.2 Schema do Prisma

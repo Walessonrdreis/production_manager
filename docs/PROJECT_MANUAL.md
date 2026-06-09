@@ -75,7 +75,7 @@ modules/integration/{nome-modulo}/
 │   └── use-cases/                 # Casos de uso
 ├── infrastructure/                # Implementações concretas
 │   ├── db/                        # Repositórios/Stores
-│   ├── gateways/                  # Gateways organizados por ação
+│   ├── gateways/                  # Gateways organizados por capacidade
 │   └── jobs/                      # Jobs agendados
 └── presentation/                  # Interface HTTP
     └── http/
@@ -104,6 +104,30 @@ PRODUCT_STRUCTURE_GATEWAY=fake  # desenvolvimento
 PRODUCT_STRUCTURE_GATEWAY=real  # produção
 ```
 
+#### ⚠️ ENV CANÔNICO DO PROJETO
+O projeto usa um **padrão canônico** para variáveis de ambiente com prefixo `ENABLE_OMIE_*`:
+
+```env
+# Padrão REAL do projeto (não use exemplos genéricos)
+ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB=false
+OMIE_PRODUCT_STRUCTURE_SYNC_CRON=0 */12 * * * *
+
+# Padrão para novos módulos (ex: product-management)
+ENABLE_OMIE_PRODUCT_MANAGEMENT_SYNC_JOB=false
+OMIE_PRODUCT_MANAGEMENT_SYNC_CRON=0 */6 * * * *
+
+# Padrão para gateways por módulo
+PRODUCT_STRUCTURE_GATEWAY=fake|real
+PRODUCTION_ORDER_GATEWAY=fake|real
+PRODUCT_MANAGEMENT_GATEWAY=fake|real
+PRODUCT_CATALOG_GATEWAY=fake|real
+```
+
+**Regra obrigatória**: 
+- Prefixo `ENABLE_OMIE_*` para jobs de integração com Omie
+- Prefixo `OMIE_*_CRON` para expressões cron
+- `{MODULO}_GATEWAY=fake|real` para gateways configuráveis
+
 #### Benefícios:
 - **Desenvolvimento rápido**: Fake gateways sem dependências externas
 - **Testes isolados**: Sem chamadas reais ao Omie
@@ -119,8 +143,8 @@ Cada gateway no projeto representa uma **capacidade específica** de comunicaç�
 
 #### Configuração:
 ```env
-ENABLE_PRODUCT_STRUCTURE_SYNC_JOB=false
-PRODUCT_STRUCTURE_SYNC_CRON=0 */12 * * * *
+ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB=false
+OMIE_PRODUCT_STRUCTURE_SYNC_CRON=0 */12 * * * *
 ```
 
 #### Tipos de Jobs:
