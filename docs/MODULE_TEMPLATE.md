@@ -363,7 +363,7 @@ import { logger } from "@/shared/logger";
 
 import { criarNomeDoModuloAcaoJob } from "./[açao]-nome-do-modulo.job";
 
-export function registrarJobsNomeDoModulo() {
+export function registerNomeDoModuloJobs() {
   // Job agendado (se habilitado no .env)
   if (env.HABILITAR_JOB_NOME_DO_MODULO_ACAO === "true") {
     const expressaoCron = env.CRON_JOB_NOME_DO_MODULO_ACAO || "0 */5 * * * *";
@@ -420,7 +420,7 @@ import { NomeDoModuloAcaoUseCase } from "../../../../../application/use-cases/[a
 // Importe cliente Omie (para gateway real)
 import { omieHttpClient } from "@/shared/integrations/omie/omie-http-client";
 
-export function registrarRotaNomeDoModuloAcao(app: FastifyInstance) {
+export function registerNomeDoModuloAcaoRoute(app: FastifyInstance) {
   app.post(
     "/v1/integration/nome-do-modulo/:codigo/[açao]",
     {
@@ -531,7 +531,7 @@ import { ObterModeloLeituraUseCase } from "../../../../../application/use-cases/
 // Importe store
 import { NomeDoModuloStore } from "../../../../../infrastructure/db/nome-do-modulo.store";
 
-export function registrarRotaObterModeloLeitura(app: FastifyInstance) {
+export function registerGetModeloReadModelRoute(app: FastifyInstance) {
   app.get(
     "/v1/integration/nome-do-modulo/:codigo/[modelo]",
     {
@@ -590,19 +590,19 @@ export function registrarRotaObterModeloLeitura(app: FastifyInstance) {
 import type { FastifyInstance } from "fastify";
 
 // Importe todas as rotas de comando
-import { registrarRotaNomeDoModuloAcao } from "./commands/[açao]-nome-do-modulo.route";
-import { registrarRotaNomeDoModuloOutraAcao } from "./commands/[outra-açao]-nome-do-modulo.route";
+import { registerNomeDoModuloAcaoRoute } from "./commands/[açao]-nome-do-modulo.route";
+import { registerNomeDoModuloOutraAcaoRoute } from "./commands/[outra-açao]-nome-do-modulo.route";
 
 // Importe todas as rotas de leitura
-import { registrarRotaObterModeloLeitura } from "./read/get-[modelo]-read-model.route";
+import { registerGetModeloReadModelRoute } from "./read/get-[modelo]-read-model.route";
 
-export function registrarRotasNomeDoModulo(app: FastifyInstance) {
+export function registerNomeDoModuloRoutes(app: FastifyInstance) {
   // Registra rotas de comando
-  registrarRotaNomeDoModuloAcao(app);
-  registrarRotaNomeDoModuloOutraAcao(app);
+  registerNomeDoModuloAcaoRoute(app);
+  registerNomeDoModuloOutraAcaoRoute(app);
   
   // Registra rotas de leitura
-  registrarRotaObterModeloLeitura(app);
+  registerGetModeloReadModelRoute(app);
 }
 ```
 
@@ -614,10 +614,10 @@ export function registrarRotasNomeDoModulo(app: FastifyInstance) {
 // apps/api/src/modules/integration/nome-do-modulo/presentation/http/routes.ts
 
 import type { FastifyInstance } from "fastify";
-import { registrarRotasNomeDoModulo } from "./routes/index";
+import { registerNomeDoModuloRoutes } from "./routes/index";
 
-export async function rotasIntegracaoNomeDoModulo(app: FastifyInstance) {
-  registrarRotasNomeDoModulo(app);
+export async function nomeDoModuloIntegrationRoutes(app: FastifyInstance) {
+  registerNomeDoModuloRoutes(app);
 }
 ```
 
@@ -639,18 +639,18 @@ export { rotasIntegracaoNomeDoModulo } from "./routes";
 // apps/api/src/modules/integration/nome-do-modulo/nome-do-modulo-integration-register.ts
 
 import type { FastifyInstance } from "fastify";
-import { rotasIntegracaoNomeDoModulo } from "./presentation/http/routes";
-import { registrarJobsNomeDoModulo } from "./infrastructure/jobs/nome-do-modulo-jobs.register";
+import { nomeDoModuloIntegrationRoutes } from "./presentation/http/routes";
+import { registerNomeDoModuloJobs } from "./infrastructure/jobs/nome-do-modulo-jobs.register";
 
-export function criarIntegracaoNomeDoModulo() {
+export function createNomeDoModuloIntegration() {
   return {
-    nome: "nome-do-modulo-integration",
-    registrar: (app: FastifyInstance) => {
+    name: "nome-do-modulo-integration",
+    register: (app: FastifyInstance) => {
       // Registra rotas HTTP
-      app.register(rotasIntegracaoNomeDoModulo);
+      app.register(nomeDoModuloIntegrationRoutes);
       
       // Registra jobs agendados
-      registrarJobsNomeDoModulo();
+      registerNomeDoModuloJobs();
     }
   };
 }
@@ -665,6 +665,9 @@ export function criarIntegracaoNomeDoModulo() {
 
 export { criarIntegracaoNomeDoModulo } from "./nome-do-modulo-integration-register";
 ```
+
+**⚠️ IMPORTANTE: Por que index.ts só exporta o register?**
+O arquivo `index.ts` do módulo exporta **apenas** a função de registro (`criarIntegracaoNomeDoModulo`) para evitar **double registration** de rotas ao usar barrel imports. Isso garante que cada módulo seja registrado exatamente uma vez no bootstrap, prevenindo erros de rotas duplicadas e garantindo a inicialização correta da aplicação.
 
 ## 3. Configuração do Ambiente
 

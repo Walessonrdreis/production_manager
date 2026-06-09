@@ -1,8 +1,18 @@
 # 📚 MANUAL DEFINITIVO - PRODUCTION MANAGER
 
+**🔴 AUTORIDADE MÁXIMA DO PROJETO**
+Este documento é a **fonte de verdade principal** do projeto Production Manager.
+Os demais arquivos de documentação detalham aspectos específicos e **não devem contradizê‑lo**.
+Para qualquer dúvida sobre padrões, arquitetura ou decisões de design, **comece aqui**.
+
 **Versão**: 1.0.0  
 **Data**: 2026-06-08  
 **Foco**: API principal (`apps/api/`) e módulos de integração (`integration/`)
+
+**📌 CONVENÇÃO DE IDIOMA**:
+- **Documentação**: Português (PT-BR) para explicações, guias e comentários
+- **Código**: Inglês para nomes de variáveis, funções, classes e tipos
+- **Exceção**: Comentários em PT-BR para facilitar entendimento da equipe local
 
 ---
 
@@ -97,6 +107,12 @@ PRODUCT_STRUCTURE_GATEWAY=real  # produção
 #### Benefícios:
 - **Desenvolvimento rápido**: Fake gateways sem dependências externas
 - **Testes isolados**: Sem chamadas reais ao Omie
+
+#### ⚠️ CONCEITO FUNDAMENTAL: Gateway representa uma CAPACIDADE externa
+Cada gateway no projeto representa uma **capacidade específica** de comunicação com sistemas externos (ex: Omie), não um módulo genérico. Esta distinção é crucial:
+- **Gateway por capacidade**: `ProductStructureApplyGateway` (aplicar estrutura), `ProductStructureFetchGateway` (buscar estrutura)
+- **NÃO gateway por módulo**: `ProductStructureGateway` (genérico, incorreto)
+- **Objetivo**: Isolar responsabilidades e permitir substituição independente de cada capacidade
 - **Transição suave**: Mesmo código, apenas configuração muda
 
 ### 4. SISTEMA DE JOBS AGENDADOS
@@ -170,7 +186,23 @@ export function create{NomeModulo}Integration() {
 - Execução única garantida pelo sistema
 - Retry seguro em caso de falhas
 
-#### 3. Anti-corruption Layer
+#### 3. CommandStore (Obrigatório em comandos)
+O CommandStore é responsável por:
+- **Garantir idempotência**: Verifica `externalRequestId` para evitar execução duplicada
+- **Armazenar status**: Mantém estados (ACCEPTED / CONFIRMED / FAILED) de cada comando
+- **Permitir retry seguro**: Rastreia tentativas e permite retentativas controladas
+- **Base para observabilidade**: Fornece logs e métricas para monitoramento
+
+**Exemplo de uso**:
+```typescript
+// No use case de comando
+const existing = await commandStore.findByExternalRequestId(externalRequestId);
+if (existing) {
+  return { status: existing.status, externalRequestId };
+}
+```
+
+#### 4. Anti-corruption Layer
 - API 1 traduz payloads do Omie
 - Domínio interno não conhece detalhes do Omie
 - Isolamento de mudanças no Omie
@@ -1196,6 +1228,26 @@ order-sync/
 1. **Seguir padrões canônicos**: Em todos os novos desenvolvimentos
 2. **Manter consistência**: Entre módulos diferentes
 3. **Documentar mudanças**: Para futuros desenvolvedores
+
+---
+
+## 🔗 REFERÊNCIA CANÔNICA
+
+### **Módulo `product-structure` - Implementação Viva do Padrão**
+Veja `apps/api/src/modules/integration/product-structure/` como a **implementação de referência** que segue exatamente todos os padrões descritos neste manual. Use este módulo como modelo para qualquer novo desenvolvimento.
+
+**O que encontrar**:
+- ✅ Estrutura canônica completa
+- ✅ Gateways por capacidade (apply/fetch)
+- ✅ CommandStore com idempotência
+- ✅ Jobs agendados configuráveis
+- ✅ Rotas HTTP organizadas (commands/read)
+- ✅ Registro correto no bootstrap
+
+**Como usar**:
+1. **Copie a estrutura**: Use como template para novos módulos
+2. **Consulte os padrões**: Verifique nomenclatura, imports, organização
+3. **Valide implementações**: Compare com este módulo para garantir conformidade
 
 ---
 

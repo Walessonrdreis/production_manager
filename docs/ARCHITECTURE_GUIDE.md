@@ -152,6 +152,11 @@ export class FakeProductStructureFetchGateway implements ProductStructureFetchGa
 }
 ```
 
+**⚠️ IMPORTANTE: Fake Gateway ≠ Mock de teste**
+- **Fake Gateway**: Implementação funcional completa para desenvolvimento e execução local. Simula comportamento real sem dependências externas.
+- **Mock de teste**: Implementação mínima apenas para testes unitários, usando frameworks como Jest.
+- **Uso correto**: Use Fake Gateways para desenvolvimento local e testes de integração. Use Mocks apenas para testes unitários isolados.
+
 ### 3.5 Factory Pattern para Seleção
 ```typescript
 // infrastructure/gateways/fetch/index.ts
