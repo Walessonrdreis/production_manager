@@ -157,6 +157,10 @@ pnpm --filter api metrics:update-docs
    - `application/use-cases/`: Lógica de negócio
    - `infrastructure/gateways/`: Implementações (real/fake)
    - `infrastructure/db/`: Stores (repositórios)
+5. **Documentar rotas**:
+   - Atualizar [ROUTES.md](../../apps/api/ROUTES.md) seguindo template canônico
+   - Incluir todas as rotas públicas do módulo
+   - Seguir padrão "Entidade Específica + Capacidade"
    - `presentation/http/routes/`: Rotas HTTP
 
 ### 4.2 Template Rápido

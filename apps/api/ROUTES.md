@@ -1,8 +1,60 @@
 
-# API 1 — Rotas Públicas
+# 🗺️ API 1 — Contrato Técnico de Rotas
 
-Este arquivo lista **todas as rotas expostas pela API 1**.  
-Ele é a **fonte de verdade para a API 2** e para qualquer consumidor interno.
+> **📌 DOCUMENTAÇÃO RELACIONADA**:
+> - [PROJECT_MANUAL.md](../../docs/PROJECT_MANUAL.md) - Visão geral e padrões
+> - [DOMAIN_NAMING_GUIDE.md](../../docs/DOMAIN_NAMING_GUIDE.md) - Nomenclatura canônica
+> - [ARCHITECTURE_GUIDE.md](../../docs/ARCHITECTURE_GUIDE.md) - Arquitetura técnica
+> - [MODULE_TEMPLATE.md](../../docs/MODULE_TEMPLATE.md) - Template de implementação
+
+Este arquivo é a **fonte de verdade canônica para todas as rotas da API 1**.  
+Ele serve como **contrato técnico obrigatório** para:
+
+1. **API 2** - Consumidor principal
+2. **Desenvolvedores** - Referência de implementação
+3. **Agentes AI** - Documentação precisa para automação
+
+---
+
+## 📋 Estrutura Canônica de Documentação
+
+Cada módulo DEVE seguir esta estrutura exata:
+
+```
+## [NOME DO MÓDULO] — [DESCRIÇÃO DO DOMÍNIO]
+
+### ✅ Responsabilidades do módulo
+- ✅ [Responsabilidade 1]
+- ✅ [Responsabilidade 2]
+- ❌ [O que NÃO faz]
+
+### ✅ Rota — [Nome da funcionalidade]
+[MÉTODO] [PATH]
+
+#### Query params suportados
+- [param]=[valores]
+
+#### Payload (se aplicável)
+```json
+{
+  "externalRequestId": "<string>"
+}
+```
+
+#### Descrição
+* [Comportamento específico]
+* [Regras de negócio]
+* [Observações importantes]
+
+### ✅ Exemplo de resposta
+```json
+{
+  "campo": "valor"
+}
+```
+
+*** [Separador entre módulos]
+```
 
 ---
 
@@ -17,7 +69,7 @@ baseado na **existência de estrutura (BOM)**.
 
 Ele responde à pergunta de negócio:
 
-> **“Este produto pode gerar Ordem de Produção agora?”**
+> **"Este produto pode gerar Ordem de Produção agora?"**
 
 ---
 
@@ -35,10 +87,8 @@ Ele responde à pergunta de negócio:
 ### ✅ Rota — Readiness de produtos para produção
 
 ```
-
 GET /v1/admin/read/products/production-readiness
-
-````
+```
 
 #### Query params suportados
 
@@ -74,7 +124,7 @@ GET /v1/admin/read/products/production-readiness
     "blockedFromProduction": 1323
   }
 }
-````
+```
 
 **Descrição:**
 
@@ -87,15 +137,15 @@ GET /v1/admin/read/products/production-readiness
 
 ## ✅ Comandos de Integração (efeito colateral)
 
-Todos os comandos abaixo:
+**📌 REGRAS CANÔNICAS PARA TODOS OS COMANDOS:**
 
-* ✅ São **idempotentes**
-* ✅ Exigem `externalRequestId`
-* ✅ Retornam **202 Accepted**
-* ✅ Fake / Real controlado por env
-* ✅ Executam lógica via API 1 (Anti‑Corruption Layer)
+1. **Idempotência**: Todos os comandos são idempotentes por `externalRequestId`
+2. **External Request ID**: Campo `externalRequestId` obrigatório em todos os payloads
+3. **Status Code**: Retorna **202 Accepted** para comandos aceitos
+4. **Gateway Control**: Fake/Real controlado por env (`{MODULO}_GATEWAY=fake|real`)
+5. **Anti-Corruption**: Executa lógica exclusivamente via API 1
 
-***
+---
 
 ## Product Structure (BOM)
 
@@ -171,46 +221,112 @@ POST /v1/integration/product-structure/:productCode/delete
 * Atualiza espelho local
 * Bloqueia produto para produção
 
+---
+
+## 📋 TEMPLATE PARA NOVOS MÓDULOS
+
+> **⚠️ IMPORTANTE**: Ao criar um novo módulo, COPIE esta seção e substitua `[nome-do-modulo]` pelo nome canônico seguindo [DOMAIN_NAMING_GUIDE.md](../../docs/DOMAIN_NAMING_GUIDE.md).
+
 ***
+
+## [nome-do-modulo] — [Descrição do domínio]
+
+> **📌 EXEMPLO CANÔNICO**: `sales-order-sync` - Sincronização bidirecional de pedidos de venda
+
+### ✅ Responsabilidades do módulo
+
+- ✅ [Responsabilidade específica 1]
+- ✅ [Responsabilidade específica 2]
+- ❌ [O que NÃO faz - ex: "Não processa pedidos de produção"]
+
+### ✅ Rota — [Nome da funcionalidade]
+
+```
+[MÉTODO] /v1/integration/[nome-do-modulo]/:identificador/[ação]
+```
+
+**Exemplo canônico:**
+```
+POST /v1/integration/sales-order/:orderCode/sync
+```
+
+#### Query params suportados (se aplicável)
+
+- `param=valor`
+
+#### Payload
+
+```json
+{
+  "externalRequestId": "<string>",
+  "dados": {
+    // Campos específicos do módulo
+  }
+}
+```
+
+#### Descrição
+
+* [Comportamento específico da rota]
+* [Regras de negócio aplicáveis]
+* [Observações importantes para consumidores]
+
+### ✅ Exemplo de resposta
+
+```json
+{
+  "status": "ACEITO",
+  "externalRequestId": "<string>",
+  "timestamp": "2024-01-01T12:00:00Z"
+}
+```
+
+---
 
 ## ✅ Jobs / Admin
 
-### Product Structure Sync (cron)
-
-Job automático de reconciliação de estruturas de produto.
+### [Nome do Job] (cron)
 
 **Controle por variáveis de ambiente:**
 
 ```env
-ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB=true|false
-OMIE_PRODUCT_STRUCTURE_SYNC_CRON=0 */12 * * *
+ENABLE_OMIE_[NOME_DO_MODULO]_[AÇÃO]_JOB=true|false
+OMIE_[NOME_DO_MODULO]_[AÇÃO]_CRON=0 */12 * * *
+```
+
+**Exemplo canônico:**
+```env
+ENABLE_OMIE_SALES_ORDER_SYNC_JOB=true
+OMIE_SALES_ORDER_SYNC_CRON=0 */6 * * *
 ```
 
 **Comportamento:**
 
-* Executa sync periódico
-* Usa idempotência por produto
+* Executa ação periódica
+* Usa idempotência por identificador
 * Não concorre com comandos HTTP
 * Não depende da API 2
 
-***
+---
 
 ## ✅ Observações Importantes
 
-* Todas as rotas de comando exigem `externalRequestId`
-* API 2 **NUNCA** chama Omie diretamente
-* API 2 **SEMPRE** consome a API 1
-* Read‑models **não executam efeitos colaterais**
-* Jobs são controlados exclusivamente por env
+* **External Request ID**: Campo obrigatório em todos os comandos para idempotência
+* **Separação de responsabilidades**: API 2 **NUNCA** chama Omie diretamente
+* **Consumo canônico**: API 2 **SEMPRE** consome a API 1
+* **Read‑models**: Não executam efeitos colaterais
+* **Jobs**: Controlados exclusivamente por variáveis de ambiente
+* **Nomenclatura**: Seguir [DOMAIN_NAMING_GUIDE.md](../../docs/DOMAIN_NAMING_GUIDE.md) para nomes canônicos
 
-## ✅ 3) O que foi corrigido (para sua tranquilidade)
+---
 
-- ✅ Organização por **Read‑Models / Commands / Jobs**
-- ✅ Product Structure isolado corretamente
-- ✅ Apply / Sync / Delete documentados
-- ✅ Job documentado (cron + env)
-- ✅ Markdown válido (sem blocos quebrados)
-- ✅ Alinhado com **o que você testou em localhost:3333**
-- ✅ Pronto para API 2 consumir sem dúvida semântica
+## 🚀 Como Adicionar um Novo Módulo
+
+1. **Escolher nome canônico**: Seguir princípio "Entidade Específica + Capacidade"
+2. **Criar estrutura**: Usar `pnpm --filter api gen:module`
+3. **Implementar código**: Seguir [MODULE_TEMPLATE.md](../../docs/MODULE_TEMPLATE.md)
+4. **Documentar rotas**: Adicionar seção neste arquivo seguindo o template acima
+5. **Atualizar bootstrap**: Registrar módulo em `apps/api/src/bootstrap/routes.ts`
+6. **Configurar env**: Adicionar variáveis de ambiente necessárias
 
 

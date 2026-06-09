@@ -709,6 +709,68 @@ export function createNovoModuloIntegration() {
 }
 ```
 
+### 📋 CONTRATO TÉCNICO DA API 1
+
+> **📌 FONTE DE VERDADE PARA CONSUMIDORES**:  
+> → **[ROUTES.md](../../apps/api/ROUTES.md)** - Documentação canônica de todas as rotas públicas
+
+#### Propósito do Contrato:
+1. **API 2**: Consumidor principal - usa como referência obrigatória
+2. **Desenvolvedores**: Implementação consistente de novos módulos
+3. **Agentes AI**: Documentação precisa para automação e suporte
+
+#### Estrutura Canônica do Contrato:
+```
+## [NOME DO MÓDULO] — [DESCRIÇÃO DO DOMÍNIO]
+
+### ✅ Responsabilidades do módulo
+- ✅ [Responsabilidade específica]
+- ❌ [O que NÃO faz]
+
+### ✅ Rota — [Nome da funcionalidade]
+[MÉTODO] [PATH]
+
+#### Query params suportados
+- [param]=[valores]
+
+#### Payload (se aplicável)
+```json
+{
+  "externalRequestId": "<string>"
+}
+```
+
+#### Descrição
+* [Comportamento específico]
+* [Regras de negócio]
+
+### ✅ Exemplo de resposta
+```json
+{
+  "status": "ACEITO"
+}
+```
+
+*** [Separador entre módulos]
+```
+
+#### Regras Canônicas para Comandos:
+1. **Idempotência**: Todos os comandos são idempotentes por `externalRequestId`
+2. **External Request ID**: Campo obrigatório em todos os payloads
+3. **Status Code**: Retorna **202 Accepted** para comandos aceitos
+4. **Gateway Control**: Fake/Real controlado por env (`{MODULO}_GATEWAY=fake|real`)
+5. **Anti-Corruption**: Executa lógica exclusivamente via API 1
+
+#### Template para Novos Módulos:
+- **Exemplo canônico**: `sales-order-sync` - Sincronização bidirecional de pedidos de venda
+- **Estrutura**: `/v1/integration/[nome-do-modulo]/:identificador/[ação]`
+- **Documentação**: Adicionar seção em `ROUTES.md` seguindo template canônico
+
+#### Como Usar o Contrato:
+1. **Para consumir API 1**: Consulte `ROUTES.md` para rotas disponíveis
+2. **Para criar novo módulo**: Siga template em `ROUTES.md` seção "TEMPLATE PARA NOVOS MÓDULOS"
+3. **Para manter consistência**: Atualize `ROUTES.md` ao adicionar novas rotas
+
 ### 5. PADRÕES DE DESENVOLVIMENTO
 
 #### Clean Architecture:
