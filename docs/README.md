@@ -26,6 +26,7 @@ Para **qualquer pessoa ou agente AI** que precise entender o projeto, siga esta 
 | **📦 [MODULE_TEMPLATE.md](MODULE_TEMPLATE.md)** | Para **criar novos módulos** ou atualizar existentes | Template completo com ports, use case, store, gateways, jobs, routes, register |
 | **📚 [IMPORTS_LIBRARY.md](IMPORTS_LIBRARY.md)** | Para **resolver erros de importação** ou entender padrões | Diferenciação crítica `@/infra/db` vs `@/shared/db/prisma`, ordem de imports, erros comuns |
 | **📝 [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md)** | Para **padronizar nomes** de arquivos, funções, variáveis | kebab‑case, padrões de arquivos, palavras‑chave, exceções (acrônimos) |
+| **🗄️ [DB_SCHEMA_GUIDE.md](DB_SCHEMA_GUIDE.md)** | Para **definir schema do banco** ou criar migrações | Padrão canônico de tabelas, campos obrigatórios, ownership, regras imutáveis |
 | **👨‍💻 [HOW_TO_CONTRIBUTE.md](HOW_TO_CONTRIBUTE.md)** | Para **desenvolvedores** que vão trabalhar no projeto | Guia prático de setup, desenvolvimento, testes, deploy |
 
 ## 🚀 Guia Rápido por Cenário
@@ -43,6 +44,11 @@ Para **qualquer pessoa ou agente AI** que precise entender o projeto, siga esta 
 ### "Preciso resolver um erro de importação"
 1. Leia `IMPORTS_LIBRARY.md` (diferenciação crítica)
 2. Verifique se está usando `@/shared/db/prisma` (não `@/infra/db`)
+
+### "Preciso definir schema do banco"
+1. Leia `DB_SCHEMA_GUIDE.md` (padrão canônico completo)
+2. Consulte a classificação de tipos de tabela
+3. Siga os campos obrigatórios por tipo
 
 ### "Preciso seguir padrões do projeto"
 1. Leia `NAMING_CONVENTIONS.md` (kebab‑case, etc.)
@@ -66,14 +72,16 @@ docs/
 ├── MODULE_TEMPLATE.md        ← Template para novos módulos
 ├── IMPORTS_LIBRARY.md        ← Biblioteca de imports padrão
 ├── NAMING_CONVENTIONS.md     ← Padrões de nomenclatura
+├── DB_SCHEMA_GUIDE.md        ← Guia canônico de schema do banco
 └── HOW_TO_CONTRIBUTE.md      ← Guia para desenvolvedores
 ```
 
 ## 🔄 Atualizações
 
 - **Última revisão**: 2026‑06‑09
-- **Status**: Documentação alinhada com código em produção
-- **Próximos passos**: Ajustes finos de env e injeção de dependências
+- **Status**: Documentação completa e alinhada com código em produção
+- **Último pilar concluído**: Contrato canônico de schema do banco (DB_SCHEMA_GUIDE.md)
+- **Próximos passos**: Implementação de novos módulos seguindo padrões estabelecidos
 
 ---
 

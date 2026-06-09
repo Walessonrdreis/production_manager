@@ -1147,6 +1147,48 @@ order-sync/
 
 ---
 
+## 🗄️ PADRÃO CANÔNICO DO BANCO DE DADOS
+
+> O banco de dados do projeto é **único e compartilhado**, mas com **ownership estrito por tipo de dado**.
+
+### Princípios Imutáveis
+
+#### API 1 Escreve:
+- **Espelhos do Omie**: Dados brutos como cópia local do Omie
+- **Comandos de integração**: Garantia de idempotência para ações
+- **Read‑models**: Cache materializado para consultas frequentes  
+- **Locks e controle de jobs**: Coordenação de execução concorrente
+
+#### API 2 Escreve:
+- **Dados de domínio**: Decisões humanas e estado interno
+- **Estados internos**: Informações que não existem no Omie
+- **Configurações de usuário**: Preferências e personalizações
+
+#### Regra Fundamental:
+> **Nunca existe escrita concorrente de API 1 e API 2 na mesma tabela.**
+
+### Classificação Obrigatória
+
+Toda tabela **DEVE** se enquadrar em um dos tipos canônicos:
+
+| Tipo | Prefixo/Sufixo | Ownership | Propósito |
+|------|---------------|-----------|-----------|
+| **Espelho Omie** | `omie_` prefix | API 1 | Armazenar dados brutos do Omie |
+| **Comando** | `_command` suffix | API 1 | Garantir idempotência de comandos |
+| **Integração Processada** | `_integration` suffix | API 1 | Estado processado da integração |
+| **Read‑model** | `_read_model` suffix | API 1 | Cache materializado para consultas |
+| **Domínio Interno** | Sem prefixo | API 2 | Decisões humanas e estado interno |
+| **Lock/Controle** | `_lock` suffix | API 1 | Coordenação de execução concorrente |
+
+### Documento de Referência Obrigatório
+
+📌 **Para detalhes completos de implementação, consulte:**
+→ **[DB_SCHEMA_GUIDE.md](DB_SCHEMA_GUIDE.md)** - Guia canônico completo de schema
+
+> **IMPORTANTE**: O Prisma schema **não define o padrão** — ele **implementa** o padrão descrito no `DB_SCHEMA_GUIDE.md`.
+
+---
+
 ## 🎯 RESUMO E PRÓXIMOS PASSOS
 
 ### 1. O QUE TEMOS AGORA
@@ -1158,7 +1200,8 @@ order-sync/
 4. **`NAMING_CONVENTIONS.md`** - Padrões de nomenclatura
 5. **`HOW_TO_CONTRIBUTE.md`** - Guia prático para contribuir
 6. **`MODULE_TEMPLATE.md`** - Template completo para módulos
-7. **`PROJECT_MANUAL.md`** - Manual consolidado (este arquivo)
+7. **`DB_SCHEMA_GUIDE.md`** - Guia canônico de schema do banco
+8. **`PROJECT_MANUAL.md`** - Manual consolidado (este arquivo)
 
 #### Referência Principal:
 - **Módulo `product-structure`**: Implementação canônica de referência
