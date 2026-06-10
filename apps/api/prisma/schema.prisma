@@ -336,3 +336,42 @@ model ProductStructureCommand {
   @@index([commandType])
   @@map("product_structure_command")
 }
+
+enum ProductCatalogCommandType {
+  SYNC
+}
+
+enum ProductCatalogCommandStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+}
+
+enum ProductCatalogCommandSource {
+  API2
+  JOB
+  ADMIN
+}
+
+model ProductCatalogCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @map("external_request_id")
+  productCode       String @map("product_code")
+
+  commandType ProductCatalogCommandType @map("command_type")
+  status      ProductCatalogCommandStatus @default(ACCEPTED)
+
+  source    ProductCatalogCommandSource @default(API2)
+  lastError Json? @map("last_error")
+
+  executedAt  DateTime? @map("executed_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([productCode])
+  @@index([status])
+  @@map("product_catalog_command")
+}

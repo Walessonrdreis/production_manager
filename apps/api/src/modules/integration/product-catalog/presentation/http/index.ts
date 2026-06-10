@@ -1,0 +1,1 @@
+export { productCatalogIntegrationRoutes } from "./routes";

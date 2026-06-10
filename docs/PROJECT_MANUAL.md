@@ -6,7 +6,7 @@ Os demais arquivos de documentação detalham aspectos específicos e **não dev
 Para qualquer dúvida sobre padrões, arquitetura ou decisões de design, **comece aqui**.
 
 **Versão**: 1.0.0  
-**Data**: 2026-06-08  
+**Data**: 2026-06-10  
 **Foco**: API principal (`apps/api/`) e módulos de integração (`integration/`)
 
 **📌 CONVENÇÃO DE IDIOMA**:
@@ -24,6 +24,8 @@ Para qualquer dúvida sobre padrões, arquitetura ou decisões de design, **come
 4. [🔤 Padrões de Nomenclatura](#-padrões-de-nomenclatura)
 5. [👨‍💻 Como Contribuir](#-como-contribuir)
 6. [📦 Template de Módulo](#-template-de-módulo)
+7. [📄 Arquivos Obrigatórios para Atualização](#-arquivos-obrigatórios-para-atualização)
+8. [🗄️ Padrão Canônico do Banco de Dados](#️-padrão-canônico-do-banco-de-dados)
 
 ---
 
@@ -1246,6 +1248,53 @@ sales-order-sync/
 
 ---
 
+## 📄 ARQUIVOS OBRIGATÓRIOS PARA ATUALIZAÇÃO
+
+Ao criar um **novo módulo de integração**, você **DEVE** atualizar **4 arquivos obrigatórios** para manter a consistência arquitetural do projeto:
+
+### 1️⃣ `apps/api/src/bootstrap/routes.ts`
+**Propósito**: Registrar o módulo no sistema de rotas da API 1
+**Obrigatório**: ✅ SIM (sempre)
+**Exemplo**:
+```typescript
+import { criarIntegracaoSalesOrderSync } from "@/modules/integration/sales-order-sync";
+
+const integrations = [
+  // ... outras integrações
+  criarIntegracaoSalesOrderSync(),
+];
+```
+
+### 2️⃣ `apps/api/ROUTES.md`
+**Propósito**: Documentar as rotas públicas seguindo template canônico
+**Obrigatório**: ✅ SIM (sempre)
+**Exemplo**: Copiar seção "📋 TEMPLATE PARA NOVOS MÓDULOS" e substituir `[nome-do-modulo]` por nome canônico
+
+### 3️⃣ `docs/DECISIONS.md` (se aplicável)
+**Propósito**: Documentar decisões arquiteturais específicas do módulo
+**Obrigatório**: 🟡 CONTEXTUAL (apenas se houver decisão não‑óbvia)
+**Quando usar**: 
+- Módulo introduz novo padrão de integração
+- Decisão afeta múltiplos módulos futuros
+- Trade-off significativo foi considerado
+
+### 4️⃣ `docs/DB_SCHEMA_GUIDE.md` (se aplicável)
+**Propósito**: Documentar schema específico do módulo
+**Obrigatório**: 🟡 CONTEXTUAL (apenas se criar novas tabelas)
+**Quando usar**: 
+- Módulo requer novas tabelas no banco
+- Schema segue padrão canônico diferente
+- Precisa documentar relações complexas
+
+### 📌 CHECKLIST DE COMPLIANCE
+- [ ] Módulo registrado em `bootstrap/routes.ts`
+- [ ] Rotas documentadas em `ROUTES.md` seguindo template
+- [ ] Nome canônico segue `DOMAIN_NAMING_GUIDE.md`
+- [ ] Decisões arquiteturais registradas (se aplicável)
+- [ ] Schema documentado (se aplicável)
+
+---
+
 ## 🗄️ PADRÃO CANÔNICO DO BANCO DE DADOS
 
 > O banco de dados do projeto é **único e compartilhado**, mas com **ownership estrito por tipo de dado**.
@@ -1417,7 +1466,7 @@ Veja `apps/api/src/modules/integration/product-structure/` como a **implementaç
 
 ---
 
-**Última atualização**: 2026-06-08  
+**Última atualização**: 2026-06-10  
 **Responsável**: Equipe de Desenvolvimento  
 **Status**: Ativo e em evolução contínua
 

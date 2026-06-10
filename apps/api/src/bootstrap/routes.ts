@@ -1,3 +1,4 @@
+// apps/api/src/bootstrap/routes.ts
 import type { FastifyInstance } from "fastify";
 import { sendOk } from "@/shared/http/response";
 
@@ -25,14 +26,13 @@ import { registerInternalProductionOrdersModule } from "@/modules/legacy/interna
 import { registerTrelloIntegrationModule } from "@/modules/legacy/trello-integration/register";
 import { registerProductSectorsModule } from "@/modules/legacy/product-sectors";
 
-import { registerProductionOrdersIntegrationModule } 
-  from "@/modules/integration/production-orders";
+import { registerProductionOrdersIntegrationModule } from "@/modules/integration/production-orders";
 import { registerProductStructureIntegrationModule } from "@/modules/integration/product-structure";
+import { createProductCatalogIntegration } from "@/modules/integration/product-catalog";
 
 // ---------------------------------------------------------------------------
 // NOVO/FUTURO (integration)
 // ---------------------------------------------------------------------------
-
 import { registerStockModule } from "@/modules/integration/stock/register-stock-module";
 import { registerOrdersModule } from "@/modules/integration/orders/register-orders-module";
 
@@ -53,15 +53,16 @@ export async function registerRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
 
   // ✅ NOVO/FUTURO — manter ligados
- 
   await registerStockModule(app);
   await registerOrdersModule(app);
   await registerProductionOrdersIntegrationModule(app);
   await registerProductStructureIntegrationModule(app);
 
+  // ✅ NOVO módulo product-catalog
+  await createProductCatalogIntegration().register(app);
+
   // ---------------------------------------------------------------------------
   // 🔕 LEGACY — DESATIVADO TEMPORARIAMENTE
-  // (para não gerar sync indireto / REDUNDANT e não atrapalhar o desenvolvimento)
   // ---------------------------------------------------------------------------
 
   // await registerOrdersEnrichedModule(app);
@@ -72,15 +73,15 @@ export async function registerRoutes(app: FastifyInstance) {
   // await registerPlansModule(app);
   await registerProductStructureModule(app);
 
-   await registerOmieSalesOrdersModule(app);
-   const omieSalesOrders = createOmieSalesOrdersModule(app);
+  await registerOmieSalesOrdersModule(app);
+  const omieSalesOrders = createOmieSalesOrdersModule(app);
 
-   await registerOmieProductionOrdersModule(app);
-   const omieProductionOrders = createOmieProductionOrdersModule(app);
- 
+  await registerOmieProductionOrdersModule(app);
+  const omieProductionOrders = createOmieProductionOrdersModule(app);
+
   // await registerOrdersViewModule(app);
 
-   await registerClientModule(app);
+  await registerClientModule(app);
 
   // await registerInternalProductionOrdersModule(app);
 
@@ -90,12 +91,12 @@ export async function registerRoutes(app: FastifyInstance) {
 
   // registerAlertsModule(app);
 
-   registerSalesProductionIntegrationModule(app);
+  registerSalesProductionIntegrationModule(app);
 
   // sync / production queue já estavam instáveis antes
   // registerSyncModule(app);
   // registerProductionQueueModule(app);
 
-   void omieSalesOrders;
+  void omieSalesOrders;
   void omieProductionOrders;
 }

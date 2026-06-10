@@ -330,3 +330,61 @@ OMIE_SALES_ORDER_SYNC_CRON=0 */6 * * *
 6. **Configurar env**: Adicionar variáveis de ambiente necessárias
 
 
+## Product Catalog — Catálogo de Produtos (espelho Omie)
+
+### ✅ Responsabilidades do módulo
+- ✅ Manter espelho local do catálogo de produtos para consumo pela API 2
+- ✅ Expor read-model para consulta rápida
+- ✅ Permitir sync on-demand por produto
+- ❌ Não executa efeitos colaterais em read-model
+- ❌ Não expõe payload do Omie para consumidores
+
+### ✅ Rota — Listagem/read-model do catálogo
+GET /v1/admin/read/products/catalog
+
+#### Query params suportados
+- `view=summary|data`
+- `q=<string>`
+- `activeOnly=true|false`
+- `limit=<number>`
+- `offset=<number>`
+- `sort=description|productCode|lastSyncAt`
+- `order=asc|desc`
+- `since=<ISO date>`
+
+#### Comportamento
+- Sem `view`: retorna `summary + data`
+- `view=summary`: retorna apenas agregados
+- `view=data`: retorna apenas lista
+
+### ✅ Rota — Produto específico do catálogo
+GET /v1/admin/read/products/catalog/:productCode
+
+#### Comportamento
+- Retorna produto específico do espelho `omie_product`
+- Não chama Omie
+- Não escreve no banco
+
+### ✅ Rota — Sincronizar produto do catálogo (on-demand)
+POST /v1/integration/product-catalog/:productCode/sync
+
+#### Payload
+{
+  "externalRequestId": "<string>"
+}
+
+#### Descrição
+- Busca produto no Omie (fake/real controlado por env)
+- Atualiza espelho local em `omie_product`
+- Usa idempotência por `externalRequestId`
+- Retorna `202 Accepted`
+
+#### Exemplo de resposta
+{
+  "success": true,
+  "data": {
+    "status": "ACCEPTED",
+    "externalRequestId": "<string>",
+    "productCode": "<string>"
+  }
+}

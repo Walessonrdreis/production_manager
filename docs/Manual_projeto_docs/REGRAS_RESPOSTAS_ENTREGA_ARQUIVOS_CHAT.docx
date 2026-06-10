@@ -1,0 +1,79 @@
+## ✅ PADRÃO OFICIAL DE ENTREGA DE ARQUIVOS (FINAL)
+
+A partir deste ponto, **toda criação ou alteração de arquivo** seguirá **exatamente** este formato.
+
+***
+
+### ✅ Formato obrigatório da resposta
+
+
+Caminho:
+
+```ts
+apps/api/...
+```
+
+Conteúdo:
+
+```ts
+// código aqui
+```
+
+```
+
+---
+
+### ✅ Regras imutáveis
+
+1. **Um arquivo por resposta**
+2. **Sempre começar pelo Caminho**
+3. **Caminho SEMPRE com extensão real (`.ts`, `.md`, etc.)**
+4. **Conteúdo em UM ÚNICO bloco `ts`**
+5. **Nunca usar bloco `md` envolvendo código**
+6. **Nunca usar HTML escapado**
+   - ❌ `&lt;` `&gt;`
+   - ✅ `<` `>`
+7. **Código deve ser copiável direto para o arquivo**
+8. **Nada antes do “Caminho”**
+9. **Nada depois do bloco de código**
+
+---
+
+### ✅ Exemplo CORRETO (modelo canônico)
+
+```
+
+Caminho:
+
+```ts
+ apps/api/src/modules/integration/product-catalog/application/ports/product-catalog-sync.gateway.ts
+```
+
+Conteúdo:
+
+```ts
+export interface ProductCatalogSyncGateway {
+  syncByProductCode(productCode: string): Promise<ProductCatalogSyncResult>;
+}
+```
+
+```
+
+✅ Esse exemplo:
+- compila
+- não quebra render
+- não gera artefato estranho
+- copia direto para o editor
+- funciona com generics reais
+
+---
+
+### ❌ Exemplos PROIBIDOS
+
+❌ Bloco `md` envolvendo `ts`  
+❌ `&lt;T&gt;` ou `&amp;lt;T&amp;gt;`  
+❌ Misturar explicação dentro do código  
+❌ Vários arquivos na mesma resposta  
+❌ Código fora de bloco  
+
+---
