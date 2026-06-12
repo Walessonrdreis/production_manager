@@ -29,7 +29,10 @@ export async function registerSyncProductCatalogRoute(app: FastifyInstance) {
     const useCase = new SyncProductCatalogUseCase(
       fetchGateway,
       new ProductCatalogIntegrationStore(),
-      new ProductCatalogCommandStore()
+      new ProductCatalogCommandStore(),
+      {
+        noWrite: env.PRODUCT_CATALOG_GATEWAY === "fake",
+      }
     );
 
     const result = await useCase.execute({

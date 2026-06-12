@@ -9,9 +9,10 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3333),
   CORS_ORIGIN: z.string().default(""),
 
-  //Gateways (Por capacidade)
+  // Gateways (Por capacidade)
   PRODUCTION_ORDER_GATEWAY: z.enum(["fake", "real"]).default("fake"),
   PRODUCT_STRUCTURE_GATEWAY: z.enum(["fake", "real"]).default("fake"),
+  PRODUCT_CATALOG_GATEWAY: z.enum(["fake", "real"]).default("fake"),
 
   // Omie
   OMIE_APP_KEY: z.string().min(1),
@@ -37,7 +38,8 @@ const envSchema = z.object({
   ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB: z.coerce.boolean().default(false),
   OMIE_PRODUCT_STRUCTURE_SYNC_CRON: z.string().default("*/20 * * * *"),
 
-  PRODUCT_CATALOG_GATEWAY: z.enum(["fake", "real"]).default("fake"),
+  ENABLE_OMIE_PRODUCT_CATALOG_SYNC_JOB: z.coerce.boolean().default(false),
+  OMIE_PRODUCT_CATALOG_SYNC_CRON: z.string().default("0 */6 * * *"),
 });
 
 /**

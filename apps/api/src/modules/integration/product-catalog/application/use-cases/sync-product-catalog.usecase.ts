@@ -12,10 +12,21 @@ export class SyncProductCatalogUseCase {
   constructor(
     private readonly fetchGateway: ProductCatalogFetchGateway,
     private readonly integrationStore: ProductCatalogIntegrationStore,
-    private readonly commandStore: ProductCatalogCommandStore
+    private readonly commandStore: ProductCatalogCommandStore,
+    private readonly options: { noWrite?: boolean } = {}
   ) {}
 
   async execute(command: SyncProductCatalogCommand) {
+    if (this.options.noWrite) {
+      await this.fetchGateway.fetchByProductCode(command.productCode);
+
+      return {
+        status: "ACCEPTED" as const,
+        externalRequestId: command.externalRequestId,
+        productCode: command.productCode,
+      };
+    }
+
     const { record, created } = await this.commandStore.getOrCreateAccepted({
       externalRequestId: command.externalRequestId,
       productCode: command.productCode,
@@ -32,7 +43,9 @@ export class SyncProductCatalogUseCase {
     }
 
     try {
-      const externalProduct = await this.fetchGateway.fetchByProductCode(command.productCode);
+      const externalProduct = await this.fetchGateway.fetchByProductCode(
+        command.productCode
+      );
 
       if (!externalProduct) {
         throw new Error(`Produto não encontrado no Omie: ${command.productCode}`);

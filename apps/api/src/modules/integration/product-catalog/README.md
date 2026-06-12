@@ -4,6 +4,7 @@
 - Manter o espelho local do catálogo de produtos do Omie
 - Expor read-model para consumo pela API 2
 - Permitir sync on-demand por produto
+- Permitir sync global automático do catálogo
 - Não chamar Omie em read-model
 - Não executar efeitos colaterais em read-model
 
@@ -11,6 +12,7 @@
 - GET /v1/admin/read/products/catalog
 - GET /v1/admin/read/products/catalog/:productCode
 - POST /v1/integration/product-catalog/:productCode/sync
+- POST /v1/integration/product-catalog/sync-global
 
 ## Ambiente
 - PRODUCT_CATALOG_GATEWAY=fake|real
