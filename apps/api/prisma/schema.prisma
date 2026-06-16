@@ -375,3 +375,4 @@ model ProductCatalogCommand {
   @@index([status])
   @@map("product_catalog_command")
 }
+

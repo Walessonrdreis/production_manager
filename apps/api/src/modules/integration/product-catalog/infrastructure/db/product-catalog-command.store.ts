@@ -64,4 +64,28 @@ export class ProductCatalogCommandStore {
       },
     });
   }
+
+  async listRecent(limit = 20) {
+    return prisma.productCatalogCommand.findMany({
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+  }
+
+  async listFailures(limit = 20) {
+    return prisma.productCatalogCommand.findMany({
+      where: { status: "FAILED" },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+  }
+
+  async getLatestGlobalSync() {
+    return prisma.productCatalogCommand.findFirst({
+      where: {
+        productCode: "__GLOBAL__",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
 }
