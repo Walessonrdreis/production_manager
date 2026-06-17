@@ -4,31 +4,6 @@ import type {
   SalesOrderFetchPageResult,
 } from "../../../application/ports/sales-order-fetch-page.gateway";
 
-function parseDateBR(value?: string | null): Date | null {
-  if (!value || typeof value !== "string") return null;
-
-  const [day, month, year] = value.split("/");
-  if (!day || !month || !year) return null;
-
-  const date = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function parseFlag(value?: string | null): boolean {
-  return String(value ?? "").toUpperCase() === "S";
-}
-
-function toNumber(value: unknown): number | null {
-  if (typeof value === "number") return value;
-
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-}
-
 export class RealSalesOrderFetchPageGateway
   implements SalesOrderFetchPageGateway
 {
@@ -38,97 +13,78 @@ export class RealSalesOrderFetchPageGateway
     page: number,
     pageSize: number
   ): Promise<SalesOrderFetchPageResult> {
-    const response = await this.omieClient.post<any>("produtos/pedido/", {
-      call: "ListarPedidos",
-      param: [
-        {
-          pagina: page,
-          registros_por_pagina: pageSize,
-        },
-      ],
-    });
+    const response = await this.omieClient.post<any>(
+      "produtos/pedido/",
+      {
+        call: "ListarPedidos",
+        param: [
+          {
+            pagina: page,
+            registros_por_pagina: pageSize,
+
+            // 🔥 FILTRO PRINCIPAL (KANBAN)
+            etapa: "20",
+          },
+        ],
+      }
+    );
 
     const pedidos = Array.isArray(response?.pedido_venda_produto)
       ? response.pedido_venda_produto
       : [];
 
-    // ✅ ✅ ✅ ESSA LINHA É O MAIS IMPORTANTE
-    const totalPages =
-      response?.total_de_paginas != null
-        ? Number(response.total_de_paginas)
-        : null;
+    const items = pedidos
+      .map((pedido: any) => {
+        const isCanceled = pedido?.cancelado === "S";
+        const isClosed = pedido?.bloqueado === "S";
 
-    const mapped = pedidos.map((pedido: any) => {
-      const cabecalho = pedido?.cabecalho ?? {};
-      const infoCadastro = pedido?.infoCadastro ?? {};
-      const totalPedido = pedido?.total_pedido ?? {};
-      const det = Array.isArray(pedido?.det) ? pedido.det : [];
+        // ✅ FILTRO FINAL NO CÓDIGO
+        if (isCanceled || isClosed) {
+          return null;
+        }
 
-      return {
-        omieId: String(cabecalho.codigo_pedido),
-        orderNumber:
-          cabecalho.numero_pedido != null
-            ? String(cabecalho.numero_pedido)
-            : null,
-        stage: String(cabecalho.etapa ?? ""),
-        isCanceled: parseFlag(infoCadastro.cancelado),
-        isClosed:
-          parseFlag(cabecalho.encerrado) ||
-          parseFlag(infoCadastro.faturado),
+        return {
+          omieId: String(pedido?.id_pedido ?? ""),
+          orderNumber: pedido?.numero_pedido ?? null,
+          stage: String(pedido?.etapa ?? ""),
 
-        customerOmieId:
-          cabecalho.codigo_cliente != null
-            ? String(cabecalho.codigo_cliente)
+          isCanceled,
+          isClosed,
+
+          customerOmieId: pedido?.codigo_cliente ?? null,
+          companyOmieId: pedido?.codigo_empresa ?? null,
+
+          forecastDate: pedido?.previsao_entrega
+            ? new Date(pedido.previsao_entrega)
             : null,
 
-        companyOmieId:
-          cabecalho.codigo_empresa != null
-            ? String(cabecalho.codigo_empresa)
-            : null,
+          totalAmount: pedido?.valor_total ?? 0,
 
-        forecastDate: parseDateBR(cabecalho.data_previsao),
-        totalAmount: toNumber(totalPedido.valor_total_pedido),
-        rawPayload: pedido,
+          rawPayload: pedido,
 
-        items: det
-          .map((item: any) => {
-            const ide = item?.ide ?? {};
-            const produto = item?.produto ?? {};
+          items: (pedido?.detalhes ?? []).map((item: any) => ({
+            omieItemId: String(item?.id_item ?? ""),
+            productCode: item?.codigo_produto ?? "",
+            productOmieId: String(item?.codigo_produto ?? ""),
+            description: item?.descricao ?? "",
+            unit: item?.unidade ?? null,
+            quantity: item?.quantidade ?? 0,
+            unitPrice: item?.valor_unitario ?? null,
+            totalPrice: item?.valor_total ?? null,
+            rawPayload: item,
+          })),
+        };
+      })
+      .filter(Boolean);
 
-            if (
-              !produto.codigo ||
-              !produto.codigo_produto ||
-              !ide.codigo_item
-            ) {
-              return null;
-            }
-
-            return {
-              omieItemId: String(ide.codigo_item),
-              productCode: String(produto.codigo),
-              productOmieId: String(produto.codigo_produto),
-              description: String(produto.descricao ?? ""),
-              unit: produto.unidade ?? null,
-              quantity: toNumber(produto.quantidade) ?? 0,
-              unitPrice: toNumber(produto.valor_unitario),
-              totalPrice: toNumber(produto.valor_total),
-              rawPayload: item,
-            };
-          })
-          .filter(Boolean),
-      };
-    });
+    const totalPages = Number(response?.total_de_paginas ?? page);
+    const currentPage = Number(response?.pagina ?? page);
 
     return {
-      items: mapped,
-
-      // ✅ LÓGICA DE PAGINAÇÃO IGUAL CATALOGO
-      hasNextPage:
-        totalPages != null ? page < totalPages : mapped.length > 0,
-
-      // ✅ PROGRESSO REAL
+      items,
+      currentPage,
       totalPages,
-      currentPage: page,
+      hasNextPage: currentPage < totalPages,
     };
   }
 }

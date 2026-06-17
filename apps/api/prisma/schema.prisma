@@ -247,6 +247,20 @@ enum SalesOrderSyncCommandSource {
   ADMIN
 }
 
+model SalesOrderSyncState {
+  id String @id @default(uuid())
+
+  lastSyncAt DateTime
+
+ 
+  updatedAt DateTime @updatedAt
+
+  
+  @@unique([id])
+
+  @@map("sales_order_sync_state")
+}
+
 model Client {
   id                 String   @id @default(uuid())
 

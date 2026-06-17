@@ -75,7 +75,11 @@ pnpm --filter @production-manager/api run db:migrate:dev
 // Para aplicar as migrations em produção:
 pnpm --filter @production-manager/api run db:migrate:prod
 ```
+Para gerar o Cliente Prisma
+```bash
+pnpm --filter api prisma:generate
 
+```
 Para abrir o Prisma Studio:
 
 ```bash
@@ -85,11 +89,7 @@ pnpm --filter @production-manager/api run db:studio
 // Para criar arquivos rapidamente em duas etapas
  pnpm --filter @production-manager/api run create:file
 ```
-Para gerar o Cliente Prisma
-```bash
-pnpm --filter api prisma:generate
 
-```
 ## Variáveis de Ambiente
 
 ### Backend

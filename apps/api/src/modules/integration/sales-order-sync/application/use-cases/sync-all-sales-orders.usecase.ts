@@ -24,6 +24,100 @@ export class SyncAllSalesOrdersUseCase {
     private readonly options: { noWrite?: boolean } = {}
   ) {}
 
+  private extractRedundantWaitSeconds(sample: string): number | null {
+    const match = sample.match(/aguarde\s+(\d+)\s+segundos/i);
+    if (!match) return null;
+
+    const seconds = Number(match[1]);
+    if (!Number.isFinite(seconds) || seconds <= 0) return null;
+
+    return seconds;
+  }
+
+  private async fetchPageWithRetry(
+    page: number,
+    pageSize: number,
+    externalRequestId: string,
+    maxAttempts = 3
+  ) {
+    let lastError: unknown = null;
+    let redundantWaits = 0;
+    const maxRedundantWaits = 5;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const pageResult = await this.fetchPageGateway.fetchPage(page, pageSize);
+
+        if (attempt > 1 || redundantWaits > 0) {
+          this.logger.info("Sales-order fetch page recovered after retry", {
+            externalRequestId,
+            page,
+            pageSize,
+            attempt,
+            maxAttempts,
+            redundantWaits,
+          });
+        }
+
+        return pageResult;
+      } catch (error: any) {
+        lastError = error;
+
+        const sample = String(error?.details?.sample ?? "");
+        const sampleLower = sample.toLowerCase();
+        const isRedundant =
+          sampleLower.includes("redundant") ||
+          sampleLower.includes("consumo redundante");
+
+        if (isRedundant) {
+          redundantWaits += 1;
+
+          const waitSeconds = this.extractRedundantWaitSeconds(sample) ?? 60;
+          const waitMs = (waitSeconds + 2) * 1000;
+
+          this.logger.warn("Sales-order REDUNDANT detected, waiting before retry", {
+            externalRequestId,
+            page,
+            pageSize,
+            redundantWaits,
+            maxRedundantWaits,
+            waitSeconds,
+            waitMs,
+            code: error?.code,
+            details: error?.details,
+          });
+
+          if (redundantWaits > maxRedundantWaits) {
+            throw error;
+          }
+
+          await sleep(waitMs);
+
+          attempt -= 1; // não consome tentativa técnica
+          continue;
+        }
+
+        this.logger.warn("Sales-order fetch page failed", {
+          externalRequestId,
+          page,
+          pageSize,
+          attempt,
+          maxAttempts,
+          message: error?.message,
+          code: error?.code,
+          details: error?.details,
+        });
+
+        if (attempt < maxAttempts) {
+          await sleep(1000 * attempt);
+          continue;
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
   async execute(command: SyncAllSalesOrdersCommand) {
     const pageSize = Math.max(1, Math.min(Number(command.pageSize || 100), 500));
     const maxPages = Math.max(1, Math.min(Number(command.maxPages || 1000), 10000));
@@ -63,7 +157,11 @@ export class SyncAllSalesOrdersUseCase {
       let processedItems = 0;
 
       while (processedPages < maxPages) {
-        const pageResult = await this.fetchPageGateway.fetchPage(page, pageSize);
+        const pageResult = await this.fetchPageWithRetry(
+          page,
+          pageSize,
+          command.externalRequestId
+        );
 
         const totalPages =
           pageResult.totalPages != null && Number.isFinite(pageResult.totalPages)
@@ -171,8 +269,7 @@ export class SyncAllSalesOrdersUseCase {
 
         page += 1;
 
-        // Delay leve para reduzir pressão no Omie
-        await sleep(300);
+        await sleep(700);
       }
 
       await this.commandStore.markConfirmed(command.externalRequestId);
