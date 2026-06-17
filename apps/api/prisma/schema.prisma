@@ -115,6 +115,103 @@ model OmieOrderItem {
   @@map("omie_order_item")
 }
 
+model SalesOrder {
+  id String @id @default(uuid())
+
+  // 🔴 ID técnico do pedido (Omie)
+  omieId String @db.VarChar(64) @map("omie_order_id")
+
+  // 🔹 número do pedido
+  orderNumber String? @db.VarChar(64) @map("order_number")
+
+  // 🔥 estágio do pedido (campo crítico)
+  stage String @db.VarChar(10)
+
+  // ✅ status derivados
+  isCanceled Boolean @default(false) @map("is_canceled")
+  isClosed   Boolean @default(false) @map("is_closed")
+
+  // 🔹 cliente
+  customerOmieId String? @db.VarChar(64) @map("customer_omie_id")
+
+  // 🔹 empresa
+  companyOmieId String? @db.VarChar(64) @map("company_omie_id")
+
+  // 🔹 data prevista
+  forecastDate DateTime? @map("forecast_date")
+
+  // 🔹 valor total
+  totalAmount Decimal? @db.Decimal(18, 2) @map("total_amount")
+
+  // 📦 payload bruto
+  rawPayload Json @map("raw_payload")
+
+  lastSyncAt DateTime @default(now()) @map("last_sync_at")
+
+  // 🔗 relação
+  items SalesOrderItem[]
+
+  // ✅ índices
+  @@index([stage])
+  @@index([isCanceled])
+  @@index([isClosed])
+  @@index([customerOmieId])
+
+  // ✅ evitar duplicação por Omie
+  @@unique([omieId])
+
+  @@map("sales_order")
+}
+
+model SalesOrderItem {
+  id String @id @default(uuid())
+
+  // 🔴 ID técnico do item no Omie
+  omieItemId String @db.VarChar(64) @map("omie_item_id")
+
+  // 🔥 CHAVE CANÔNICA DO PRODUTO
+  productCode String @db.VarChar(64)
+
+  // 🔴 ID técnico do produto no Omie
+  productOmieId String @db.VarChar(64) @map("product_omie_id")
+
+  // 🔹 descrição do item
+  description String @db.Text
+
+  // 🔹 unidade
+  unit String? @db.VarChar(16)
+
+  // 🔹 quantidade
+  quantity Decimal @db.Decimal(18, 4)
+
+  // 🔹 preço unitário
+  unitPrice Decimal? @db.Decimal(18, 6) @map("unit_price")
+
+  // 🔹 valor total
+  totalPrice Decimal? @db.Decimal(18, 2) @map("total_price")
+
+  // 📦 payload bruto
+  rawPayload Json @map("raw_payload")
+
+  lastSyncAt DateTime @default(now()) @map("last_sync_at")
+
+  // 🔗 FK
+  salesOrderId String
+
+  // ✅ RELATION INLINE (SEM ERRO PRISMA)
+  order SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+
+  // ✅ ÍNDICES IMPORTANTES
+  @@index([productCode])
+  @@index([productOmieId])
+  @@index([salesOrderId])
+
+  // ✅ evitar duplicidade de item
+  @@unique([omieItemId])
+
+  @@map("sales_order_item")
+}
+
 model Client {
   id                 String   @id @default(uuid())
 
@@ -293,6 +390,56 @@ model ProductionOrderIntegration {
   @@index([omieProductionOrderId])
   @@index([status])
   @@map("production_order_integration")
+}
+
+model ProductCatalogProductionReadyReadModel {
+  id String @id @default(cuid())
+
+  productCode String @unique @db.VarChar(64) @map("product_code")
+
+  description String @db.Text
+  sku String? @db.VarChar(128)
+
+  active Boolean @default(true)
+
+  family String? @db.Text
+  unit String? @db.VarChar(16)
+
+  salePrice Decimal? @db.Decimal(18, 6) @map("sale_price")
+  cost Decimal? @db.Decimal(18, 6)
+  margin Decimal? @db.Decimal(18, 6)
+
+  stock Decimal @default(0) @db.Decimal(18, 4)
+  minimumStock Decimal @default(0) @db.Decimal(18, 4) @map("minimum_stock")
+
+  available Boolean @default(false) @map("available")
+  belowMinimumStock Boolean @default(false) @map("below_minimum_stock")
+
+  hasStructure Boolean @default(false) @map("has_structure")
+  structureItemsCount Int @default(0) @map("structure_items_count")
+
+  hasOpenProductionOrder Boolean @default(false) @map("has_open_production_order")
+  openProductionOrderCount Int @default(0) @map("open_production_order_count")
+
+  hasOpenSalesOrderStage20 Boolean @default(false) @map("has_open_sales_order_stage20")
+  openSalesOrderStage20Count Int @default(0) @map("open_sales_order_stage20_count")
+
+  lastSyncAt DateTime? @map("last_sync_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([active])
+  @@index([available])
+  @@index([belowMinimumStock])
+  @@index([hasStructure])
+  @@index([hasOpenProductionOrder])
+  @@index([hasOpenSalesOrderStage20])
+  @@index([description])
+  @@index([stock])
+  @@index([updatedAt])
+
+  @@map("product_catalog_production_ready_read_model")
 }
 
 enum ProductStructureCommandType {

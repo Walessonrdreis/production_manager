@@ -8,6 +8,9 @@ import { registerGetProductCatalogSyncHistoryRoute } from "./routes/read/get-pro
 import { registerGetProductCatalogSyncFailuresRoute } from "./routes/read/get-product-catalog-sync-failures.route";
 import { registerGetProductCatalogStatsRoute } from "./routes/read/get-product-catalog-stats.route";
 import { registerGetProductCatalogLastSyncRoute } from "./routes/read/get-product-catalog-last-sync.route";
+import { registerGetProductCatalogSummaryRoute } from "./routes/read/get-product-catalog-summary.route";
+import { registerGetProductCatalogProductionReadyRoute } from "./routes/read/get-product-catalog-production-ready.route";
+import { registerRefreshProductCatalogProductionReadyRoute } from "./routes/commands/refresh-product-catalog-production-ready.route";
 
 export async function productCatalogIntegrationRoutes(app: FastifyInstance) {
   registerSyncProductCatalogRoute(app);
@@ -18,4 +21,7 @@ export async function productCatalogIntegrationRoutes(app: FastifyInstance) {
   registerGetProductCatalogSyncFailuresRoute(app);
   registerGetProductCatalogStatsRoute(app);
   registerGetProductCatalogLastSyncRoute(app);
+  registerGetProductCatalogSummaryRoute(app);
+  registerGetProductCatalogProductionReadyRoute(app);
+  registerRefreshProductCatalogProductionReadyRoute(app);
 }

@@ -8,6 +8,7 @@ export async function registerOpenAPISwagger(app: FastifyInstance) {
         version: "1.0.0",
         description: "API Core do Production Manager",
       },
+      
     },
   });
 

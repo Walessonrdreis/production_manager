@@ -388,3 +388,504 @@ POST /v1/integration/product-catalog/:productCode/sync
     "productCode": "<string>"
   }
 }
+
+
+
+# ✅ ✅ DOCUMENTAÇÃO COMPLETA DO NOVO ENDPOINT
+
+Você pode colocar assim 👇
+
+***
+
+## ✅ Endpoint
+
+```
+GET /v1/products/catalog/production-ready
+```
+
+***
+
+## ✅ Descrição
+
+```
+Retorna catálogo consolidado com dados essenciais para produção,
+incluindo estoque e indicação de estrutura do produto.
+
+Endpoint otimizado para consumo pela API2 e fluxos operacionais.
+```
+
+***
+
+## ✅ Query Params
+
+```
+q                 string    (opcional) → busca por descrição, código ou SKU
+onlyActive        boolean   (default: true)
+onlyInStock       boolean   (default: false)
+minStock          number    (default: 0)
+limit             number    (default: 100)
+offset            number    (default: 0)
+sort              string    (description | productCode | stock | lastSyncAt)
+order             string    (asc | desc)
+withAvailability  boolean   (default: true)
+```
+
+***
+
+## ✅ Response
+
+```json
+{
+  "success": true,
+  "summary": {
+    "total": 1747,
+    "available": 1500,
+    "unavailable": 247
+  },
+  "meta": {
+    "pageSize": 100,
+    "pageCount": 100,
+    "offset": 0
+  },
+  "data": [
+    {
+      "productCode": "55P",
+      "description": "55% cacau-Intenso ao Leite 30g",
+      "sku": null,
+      "active": true,
+      "family": null,
+      "unit": "UND",
+      "lastSyncAt": "2026-01-28T10:59:04Z",
+
+      "stock": 120,
+      "minimumStock": 10,
+      "available": true,
+
+      "hasStructure": true,
+      "structureItemsCount": 8
+    }
+  ]
+}
+```
+
+***
+
+# ✅ ✅ EXPLICAÇÃO DOS CAMPOS (ESSENCIAL)
+
+Adicione uma seção explicando os novos campos 👇
+
+***
+
+## ✅ Campos adicionais
+
+```
+stock → quantidade atual em estoque consolidado
+minimumStock → estoque mínimo configurado
+available → indica se produto atende regra de disponibilidade (stock >= minStock)
+
+hasStructure → indica se o produto possui estrutura (BOM)
+structureItemsCount → quantidade de componentes da estrutura
+```
+
+***
+
+# ✅ ✅ REGRA IMPORTANTE QUE DEVE ENTRAR NO DOC
+
+👉 isso evita erro de quem consumir
+
+```
+⚠️ O endpoint NÃO retorna os itens da estrutura.
+
+Para obter a estrutura completa do produto,
+utilizar o módulo product-structure.
+```
+
+***
+
+# ✅ ✅ DOCUMENTAR O CARÁTER DO ENDPOINT
+
+Adicione isso (muito importante):
+
+```
+✅ Este endpoint é considerado CONTRATO DE PRODUÇÃO.
+
+- Não deve quebrar compatibilidade
+- Deve manter payload estável
+- Deve permanecer desacoplado do formato do Omie
+```
+
+***
+
+# 💥 ✅ POR QUE ISSO É IMPORTANTE
+
+👉 porque agora você tem:
+
+```
+endpoint técnico → /admin/read ❌
+endpoint de produto → production-ready ✅
+```
+
+👉 e esse segundo é o que:
+
+```
+API2 consome ✅
+frontend usa ✅
+negócio depende ✅
+```
+
+***
+
+# ✅ ✅ RESULTADO FINAL
+
+Seu módulo agora tem:
+
+```
+✔ endpoint genérico (flexível)
+✔ endpoint de produção (contrato)
+✔ payload otimizado
+✔ desacoplamento do Omie
+✔ documentação clara
+```
+
+
+# ✅ ✅ DOCUMENTAÇÃO COMPLETA DO MÓDULO
+
+Agora vou te entregar **todo o bloco pronto** 👇
+
+***
+
+# ✅ 📘 1 - READ‑MODELS (GET)
+
+***
+
+## ✅ Catálogo completo (flexível)
+
+```
+GET /v1/admin/read/products/catalog
+```
+
+### Descrição
+
+```
+Retorna o catálogo de produtos sincronizado do Omie com suporte a filtros,
+paginação, ordenação e seleção de campos.
+```
+
+***
+
+## ✅ Produto por código
+
+```
+GET /v1/admin/read/products/catalog/:productCode
+```
+
+### Descrição
+
+```
+Retorna os dados detalhados de um produto específico do catálogo.
+```
+
+***
+
+## ✅ Estatísticas do catálogo
+
+```
+GET /v1/admin/read/products/catalog/stats
+```
+
+### Descrição
+
+```
+Retorna estatísticas agregadas do catálogo local.
+```
+
+***
+
+## ✅ Catálogo resumido (API2)
+
+```
+GET /v1/products/catalog/summary
+```
+
+### Descrição
+
+```
+Retorna versão simplificada do catálogo para consumo leve pela API2.
+```
+
+***
+
+## ✅ Catálogo pronto para produção (API2)
+
+```
+GET /v1/products/catalog/production-ready
+```
+
+### Descrição
+
+```
+Retorna catálogo consolidado com estoque, disponibilidade e indicação
+de estrutura, otimizado para uso em produção pela API2.
+```
+
+***
+
+### Query Params
+
+```
+q                 string
+onlyActive        boolean (default: true)
+onlyInStock       boolean (default: false)
+minStock          number  (default: 0)
+limit             number  (default: 100)
+offset            number  (default: 0)
+sort              description | productCode | stock | lastSyncAt
+order             asc | desc
+withAvailability  boolean (default: true)
+```
+
+***
+
+### Response
+
+```json
+{
+  "success": true,
+  "summary": {
+    "total": 1747,
+    "available": 1500,
+    "unavailable": 247
+  },
+  "meta": {
+    "pageSize": 100,
+    "pageCount": 100,
+    "offset": 0
+  },
+  "data": [
+    {
+      "productCode": "55P",
+      "description": "Produto exemplo",
+      "sku": null,
+      "active": true,
+      "family": null,
+      "unit": "UND",
+      "lastSyncAt": "2026-01-01T00:00:00Z",
+
+      "stock": 120,
+      "minimumStock": 10,
+      "available": true,
+
+      "hasStructure": true,
+      "structureItemsCount": 8
+    }
+  ]
+}
+```
+
+***
+
+### Campos adicionais
+
+```
+stock → quantidade atual em estoque
+minimumStock → estoque mínimo configurado
+available → produto atende regra de disponibilidade
+
+hasStructure → indica se o produto possui estrutura (BOM)
+structureItemsCount → quantidade de itens da estrutura
+```
+
+***
+
+### ⚠️ Observação importante
+
+```
+Este endpoint NÃO retorna os itens da estrutura.
+
+Para obter a estrutura completa, utilizar o módulo product-structure.
+```
+
+***
+
+## ✅ Status de sync
+
+```
+GET /v1/integration/product-catalog/sync-status/:externalRequestId
+```
+
+### Descrição
+
+```
+Retorna o status de um comando de sincronização.
+```
+
+***
+
+## ✅ Histórico de sync
+
+```
+GET /v1/integration/product-catalog/sync-history
+```
+
+### Descrição
+
+```
+Retorna os últimos comandos executados do catálogo.
+```
+
+***
+
+## ✅ Sync com falha
+
+```
+GET /v1/integration/product-catalog/sync-failures
+```
+
+### Descrição
+
+```
+Retorna comandos que falharam, para debug e retry.
+```
+
+***
+
+## ✅ Último sync global
+
+```
+GET /v1/integration/product-catalog/last-sync
+```
+
+### Descrição
+
+```
+Retorna o último comando global executado.
+```
+
+***
+
+# ✅ 🚀 2 - COMANDOS DE INTEGRAÇÃO (POST)
+
+***
+
+## ✅ Sync de produto
+
+```
+POST /v1/integration/product-catalog/:productCode/sync
+```
+
+### Descrição
+
+```
+Sincroniza um produto específico do Omie.
+```
+
+***
+
+## ✅ Sync global
+
+```
+POST /v1/integration/product-catalog/sync-global
+```
+
+### Descrição
+
+```
+Sincroniza todo o catálogo de produtos do Omie.
+```
+
+***
+
+### Payload
+
+```json
+{
+  "externalRequestId": "string(opcional)"
+}
+```
+
+***
+
+# ✅ ⚙️ 3 - JOBS / ADMIN
+
+***
+
+## ✅ Status de lock
+
+```
+GET /v1/admin/product-catalog/lock-status
+```
+
+### Descrição
+
+```
+Retorna se existe sync em execução.
+```
+
+***
+
+## ✅ Liberar lock
+
+```
+POST /v1/admin/product-catalog/release-lock
+```
+
+### Descrição
+
+```
+Libera lock travado manualmente.
+```
+
+***
+
+# 💥 ✅ BLOCO FINAL (MUITO IMPORTANTE)
+
+Adicione isso no final do módulo:
+
+***
+
+## ✅ Contrato do módulo
+
+```
+Este módulo é responsável por:
+
+- Sincronizar catálogo de produtos do Omie
+- Manter read-model local desacoplado
+- Expor endpoints otimizados para API2
+- Controlar idempotência e status de comandos
+
+Regras:
+
+- Endpoints /admin/read são técnicos
+- Endpoints /products são contratos de produção
+- API2 nunca deve acessar diretamente dados do Omie
+```
+
+***
+
+# 🧠 TL;DR
+
+👉 agora você tem:
+
+```
+✔ documentação completa
+✔ separação clara de responsabilidades
+✔ endpoints técnicos vs produto
+✔ contrato estável para API2
+✔ módulo pronto para escala
+```
+
+***
+
+# 🚀 CONCLUSÃO
+
+👉 isso aqui é o que transforma seu módulo em:
+
+```
+infraestrutura de dados real ✅
+```
+
+***
+
+Se quiser, próximo passo final mesmo:
+
+👉 gerar README do módulo (documentação interna para equipe)

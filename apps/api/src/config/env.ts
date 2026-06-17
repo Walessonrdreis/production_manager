@@ -40,6 +40,16 @@ const envSchema = z.object({
 
   ENABLE_OMIE_PRODUCT_CATALOG_SYNC_JOB: z.coerce.boolean().default(false),
   OMIE_PRODUCT_CATALOG_SYNC_CRON: z.string().default("0 */6 * * *"),
+
+  ENABLE_OMIE_PRODUCT_CATALOG_PRODUCTION_READY_REFRESH_JOB: z.coerce
+    .boolean()
+    .default(false),
+  OMIE_PRODUCT_CATALOG_PRODUCTION_READY_REFRESH_CRON: z.string().default("30 */10 * * * *"),
+  
+FORCE_PRODUCTION_READY_REFRESH_ON_SYNC: z.coerce
+  .boolean()
+  .default(false),
+
 });
 
 /**

@@ -1,7 +1,10 @@
+import { env } from "@/config";
 import { getLogger } from "@/shared/logger";
 import type { ProductCatalogFetchPageGateway } from "../ports/product-catalog-fetch-page.gateway";
 import { ProductCatalogIntegrationStore } from "../../infrastructure/db/product-catalog-integration.store";
 import { ProductCatalogCommandStore } from "../../infrastructure/db/product-catalog-command.store";
+import { RefreshProductCatalogProductionReadyUseCase } from "./refresh-product-catalog-production-ready.usecase";
+import { ProductCatalogProductionReadyReadModelStore } from "../../infrastructure/db/product-catalog-production-ready-read-model.store";
 
 export type SyncAllProductCatalogCommand = {
   externalRequestId: string;
@@ -19,6 +22,29 @@ export class SyncAllProductCatalogUseCase {
     private readonly commandStore: ProductCatalogCommandStore,
     private readonly options: { noWrite?: boolean } = {}
   ) {}
+
+  private async refreshProductionReadyIfConfigured(triggerSource: string) {
+    if (!env.FORCE_PRODUCTION_READY_REFRESH_ON_SYNC) {
+      return;
+    }
+
+    try {
+      const refreshUseCase = new RefreshProductCatalogProductionReadyUseCase(
+        new ProductCatalogProductionReadyReadModelStore()
+      );
+
+      await refreshUseCase.execute();
+
+      this.logger.info("Production-ready read-model refreshed after sync", {
+        triggerSource,
+      });
+    } catch (error) {
+      this.logger.error("Production-ready refresh failed after sync", {
+        triggerSource,
+        error,
+      });
+    }
+  }
 
   async execute(command: SyncAllProductCatalogCommand) {
     const pageSize = Math.max(1, Math.min(Number(command.pageSize || 100), 500));
@@ -176,6 +202,10 @@ export class SyncAllProductCatalogUseCase {
       }
 
       await this.commandStore.markConfirmed(command.externalRequestId);
+
+      await this.refreshProductionReadyIfConfigured(
+        `product-catalog-sync-global:${command.externalRequestId}`
+      );
 
       this.logger.info("Global sync completed", {
         externalRequestId: command.externalRequestId,
