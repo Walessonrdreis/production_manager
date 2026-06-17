@@ -212,6 +212,41 @@ model SalesOrderItem {
   @@map("sales_order_item")
 }
 
+model SalesOrderSyncCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @db.VarChar(64) @map("external_request_id")
+
+  commandType String @db.VarChar(32) @map("command_type")
+  resourceId String @db.VarChar(64) @map("resource_id")
+
+  status SalesOrderSyncCommandStatus @default(ACCEPTED)
+  source SalesOrderSyncCommandSource @default(API2)
+
+  lastError Json? @map("last_error")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([status])
+  @@index([resourceId])
+
+  @@map("sales_order_sync_command")
+}
+
+enum SalesOrderSyncCommandStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+}
+
+enum SalesOrderSyncCommandSource {
+  API2
+  JOB
+  ADMIN
+}
+
 model Client {
   id                 String   @id @default(uuid())
 

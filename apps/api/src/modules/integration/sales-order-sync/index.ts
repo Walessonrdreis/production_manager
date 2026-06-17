@@ -1,0 +1,1 @@
+export { createSalesOrderSyncIntegration } from "./sales-order-sync-integration-register";

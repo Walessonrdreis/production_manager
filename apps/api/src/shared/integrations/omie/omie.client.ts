@@ -111,7 +111,7 @@ export class OmieClient {
 
     this.retryMaxDelayMs = Number.isFinite(retryCfg.maxDelayMs as number)
       ? Math.max(this.retryBaseDelayMs, Number(retryCfg.maxDelayMs))
-      : 2_000;
+      : 6_000;
   }
 
   async post<T>(path: string, payload: any): Promise<T> {
@@ -229,4 +229,4 @@ export class OmieClient {
 export function createOmieClient(config: OmieClientConfig, logger?: OmieLogger) {
   return new OmieClient(config, logger);
 }
-``
+

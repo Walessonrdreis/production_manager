@@ -889,3 +889,38 @@ infraestrutura de dados real ✅
 Se quiser, próximo passo final mesmo:
 
 👉 gerar README do módulo (documentação interna para equipe)
+
+
+# ROTAS PÚBLICAS — API 1
+
+## 1 - Read-models (GET)
+
+### Product Catalog
+- GET /v1/admin/read/products/catalog
+- GET /v1/admin/read/products/catalog/:productCode
+- GET /v1/admin/read/products/catalog/stats
+- GET /v1/products/catalog/summary
+- GET /v1/products/catalog/production-ready
+- GET /v1/integration/product-catalog/sync-status/:externalRequestId
+- GET /v1/integration/product-catalog/sync-history
+- GET /v1/integration/product-catalog/sync-failures
+- GET /v1/integration/product-catalog/last-sync
+
+### Sales Order Sync
+- GET /v1/integration/sales-order-sync/sync-status/:externalRequestId
+
+## 2 - Comandos de integração (POST)
+
+### Product Catalog
+- POST /v1/integration/product-catalog/:productCode/sync
+- POST /v1/integration/product-catalog/sync-global
+- POST /v1/admin/product-catalog/refresh-production-ready
+
+### Sales Order Sync
+- POST /v1/integration/sales-order-sync/sync-global
+
+## 3 - Jobs / Admin
+
+### Product Catalog
+- GET /v1/admin/product-catalog/lock-status
+- POST /v1/admin/product-catalog/release-lock

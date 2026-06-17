@@ -1,6 +1,23 @@
 import { z } from "zod";
 
 /**
+ * ✅ Parser seguro para boolean
+ * Corrige problema do z.coerce.boolean() com "false"
+ */
+const envBoolean = z.preprocess((value) => {
+  if (typeof value === "boolean") return value;
+
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+
+    if (["true", "1", "yes", "on"].includes(v)) return true;
+    if (["false", "0", "no", "off", ""].includes(v)) return false;
+  }
+
+  return false;
+}, z.boolean());
+
+/**
  * Schema de validação do ambiente
  */
 const envSchema = z.object({
@@ -13,6 +30,7 @@ const envSchema = z.object({
   PRODUCTION_ORDER_GATEWAY: z.enum(["fake", "real"]).default("fake"),
   PRODUCT_STRUCTURE_GATEWAY: z.enum(["fake", "real"]).default("fake"),
   PRODUCT_CATALOG_GATEWAY: z.enum(["fake", "real"]).default("fake"),
+  SALES_ORDER_SYNC_GATEWAY: z.enum(["fake", "real"]).default("fake"),
 
   // Omie
   OMIE_APP_KEY: z.string().min(1),
@@ -20,36 +38,35 @@ const envSchema = z.object({
   OMIE_BASE_URL: z.string().url(),
 
   // Jobs
-  ENABLE_STOCK_REFRESH_JOB: z.coerce.boolean().default(false),
+  ENABLE_STOCK_REFRESH_JOB: envBoolean.default(false),
   STOCK_REFRESH_CRON: z.string().default("*/5 * * * *"),
 
-  ENABLE_OMIE_PRODUCT_SYNC_JOB: z.coerce.boolean().default(false),
+  ENABLE_OMIE_PRODUCT_SYNC_JOB: envBoolean.default(false),
   OMIE_PRODUCT_SYNC_CRON: z.string().default("*/30 * * * *"),
 
-  OMIE_ORDERS_STAGE_SYNC: z.coerce.boolean().default(false),
+  OMIE_ORDERS_STAGE_SYNC: envBoolean.default(false),
   OMIE_ORDERS_STAGE20_CRON: z.string().default("*/10 * * * *"),
 
-  OMIE_PRODUCTION_ORDERS_SYNC: z.coerce.boolean().default(false),
+  OMIE_PRODUCTION_ORDERS_SYNC: envBoolean.default(false),
   OMIE_PRODUCTION_ORDERS_CRON: z.string().default("*/15 * * * *"),
 
-  ENABLE_OMIE_CLIENT_SYNC_JOB: z.coerce.boolean().default(false),
+  ENABLE_OMIE_CLIENT_SYNC_JOB: envBoolean.default(false),
   OMIE_CLIENT_SYNC_CRON: z.string().default("*/10 * * * *"),
 
-  ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB: z.coerce.boolean().default(false),
+  ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB: envBoolean.default(false),
   OMIE_PRODUCT_STRUCTURE_SYNC_CRON: z.string().default("*/20 * * * *"),
 
-  ENABLE_OMIE_PRODUCT_CATALOG_SYNC_JOB: z.coerce.boolean().default(false),
+  ENABLE_OMIE_PRODUCT_CATALOG_SYNC_JOB: envBoolean.default(false),
   OMIE_PRODUCT_CATALOG_SYNC_CRON: z.string().default("0 */6 * * *"),
 
-  ENABLE_OMIE_PRODUCT_CATALOG_PRODUCTION_READY_REFRESH_JOB: z.coerce
-    .boolean()
-    .default(false),
+  ENABLE_OMIE_PRODUCT_CATALOG_PRODUCTION_READY_REFRESH_JOB: envBoolean.default(false),
   OMIE_PRODUCT_CATALOG_PRODUCTION_READY_REFRESH_CRON: z.string().default("30 */10 * * * *"),
-  
-FORCE_PRODUCTION_READY_REFRESH_ON_SYNC: z.coerce
-  .boolean()
-  .default(false),
 
+  FORCE_PRODUCTION_READY_REFRESH_ON_SYNC: envBoolean.default(false),
+
+  // ✅ módulo sales-order-sync
+  ENABLE_OMIE_SALES_ORDER_SYNC_JOB: envBoolean.default(false),
+  OMIE_SALES_ORDER_SYNC_CRON: z.string().default("0 */10 * * * *"),
 });
 
 /**
