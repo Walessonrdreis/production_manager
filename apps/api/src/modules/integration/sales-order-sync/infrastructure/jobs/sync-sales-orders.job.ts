@@ -10,6 +10,10 @@ import { SalesOrderSyncCommandStore } from "../db/sales-order-sync-command.store
 import { SalesOrderSyncStateStore } from "../db/sales-order-sync-state.store";
 import { SyncAllSalesOrdersUseCase } from "../../application/use-cases/sync-all-sales-orders.usecase";
 
+// ✅ imports do product-catalog (NOVO)
+import { ProductCatalogProductionReadyReadModelStore } from "@/modules/integration/product-catalog/infrastructure/db/product-catalog-production-ready-read-model.store";
+import { RefreshProductCatalogProductionReadyUseCase } from "@/modules/integration/product-catalog/application/use-cases/refresh-product-catalog-production-ready.usecase";
+
 // 🔒 lock em memória (singleton no processo)
 let isRunning = false;
 
@@ -19,7 +23,7 @@ export class SyncSalesOrdersJob {
   constructor(private readonly omieClient: OmieHttpClientPort) {}
 
   async execute() {
-    // ✅ previne execução concorrente
+    // ✅ evita execução concorrente
     if (isRunning) {
       this.logger.warn("Sales-order sync skipped: job already running");
       return;
@@ -39,11 +43,19 @@ export class SyncSalesOrdersJob {
         ? new RealSalesOrderFetchPageGateway(this.omieClient)
         : new FakeSalesOrderFetchPageGateway();
 
+    // ✅ instancia o refresh do product-catalog (NOVO)
+    const refreshProductCatalogUseCase =
+      new RefreshProductCatalogProductionReadyUseCase(
+        new ProductCatalogProductionReadyReadModelStore()
+      );
+
+    // ✅ usecase com ordem correta dos parâmetros
     const useCase = new SyncAllSalesOrdersUseCase(
       fetchPageGateway,
       new SalesOrderSyncIntegrationStore(prisma),
       new SalesOrderSyncCommandStore(prisma),
       new SalesOrderSyncStateStore(),
+      refreshProductCatalogUseCase,
       {
         noWrite: env.SALES_ORDER_SYNC_GATEWAY === "fake",
       }
@@ -79,7 +91,7 @@ export class SyncSalesOrdersJob {
 
       throw error;
     } finally {
-      // ✅ libera lock SEMPRE (mesmo com erro)
+      // ✅ libera lock sempre
       isRunning = false;
     }
   }

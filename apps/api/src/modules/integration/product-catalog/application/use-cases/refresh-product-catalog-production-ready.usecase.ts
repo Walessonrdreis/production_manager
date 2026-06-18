@@ -62,89 +62,99 @@ export class RefreshProductCatalogProductionReadyUseCase {
   async execute() {
     this.logger.info("Starting production-ready read-model refresh");
 
-    const [
-      products,
-      stocks,
-      structures,
-      productionOrders,
-      stage20OrderItems,
-    ] = await Promise.all([
-      prisma.omieProduct.findMany({
-        select: {
-          omieCode: true,
-          description: true,
-          sku: true,
-          familyDescription: true,
-          active: true,
-          rawPayload: true,
-          lastSyncAt: true,
-        },
-      }),
+    const [products, stocks, structures, productionOrders, stage20OrderItems] =
+      await Promise.all([
+        prisma.omieProduct.findMany({
+          select: {
+            omieCode: true,
+            description: true,
+            sku: true,
+            familyDescription: true,
+            active: true,
+            rawPayload: true,
+            lastSyncAt: true,
+          },
+        }),
 
-      prisma.productStock.findMany({
-        select: {
-          omieCode: true,
-          stockQuantity: true,
-          minimumStock: true,
-        },
-      }),
+        prisma.productStock.findMany({
+          select: {
+            omieCode: true,
+            stockQuantity: true,
+            minimumStock: true,
+          },
+        }),
 
-      prisma.productStructure.findMany({
-        select: {
-          codProduto: true,
-          hasStructure: true,
+        prisma.productStructure.findMany({
+          select: {
+            codProduto: true,
+            hasStructure: true,
+            _count: {
+              select: {
+                items: true,
+              },
+            },
+          },
+        }),
+
+        prisma.omieProductionOrder.groupBy({
+          by: ["productCode"],
+          where: {
+            active: true,
+            completed: false,
+            productCode: {
+              not: null,
+            },
+          },
           _count: {
-            select: {
-              items: true,
+            _all: true,
+          },
+        }),
+
+        prisma.salesOrderItem.findMany({
+          where: {
+            order: {
+              stage: {
+                in: ["20"],
+              },
+              isCanceled: false,
+              isClosed: false,
             },
           },
-        },
-      }),
-
-      prisma.omieProductionOrder.groupBy({
-        by: ["productCode"],
-        where: {
-          active: true,
-          completed: false,
-          productCode: {
-            not: null,
-          },
-        },
-        _count: {
-          _all: true,
-        },
-      }),
-
-      prisma.omieOrderItem.findMany({
-        where: {
-          order: {
-            etapa: {
-              in: ["20", "OUT20"],
-            },
-            cancelado: "N",
-            encerrado: "N",
-          },
-        },
-        select: {
-          omieProductCode: true,
-          order: {
-            select: {
-              etapa: true,
+          select: {
+            productCode: true,
+            quantity: true, // ✅ ADICIONA ISSO
+            order: {
+              select: {
+                stage: true,
+              },
             },
           },
-        },
-      }),
-    ]);
+        }),
+      ]);
 
-    this.logger.info("Stage20/OUT20 sales-order items loaded", {
+    type ProductRow = (typeof products)[number];
+    type StockRow = (typeof stocks)[number];
+    type StructureRow = (typeof structures)[number];
+    type ProductionOrderRow = (typeof productionOrders)[number];
+    type Stage20OrderItemRow = (typeof stage20OrderItems)[number];
+
+    this.logger.info("Stage20 sales-order items loaded", {
       totalItems: stage20OrderItems.length,
       etapas: [
-        ...new Set(stage20OrderItems.map((item) => item.order.etapa)),
+        ...new Set(
+          stage20OrderItems.map((item: Stage20OrderItemRow) => item.order.stage)
+        ),
       ].slice(0, 10),
     });
 
-    const stockMap = new Map(
-      stocks.map((stock) => [
+    const stockMap = new Map<
+      string,
+      {
+        stock: number;
+        minimumStock: number;
+      }
+    >(
+      stocks.map((stock: StockRow) => [
         stock.omieCode,
         {
           stock: Number(stock.stockQuantity),
@@ -153,8 +163,14 @@ export class RefreshProductCatalogProductionReadyUseCase {
       ])
     );
 
-    const structureMap = new Map(
-      structures.map((structure) => [
+    const structureMap = new Map<
+      string,
+      {
+        hasStructure: boolean;
+        structureItemsCount: number;
+      }
+    >(
+      structures.map((structure: StructureRow) => [
         structure.codProduto,
         {
           hasStructure: structure.hasStructure,
@@ -163,28 +179,34 @@ export class RefreshProductCatalogProductionReadyUseCase {
       ])
     );
 
-    const openProductionOrderMap = new Map(
-      productionOrders.map((row) => [
-        row.productCode as string,
-        row._count._all,
-      ])
+    const openProductionOrderMap = new Map<string, number>(
+      productionOrders
+        .filter(
+          (row: ProductionOrderRow): row is ProductionOrderRow & {
+            productCode: string;
+          } => typeof row.productCode === "string" && row.productCode.length > 0
+        )
+        .map((row) => [row.productCode, row._count._all])
     );
 
     const openSalesOrderStage20Map = new Map<string, number>();
 
     for (const item of stage20OrderItems) {
-      if (!item.omieProductCode) {
+      if (!item.productCode) {
         continue;
       }
 
+      const qty = Number(item.quantity ?? 0); // ✅ NOVO
+
       openSalesOrderStage20Map.set(
-        item.omieProductCode,
-        (openSalesOrderStage20Map.get(item.omieProductCode) ?? 0) + 1
+        item.productCode,
+        (openSalesOrderStage20Map.get(item.productCode) ?? 0) + qty // ✅ soma quantidade
       );
     }
 
+
     const records: ProductCatalogProductionReadyRecord[] = products.map(
-      (product) => {
+      (product: ProductRow) => {
         const raw = asRecord(product.rawPayload);
 
         const stockEntry = stockMap.get(product.omieCode);

@@ -6,6 +6,7 @@ import type {
 import { SalesOrderSyncIntegrationStore } from "../../infrastructure/db/sales-order-sync-integration.store";
 import { SalesOrderSyncCommandStore } from "../../infrastructure/db/sales-order-sync-command.store";
 import { SalesOrderSyncStateStore } from "../../infrastructure/db/sales-order-sync-state.store";
+import { RefreshProductCatalogProductionReadyUseCase } from "@/modules/integration/product-catalog/application/use-cases/refresh-product-catalog-production-ready.usecase";
 
 export type SyncAllSalesOrdersCommand = {
   externalRequestId: string;
@@ -26,6 +27,7 @@ export class SyncAllSalesOrdersUseCase {
     private readonly integrationStore: SalesOrderSyncIntegrationStore,
     private readonly commandStore: SalesOrderSyncCommandStore,
     private readonly stateStore: SalesOrderSyncStateStore,
+    private readonly refreshProductCatalogUseCase: RefreshProductCatalogProductionReadyUseCase,
     private readonly options: { noWrite?: boolean } = {}
   ) {}
 
@@ -300,6 +302,14 @@ export class SyncAllSalesOrdersUseCase {
 
       await this.commandStore.markConfirmed(command.externalRequestId);
       await this.stateStore.updateLastSync(new Date());
+
+      if (!this.options.noWrite) {
+        this.logger.info("Triggering product-catalog refresh after sales-order sync", {
+          externalRequestId: command.externalRequestId,
+        });
+
+        await this.refreshProductCatalogUseCase.execute();
+      }
 
       this.logger.info("Sales-order sync completed", {
         externalRequestId: command.externalRequestId,

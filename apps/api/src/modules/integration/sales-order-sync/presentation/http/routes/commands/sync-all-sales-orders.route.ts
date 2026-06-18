@@ -11,6 +11,10 @@ import { SalesOrderSyncStateStore } from "../../../../infrastructure/db/sales-or
 import { FakeSalesOrderFetchPageGateway } from "../../../../infrastructure/gateways/fetch-page/fake-sales-order-fetch-page.gateway";
 import { RealSalesOrderFetchPageGateway } from "../../../../infrastructure/gateways/fetch-page/real-sales-order-fetch-page.gateway";
 
+// ✅ imports do product-catalog (NOVO)
+import { ProductCatalogProductionReadyReadModelStore } from "@/modules/integration/product-catalog/infrastructure/db/product-catalog-production-ready-read-model.store";
+import { RefreshProductCatalogProductionReadyUseCase } from "@/modules/integration/product-catalog/application/use-cases/refresh-product-catalog-production-ready.usecase";
+
 const logger = getLogger("sync-all-sales-orders.route");
 
 type SyncAllSalesOrdersRequestDTO = {
@@ -25,7 +29,9 @@ function buildExternalRequestId() {
     .slice(2, 8)}`;
 }
 
-export async function registerSyncAllSalesOrdersRoute(app: FastifyInstance) {
+export async function registerSyncAllSalesOrdersRoute(
+  app: FastifyInstance
+) {
   app.post(
     "/v1/integration/sales-order-sync/sync-global",
     async (request, reply) => {
@@ -56,14 +62,24 @@ export async function registerSyncAllSalesOrdersRoute(app: FastifyInstance) {
 
       const fetchPageGateway =
         env.SALES_ORDER_SYNC_GATEWAY === "real"
-          ? new RealSalesOrderFetchPageGateway(omieClient as OmieHttpClientPort)
+          ? new RealSalesOrderFetchPageGateway(
+              omieClient as OmieHttpClientPort
+            )
           : new FakeSalesOrderFetchPageGateway();
 
+      // ✅ instancia o refresh do product-catalog (NOVO)
+      const refreshProductCatalogUseCase =
+        new RefreshProductCatalogProductionReadyUseCase(
+          new ProductCatalogProductionReadyReadModelStore()
+        );
+
+      // ✅ usecase completo com ordem correta de parâmetros
       const useCase = new SyncAllSalesOrdersUseCase(
         fetchPageGateway,
         new SalesOrderSyncIntegrationStore(prisma),
         new SalesOrderSyncCommandStore(prisma),
         new SalesOrderSyncStateStore(),
+        refreshProductCatalogUseCase, // ✅ aqui estava faltando
         {
           noWrite: env.SALES_ORDER_SYNC_GATEWAY === "fake",
         }
