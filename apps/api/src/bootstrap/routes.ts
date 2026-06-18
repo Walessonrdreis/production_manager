@@ -30,6 +30,7 @@ import { registerProductionOrdersIntegrationModule } from "@/modules/integration
 import { registerProductStructureIntegrationModule } from "@/modules/integration/product-structure";
 import { createProductCatalogIntegration } from "@/modules/integration/product-catalog";
 import { createSalesOrderSyncIntegration } from "@/modules/integration/sales-order-sync";
+import { createCustomerSyncIntegration } from "@/modules/integration/customer-sync";
 
 // ---------------------------------------------------------------------------
 // NOVO/FUTURO (integration)
@@ -62,11 +63,11 @@ export async function registerRoutes(app: FastifyInstance) {
   // ✅ NOVO módulo product-catalog
   await createProductCatalogIntegration().register(app);
 
-  
- // ✅ NOVO módulo de pedidos de venda
+
+  // ✅ NOVO módulo de pedidos de venda
   await createSalesOrderSyncIntegration().register(app);
-
-
+  // ✅ NOVO módulo customer-sync
+  await createCustomerSyncIntegration().register(app);
   // ---------------------------------------------------------------------------
   // 🔕 LEGACY — DESATIVADO TEMPORARIAMENTE
   // ---------------------------------------------------------------------------

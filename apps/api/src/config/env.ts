@@ -67,6 +67,11 @@ const envSchema = z.object({
   // ✅ módulo sales-order-sync
   ENABLE_OMIE_SALES_ORDER_SYNC_JOB: envBoolean.default(false),
   OMIE_SALES_ORDER_SYNC_CRON: z.string().default("0 */10 * * * *"),
+
+  // ✅ módulo customer-sync
+  CUSTOMER_SYNC_GATEWAY: z.enum(["fake", "real"]).default("fake"),
+  ENABLE_OMIE_CUSTOMER_SYNC_JOB: envBoolean.default(false),
+  OMIE_CUSTOMER_SYNC_CRON: z.string().default("0 */12 * * *"),
 });
 
 /**

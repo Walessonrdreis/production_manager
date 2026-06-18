@@ -295,6 +295,94 @@ enum PersonType {
   @@map("TipoPessoa")
 }
 
+// ============================================================
+// 🆕 NOVO MÓDULO: customer-sync (substitui o modelo Client legado)
+// ============================================================
+
+enum CustomerCommandType {
+  SYNC
+}
+
+enum CustomerCommandStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+}
+
+enum CustomerCommandSource {
+  API2
+  JOB
+  ADMIN
+}
+
+model OmieCustomer {
+  id               String   @id @default(uuid())
+
+  omieCode         String   @unique @db.VarChar(64) @map("omie_code")
+  legalName        String   @db.Text               @map("legal_name")
+  tradeName        String?  @db.Text               @map("trade_name")
+  document         String   @db.VarChar(20)
+  personType       String   @db.VarChar(16)        @map("person_type")
+
+  email            String?  @db.VarChar(256)
+  phone            String?  @db.VarChar(64)
+
+  isActive         Boolean  @default(true)          @map("is_active")
+  isBlocked        Boolean  @default(false)         @map("is_blocked")
+  isBillingBlocked Boolean  @default(false)         @map("is_billing_blocked")
+
+  createdAtOmie    DateTime?                        @map("created_at_omie")
+  updatedAtOmie    DateTime?                        @map("updated_at_omie")
+
+  // 📦 payload bruto + metadados de sync
+  rawPayload       Json                             @map("raw_payload")
+  lastSyncAt       DateTime @default(now())         @map("last_sync_at")
+
+  createdAt        DateTime @default(now())         @map("created_at")
+  updatedAt        DateTime @updatedAt              @map("updated_at")
+
+  @@index([document])
+  @@index([legalName])
+  @@index([tradeName])
+  @@index([isActive])
+  @@index([isBlocked])
+  @@index([lastSyncAt])
+  @@map("omie_customer")
+}
+
+model CustomerCommand {
+  id                String   @id @default(uuid())
+
+  externalRequestId String   @unique               @map("external_request_id")
+  customerCode      String   @db.VarChar(64)       @map("customer_code")
+
+  commandType       CustomerCommandType            @map("command_type")
+  status            CustomerCommandStatus          @default(ACCEPTED)
+
+  source            CustomerCommandSource          @default(API2)
+  lastError         Json?                          @map("last_error")
+
+  executedAt        DateTime?                      @map("executed_at")
+  completedAt       DateTime?                      @map("completed_at")
+
+  createdAt         DateTime @default(now())       @map("created_at")
+  updatedAt         DateTime @updatedAt            @map("updated_at")
+
+  @@index([customerCode])
+  @@index([status])
+  @@index([commandType])
+  @@map("customer_command")
+}
+
+model CustomerSyncState {
+  id         String   @id @default(uuid())
+
+  lastSyncAt DateTime @map("last_sync_at")
+  updatedAt  DateTime @updatedAt
+
+  @@map("customer_sync_state")
+}
+
 model OmieProductionOrder {
   id                     String   @id @default(uuid())
 

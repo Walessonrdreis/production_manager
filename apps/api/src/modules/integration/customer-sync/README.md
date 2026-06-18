@@ -1,0 +1,111 @@
+# Módulo: customer-sync
+
+Sincronização de clientes entre Omie ERP e o banco local (`omie_customer`).
+
+## Arquitetura
+
+```
+HTTP (Fastify) → UseCase → Gateway (real/fake) → Omie API
+                                    ↓
+                             OmieCustomerStore (omie_customer)
+                             CustomerCommandStore (customer_command)
+```
+
+## Rotas
+
+### Comandos
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/v1/integration/customer-sync/:customerCode/sync` | Sincroniza 1 cliente |
+| POST | `/v1/integration/customer-sync/sync-global` | Sincroniza todos os clientes |
+
+### Leitura (Admin/API2)
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/v1/admin/read/customers` | Lista/busca clientes (paginado) |
+| GET | `/v1/admin/read/customers/:customerCode` | Busca 1 cliente por código |
+| GET | `/v1/admin/read/customers/stats` | Estatísticas (total, ativos, inativos) |
+| GET | `/v1/customers/summary` | Sumário de clientes ativos |
+
+### Sync (integração)
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/v1/integration/customer-sync/sync-status/:externalRequestId` | Status de um comando |
+| GET | `/v1/integration/customer-sync/sync-history` | Histórico de comandos |
+| GET | `/v1/integration/customer-sync/sync-failures` | Falhas de sincronização |
+| GET | `/v1/integration/customer-sync/last-sync` | Último sync global |
+
+## Variáveis de Ambiente
+
+```env
+CUSTOMER_SYNC_GATEWAY=fake|real        # fake = não escreve dados reais
+ENABLE_OMIE_CUSTOMER_SYNC_JOB=true|false # habilita job cron
+OMIE_CUSTOMER_SYNC_CRON=0 */12 * * *     # cron schedule
+```
+
+## Estrutura de Diretórios
+
+```
+customer-sync/
+├── index.ts
+├── customer-sync-integration-register.ts
+├── README.md
+├── application/
+│   ├── dto/
+│   │   ├── sync-customer.dto.ts
+│   │   ├── sync-all-customers.dto.ts
+│   │   ├── get-customer-read-model.dto.ts
+│   │   └── get-customer-stats.dto.ts
+│   ├── mappers/
+│   │   └── map-omie-customer-to-summary.ts
+│   ├── ports/
+│   │   ├── customer-fetch.gateway.ts
+│   │   └── customer-fetch-page.gateway.ts
+│   ├── use-cases/
+│   │   ├── sync-customer.usecase.ts
+│   │   ├── sync-all-customers.usecase.ts
+│   │   ├── get-customer-read-model.usecase.ts
+│   │   ├── get-customer-summary.usecase.ts
+│   │   └── get-customer-stats.usecase.ts
+│   └── utils/
+│       └── query.utils.ts
+├── infrastructure/
+│   ├── db/
+│   │   ├── index.ts
+│   │   ├── omie-customer.store.ts
+│   │   └── customer-command.store.ts
+│   ├── gateways/
+│   │   ├── customer-fetch/
+│   │   │   ├── real-customer-fetch.gateway.ts
+│   │   │   └── fake-customer-fetch.gateway.ts
+│   │   └── customer-fetch-page/
+│   │       ├── real-customer-fetch-page.gateway.ts
+│   │       └── fake-customer-fetch-page.gateway.ts
+│   └── jobs/
+│       └── customer-jobs.register.ts
+└── presentation/
+    └── http/
+        ├── index.ts
+        ├── routes.ts
+        └── routes/
+            ├── commands/
+            │   ├── sync-customer.route.ts
+            │   └── sync-all-customers.route.ts
+            └── read/
+                ├── get-customer-read-model.route.ts
+                ├── get-customer-sync-status.route.ts
+                ├── get-customer-sync-history.route.ts
+                ├── get-customer-sync-failures.route.ts
+                ├── get-customer-stats.route.ts
+                ├── get-customer-last-sync.route.ts
+                └── get-customer-summary.route.ts
+```
+
+## Modelos Prisma
+
+- `OmieCustomer` (`omie_customer`) — espelho local dos clientes
+- `CustomerCommand` (`customer_command`) — command store com idempotência
+- `CustomerSyncState` (`customer_sync_state`) — estado do último sync global
