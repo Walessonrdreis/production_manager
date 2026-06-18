@@ -10,11 +10,15 @@ import type {
 
 import { SyncAllCustomersUseCase } from "../../../../application/use-cases/sync-all-customers.usecase";
 import type { IntegrationStoreContract, CommandStoreContract } from "../../../../application/use-cases/sync-all-customers.usecase";
-import { OmieCustomerStore, CustomerCommandStore } from "../../../../infrastructure/db";
+import { OmieCustomerStore, CustomerCommandStore, CustomerSyncStateStore } from "../../../../infrastructure/db";
 import { fakeOmieCustomerStore, fakeCustomerCommandStore } from "../../../../infrastructure/db/fake-stores.singletons";
 
 import { FakeCustomerFetchPageGateway } from "../../../../infrastructure/gateways/customer-fetch-page/fake-customer-fetch-page.gateway";
 import { RealCustomerFetchPageGateway } from "../../../../infrastructure/gateways/customer-fetch-page/real-customer-fetch-page.gateway";
+
+function buildExternalRequestId() {
+    return `customer-sync-global-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 const logger = getLogger("sync-all-customers.route");
 
@@ -23,7 +27,7 @@ export async function registerSyncAllCustomersRoute(app: FastifyInstance) {
         const body = (request.body as SyncAllCustomersRequestDTO | undefined) ?? {};
 
         const externalRequestId =
-            body.externalRequestId ?? `customer-sync-global-${Date.now()}`;
+            body.externalRequestId ?? buildExternalRequestId();
 
         const omieClient = (app as any).omieClient as OmieHttpClientPort;
 
@@ -39,11 +43,14 @@ export async function registerSyncAllCustomersRoute(app: FastifyInstance) {
         const commandStore: CommandStoreContract = useFake
             ? fakeCustomerCommandStore
             : new CustomerCommandStore();
+        const stateStore = new CustomerSyncStateStore();
 
         const useCase = new SyncAllCustomersUseCase(
             fetchPageGateway,
             integrationStore,
             commandStore,
+            stateStore,
+            { noWrite: useFake },
         );
 
         const result = await useCase.execute({

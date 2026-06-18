@@ -1,8 +1,9 @@
 import { getLogger } from "@/shared/logger";
-import { prisma } from "@/shared/db/prisma";
 import type { CustomerFetchPageGateway } from "../ports/customer-fetch-page.gateway";
+import type { CustomerFetchPageInput } from "../ports/customer-fetch-page.gateway";
 import type { OmieCustomerStore } from "../../infrastructure/db/omie-customer.store";
 import type { CustomerCommandStore } from "../../infrastructure/db/customer-command.store";
+import type { CustomerSyncStateStore } from "../../infrastructure/db/customer-sync-state.store";
 
 // Contrato: qualquer store que implemente upsertFromExternal
 export type IntegrationStoreContract = Pick<OmieCustomerStore, "upsertFromExternal">;
@@ -18,6 +19,10 @@ export type SyncAllCustomersCommand = {
     source?: "API2" | "JOB" | "ADMIN";
 };
 
+function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class SyncAllCustomersUseCase {
     private readonly logger = getLogger("SyncAllCustomersUseCase");
 
@@ -25,8 +30,103 @@ export class SyncAllCustomersUseCase {
         private readonly fetchPageGateway: CustomerFetchPageGateway,
         private readonly integrationStore: IntegrationStoreContract,
         private readonly commandStore: CommandStoreContract,
+        private readonly stateStore: CustomerSyncStateStore,
         private readonly options: { noWrite?: boolean } = {}
     ) { }
+
+    private extractRedundantWaitSeconds(sample: string): number | null {
+        const match = sample.match(/aguarde\s+(\d+)\s+segundos/i);
+        if (!match) return null;
+        const seconds = Number(match[1]);
+        if (!Number.isFinite(seconds) || seconds <= 0) return null;
+        return seconds;
+    }
+
+    private async fetchPageWithRetry(
+        input: CustomerFetchPageInput & {
+            externalRequestId: string;
+            maxAttempts?: number;
+        }
+    ) {
+        const { page, pageSize, updatedSince, externalRequestId, maxAttempts = 3 } = input;
+        let lastError: unknown = null;
+        let redundantWaits = 0;
+        const maxRedundantWaits = 5;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            try {
+                const pageResult = await this.fetchPageGateway.fetchPage({
+                    page,
+                    pageSize,
+                    updatedSince,
+                });
+
+                if (attempt > 1 || redundantWaits > 0) {
+                    this.logger.info("Customer fetch page recovered after retry", {
+                        externalRequestId,
+                        page,
+                        pageSize,
+                        attempt,
+                        maxAttempts,
+                        redundantWaits,
+                    });
+                }
+
+                return pageResult;
+            } catch (error: any) {
+                lastError = error;
+                const sample = String(error?.details?.sample ?? "");
+                const sampleLower = sample.toLowerCase();
+                const isRedundant =
+                    sampleLower.includes("redundant") ||
+                    sampleLower.includes("consumo redundante");
+
+                if (isRedundant) {
+                    redundantWaits += 1;
+                    const waitSeconds = this.extractRedundantWaitSeconds(sample) ?? 60;
+                    const waitMs = (waitSeconds + 2) * 1000;
+
+                    this.logger.warn("Customer REDUNDANT detected, waiting before retry", {
+                        externalRequestId,
+                        page,
+                        pageSize,
+                        redundantWaits,
+                        maxRedundantWaits,
+                        waitSeconds,
+                        waitMs,
+                        code: error?.code,
+                        details: error?.details,
+                    });
+
+                    if (redundantWaits > maxRedundantWaits) {
+                        throw error;
+                    }
+
+                    await sleep(waitMs);
+                    attempt -= 1;
+                    continue;
+                }
+
+                this.logger.warn("Customer fetch page failed", {
+                    externalRequestId,
+                    page,
+                    pageSize,
+                    attempt,
+                    maxAttempts,
+                    message: error?.message,
+                    code: error?.code,
+                    details: error?.details,
+                });
+
+                if (attempt < maxAttempts) {
+                    await sleep(1000 * attempt);
+                    continue;
+                }
+            }
+        }
+
+        throw lastError;
+    }
 
     async execute(command: SyncAllCustomersCommand) {
         const pageSize = Math.max(1, Math.min(Number(command.pageSize || 100), 500));
@@ -46,7 +146,7 @@ export class SyncAllCustomersUseCase {
             let processedItems = 0;
 
             while (processedPages < maxPages) {
-                const pageResult = await this.fetchPageGateway.fetchPage(page, pageSize);
+                const pageResult = await this.fetchPageGateway.fetchPage({ page, pageSize });
 
                 processedPages += 1;
                 processedItems += pageResult.items.length;
@@ -94,8 +194,22 @@ export class SyncAllCustomersUseCase {
         let hasError = false;
 
         try {
+            const state = await this.stateStore.getState();
+            const lastSyncAt = state.lastSyncAt;
+
+            this.logger.info("Customer sync window", {
+                externalRequestId: command.externalRequestId,
+                lastSyncAt,
+                isIncremental: lastSyncAt > new Date("2000-01-01"),
+            });
+
             while (processedPages < maxPages) {
-                const pageResult = await this.fetchPageGateway.fetchPage(page, pageSize);
+                const pageResult = await this.fetchPageWithRetry({
+                    page,
+                    pageSize,
+                    updatedSince: lastSyncAt,
+                    externalRequestId: command.externalRequestId,
+                });
 
                 processedPages += 1;
 
@@ -129,25 +243,24 @@ export class SyncAllCustomersUseCase {
                     totalItems,
                 });
 
+                if (processedPages % 10 === 0) {
+                    this.logger.info("Customer sync checkpoint", {
+                        externalRequestId: command.externalRequestId,
+                        processedPages,
+                        totalItems,
+                    });
+                }
+
                 if (!pageResult.hasNext || pageResult.items.length === 0) {
                     break;
                 }
 
                 page += 1;
+                await sleep(700);
             }
 
             await this.commandStore.markConfirmed(command.externalRequestId);
-
-            // Atualiza o CustomerSyncState (ignorado em fake mode)
-            try {
-                await prisma.customerSyncState.upsert({
-                    where: { id: "global" },
-                    create: { id: "global", lastSyncAt: new Date() },
-                    update: { lastSyncAt: new Date() },
-                });
-            } catch {
-                this.logger.warn("customerSyncState update skipped (fake mode?)");
-            }
+            await this.stateStore.updateLastSync(new Date());
         } catch (error) {
             hasError = true;
             await this.commandStore.markFailed(command.externalRequestId, error);

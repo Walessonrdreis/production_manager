@@ -2,6 +2,7 @@ import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-cl
 
 import type {
     CustomerFetchPageGateway,
+    CustomerFetchPageInput,
     CustomerFetchPageResult,
 } from "../../../application/ports/customer-fetch-page.gateway";
 
@@ -38,7 +39,14 @@ function extractFaultString(error: any): string {
 export class RealCustomerFetchPageGateway implements CustomerFetchPageGateway {
     constructor(private readonly omieClient: OmieHttpClientPort) { }
 
-    async fetchPage(page: number, pageSize: number): Promise<CustomerFetchPageResult> {
+    private parseOmieDate(dateStr: string | null | undefined): Date | null {
+        if (!dateStr) return null;
+        const [d, m, y] = dateStr.split("/");
+        if (!d || !m || !y) return null;
+        return new Date(Number(y), Number(m) - 1, Number(d));
+    }
+
+    async fetchPage({ page, pageSize, updatedSince }: CustomerFetchPageInput): Promise<CustomerFetchPageResult> {
         try {
             const response = await this.omieClient.post<any>("geral/clientes/", {
                 call: "ListarClientes",
@@ -51,33 +59,46 @@ export class RealCustomerFetchPageGateway implements CustomerFetchPageGateway {
                 ],
             });
 
-            const items = Array.isArray(response?.cliente_cadastro)
-                ? response.cliente_cadastro
-                : [];
+            const rawItems = Array.isArray(response?.clientes_cadastro)
+                ? response.clientes_cadastro
+                : Array.isArray(response?.cliente_cadastro)
+                    ? response.cliente_cadastro
+                    : [];
 
             const totalPages = response?.total_de_paginas != null ? Number(response.total_de_paginas) : null;
             const totalRecords = response?.total_de_registros != null ? Number(response.total_de_registros) : null;
 
+            const itemsToMap = updatedSince
+                ? rawItems.filter((item: any) => {
+                    const updatedAt = this.parseOmieDate(item.info?.dAlt ?? null);
+                    return !updatedAt || !updatedSince || updatedAt > updatedSince;
+                })
+                : rawItems;
+
             console.log(
-                `[SYNC] Page ${page} - Items: ${items.length} - TotalPages: ${totalPages ?? "unknown"} - TotalRecords: ${totalRecords ?? "unknown"}`
+                `[SYNC] Page ${page} - Raw: ${rawItems.length} - Filtered: ${itemsToMap.length} - TotalPages: ${totalPages ?? "unknown"} - TotalRecords: ${totalRecords ?? "unknown"}${updatedSince ? " (incremental)" : " (full)"}`
             );
 
-            const mappedItems = items.map((item: any) => {
+            const mappedItems = itemsToMap.map((item: any) => {
                 const personType = String(item.pessoa_fisica ?? "N") === "S" ? "PF" : "PJ";
 
+                const phoneNumber = item.telefone1_ddd
+                    ? `${item.telefone1_ddd}${item.telefone1_numero ?? ""}`
+                    : item.telefone1 ?? null;
+
                 return {
-                    customerCode: String(item.codigo_cliente ?? ""),
+                    customerCode: String(item.codigo_cliente_omie ?? item.codigo_cliente ?? ""),
                     legalName: String(item.razao_social ?? item.nome_fantasia ?? ""),
                     tradeName: item.nome_fantasia != null ? String(item.nome_fantasia) : null,
                     document: String(item.cnpj_cpf ?? item.cpf ?? ""),
                     personType,
                     email: item.email != null ? String(item.email) : null,
-                    phone: item.telefone1 != null ? String(item.telefone1) : null,
+                    phone: phoneNumber,
                     isActive: String(item.inativo ?? "N") !== "S",
                     isBlocked: String(item.bloqueado ?? "N") === "S",
-                    isBillingBlocked: String(item.bloqueado_faturamento ?? "N") === "S",
-                    createdAtOmie: item.data_cadastro ? new Date(item.data_cadastro) : null,
-                    updatedAtOmie: item.data_alteracao ? new Date(item.data_alteracao) : null,
+                    isBillingBlocked: String(item.bloquear_faturamento ?? "N") === "S",
+                    createdAtOmie: this.parseOmieDate(item.info?.dInc ?? null),
+                    updatedAtOmie: this.parseOmieDate(item.info?.dAlt ?? null),
                     rawPayload: item,
                 };
             });

@@ -4,5 +4,7 @@ export type { CreateAcceptedCustomerCommandInput } from "./customer-command.stor
 export { OmieCustomerStore } from "./omie-customer.store";
 export type { OmieCustomerRecord } from "./omie-customer.store";
 
+export { CustomerSyncStateStore } from "./customer-sync-state.store";
+
 export { FakeOmieCustomerStore } from "./fake-omie-customer.store";
 export { FakeCustomerCommandStore } from "./fake-customer-command.store";

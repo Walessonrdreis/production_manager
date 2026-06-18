@@ -1,5 +1,11 @@
 import type { CustomerExternalCustomer } from "./customer-fetch.gateway";
 
+export type CustomerFetchPageInput = {
+    page: number;
+    pageSize: number;
+    updatedSince?: Date;
+};
+
 export type CustomerFetchPageResult = {
     items: CustomerExternalCustomer[];
     totalPages: number;
@@ -9,5 +15,5 @@ export type CustomerFetchPageResult = {
 };
 
 export interface CustomerFetchPageGateway {
-    fetchPage(page: number, pageSize: number): Promise<CustomerFetchPageResult>;
+    fetchPage(input: CustomerFetchPageInput): Promise<CustomerFetchPageResult>;
 }

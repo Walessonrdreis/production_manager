@@ -6,8 +6,13 @@ import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-cl
 import { SyncAllCustomersUseCase } from "../../application/use-cases/sync-all-customers.usecase";
 import { OmieCustomerStore } from "../db/omie-customer.store";
 import { CustomerCommandStore } from "../db/customer-command.store";
+import { CustomerSyncStateStore } from "../db/customer-sync-state.store";
 import { FakeCustomerFetchPageGateway } from "../gateways/customer-fetch-page/fake-customer-fetch-page.gateway";
 import { RealCustomerFetchPageGateway } from "../gateways/customer-fetch-page/real-customer-fetch-page.gateway";
+
+function buildJobExternalRequestId() {
+    return `customer-sync-job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 export function registerCustomerJobs(omieClient: OmieHttpClientPort) {
     const logger = getLogger("customer-sync:cron");
@@ -19,22 +24,24 @@ export function registerCustomerJobs(omieClient: OmieHttpClientPort) {
             const runLogger = getLogger("customer-sync:cron:sync");
 
             try {
-                const fetchPageGateway =
-                    env.CUSTOMER_SYNC_GATEWAY === "real"
-                        ? new RealCustomerFetchPageGateway(omieClient)
-                        : new FakeCustomerFetchPageGateway();
+                const useFake = env.CUSTOMER_SYNC_GATEWAY === "fake";
+
+                const fetchPageGateway = useFake
+                    ? new FakeCustomerFetchPageGateway()
+                    : new RealCustomerFetchPageGateway(omieClient);
 
                 const useCase = new SyncAllCustomersUseCase(
                     fetchPageGateway,
                     new OmieCustomerStore(),
                     new CustomerCommandStore(),
+                    new CustomerSyncStateStore(),
                     {
-                        noWrite: env.CUSTOMER_SYNC_GATEWAY === "fake",
+                        noWrite: useFake,
                     }
                 );
 
                 await useCase.execute({
-                    externalRequestId: `customer-sync-job-${Date.now()}`,
+                    externalRequestId: buildJobExternalRequestId(),
                     pageSize: 100,
                     maxPages: 1000,
                     source: "JOB",

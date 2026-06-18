@@ -1,10 +1,11 @@
 import type {
     CustomerFetchPageGateway,
+    CustomerFetchPageInput,
     CustomerFetchPageResult,
 } from "../../../application/ports/customer-fetch-page.gateway";
 
 export class FakeCustomerFetchPageGateway implements CustomerFetchPageGateway {
-    async fetchPage(page: number, pageSize: number): Promise<CustomerFetchPageResult> {
+    async fetchPage({ page, pageSize }: CustomerFetchPageInput): Promise<CustomerFetchPageResult> {
         if (page > 1) {
             return {
                 items: [],
