@@ -14,16 +14,22 @@ export function registerSalesOrderSyncJobs(omieClient: OmieHttpClientPort) {
     return;
   }
 
-  const schedule = env.OMIE_SALES_ORDER_SYNC_CRON ?? "0 */10 * * * *";
+  const schedule = env.OMIE_SALES_ORDER_SYNC_CRON ?? "*/5 * * * *";
 
   cron.schedule(schedule, async () => {
     const runLogger = getLogger("sales-order-sync:cron:run");
 
     try {
+      runLogger.info("Sales-order cron triggered", {
+        schedule,
+      });
+
       const job = new SyncSalesOrdersJob(omieClient);
       await job.execute();
     } catch (error) {
-      runLogger.error("Sales-order sync job failed", error as any);
+      runLogger.error("Sales-order sync job failed", {
+        error,
+      });
     }
   });
 
@@ -32,4 +38,3 @@ export function registerSalesOrderSyncJobs(omieClient: OmieHttpClientPort) {
     envValue: env.ENABLE_OMIE_SALES_ORDER_SYNC_JOB,
   });
 }
-``

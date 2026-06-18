@@ -7,6 +7,7 @@ import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-cl
 import { SyncAllSalesOrdersUseCase } from "../../../../application/use-cases/sync-all-sales-orders.usecase";
 import { SalesOrderSyncIntegrationStore } from "../../../../infrastructure/db/sales-order-sync-integration.store";
 import { SalesOrderSyncCommandStore } from "../../../../infrastructure/db/sales-order-sync-command.store";
+import { SalesOrderSyncStateStore } from "../../../../infrastructure/db/sales-order-sync-state.store";
 import { FakeSalesOrderFetchPageGateway } from "../../../../infrastructure/gateways/fetch-page/fake-sales-order-fetch-page.gateway";
 import { RealSalesOrderFetchPageGateway } from "../../../../infrastructure/gateways/fetch-page/real-sales-order-fetch-page.gateway";
 
@@ -62,6 +63,7 @@ export async function registerSyncAllSalesOrdersRoute(app: FastifyInstance) {
         fetchPageGateway,
         new SalesOrderSyncIntegrationStore(prisma),
         new SalesOrderSyncCommandStore(prisma),
+        new SalesOrderSyncStateStore(),
         {
           noWrite: env.SALES_ORDER_SYNC_GATEWAY === "fake",
         }

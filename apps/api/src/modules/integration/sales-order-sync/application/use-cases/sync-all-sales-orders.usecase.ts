@@ -1,7 +1,11 @@
 import { getLogger } from "@/shared/logger";
-import type { SalesOrderFetchPageGateway } from "../ports/sales-order-fetch-page.gateway";
+import type {
+  SalesOrderFetchPageGateway,
+  SalesOrderFetchPageInput,
+} from "../ports/sales-order-fetch-page.gateway";
 import { SalesOrderSyncIntegrationStore } from "../../infrastructure/db/sales-order-sync-integration.store";
 import { SalesOrderSyncCommandStore } from "../../infrastructure/db/sales-order-sync-command.store";
+import { SalesOrderSyncStateStore } from "../../infrastructure/db/sales-order-sync-state.store";
 
 export type SyncAllSalesOrdersCommand = {
   externalRequestId: string;
@@ -21,6 +25,7 @@ export class SyncAllSalesOrdersUseCase {
     private readonly fetchPageGateway: SalesOrderFetchPageGateway,
     private readonly integrationStore: SalesOrderSyncIntegrationStore,
     private readonly commandStore: SalesOrderSyncCommandStore,
+    private readonly stateStore: SalesOrderSyncStateStore,
     private readonly options: { noWrite?: boolean } = {}
   ) {}
 
@@ -35,18 +40,30 @@ export class SyncAllSalesOrdersUseCase {
   }
 
   private async fetchPageWithRetry(
-    page: number,
-    pageSize: number,
-    externalRequestId: string,
-    maxAttempts = 3
+    input: SalesOrderFetchPageInput & {
+      externalRequestId: string;
+      maxAttempts?: number;
+    }
   ) {
+    const {
+      page,
+      pageSize,
+      updatedSince,
+      externalRequestId,
+      maxAttempts = 3,
+    } = input;
+
     let lastError: unknown = null;
     let redundantWaits = 0;
     const maxRedundantWaits = 5;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
-        const pageResult = await this.fetchPageGateway.fetchPage(page, pageSize);
+        const pageResult = await this.fetchPageGateway.fetchPage({
+          page,
+          pageSize,
+          updatedSince,
+        });
 
         if (attempt > 1 || redundantWaits > 0) {
           this.logger.info("Sales-order fetch page recovered after retry", {
@@ -93,7 +110,7 @@ export class SyncAllSalesOrdersUseCase {
 
           await sleep(waitMs);
 
-          attempt -= 1; // não consome tentativa técnica
+          attempt -= 1;
           continue;
         }
 
@@ -151,17 +168,26 @@ export class SyncAllSalesOrdersUseCase {
     }
 
     try {
+      const state = await this.stateStore.getState();
+      const lastSyncAt = state.lastSyncAt;
+
+      this.logger.info("Sales-order incremental sync window", {
+        externalRequestId: command.externalRequestId,
+        lastSyncAt,
+      });
+
       let page = 1;
       let processedPages = 0;
       let processedOrders = 0;
       let processedItems = 0;
 
       while (processedPages < maxPages) {
-        const pageResult = await this.fetchPageWithRetry(
+        const pageResult = await this.fetchPageWithRetry({
           page,
           pageSize,
-          command.externalRequestId
-        );
+          updatedSince: lastSyncAt,
+          externalRequestId: command.externalRequestId,
+        });
 
         const totalPages =
           pageResult.totalPages != null && Number.isFinite(pageResult.totalPages)
@@ -273,6 +299,7 @@ export class SyncAllSalesOrdersUseCase {
       }
 
       await this.commandStore.markConfirmed(command.externalRequestId);
+      await this.stateStore.updateLastSync(new Date());
 
       this.logger.info("Sales-order sync completed", {
         externalRequestId: command.externalRequestId,

@@ -1,3 +1,9 @@
+export type SalesOrderFetchPageInput = {
+  page: number;
+  pageSize: number;
+  updatedSince?: Date;
+};
+
 export type SalesOrderFetchPageItem = {
   omieId: string;
   orderNumber: string | null;
@@ -27,16 +33,11 @@ export type SalesOrderFetchPageResult = {
   items: SalesOrderFetchPageItem[];
   hasNextPage: boolean;
 
-  // ✅ PROGRESSO REAL (igual product-catalog)
+  // ✅ progresso real
   totalPages: number | null;
-
-  // ✅ opcional (ajuda no debug/log)
   currentPage: number;
 };
 
 export interface SalesOrderFetchPageGateway {
-  fetchPage(
-    page: number,
-    pageSize: number
-  ): Promise<SalesOrderFetchPageResult>;
+  fetchPage(input: SalesOrderFetchPageInput): Promise<SalesOrderFetchPageResult>;
 }
