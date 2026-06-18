@@ -755,44 +755,89 @@ const integrations = [
 - [ ] Testes unitários escritos
 - [ ] Documentação atualizada
 
-## 6. Exemplo Completo: Módulo `sales-order-sync`
+## 6. Exemplo Completo: Módulo `product-catalog`
 
-> **⚠️ IMPORTANTE**: Usamos `sales-order-sync` (específico) em vez de `orders-sync` (genérico) para:
-> - **Clareza de domínio**: "sales order" vs "production order" vs "purchase order"
-> - **Ownership explícito**: API 1 escreve espelho Omie, API 2 escreve domínio interno
+> **⚠️ IMPORTANTE**: Usamos `product-catalog` (específico) em vez de `products` (genérico) para:
+> - **Clareza de domínio**: "product catalog" vs "product structure" vs "sales order"
+> - **Ownership explícito**: API 1 mantém espelho Omie + materialização; API 2 consome read-models prontos
+> - **Separação de responsabilidades**: sincronização (commands) vs consulta (reads) vs materialização (refresh)
 > - **Consistência canônica**: Segue padrão "entidade específica + capacidade"
-> 
+>
 > **📌 REFERÊNCIA OBRIGATÓRIA**: Consulte [DOMAIN_NAMING_GUIDE.md](./DOMAIN_NAMING_GUIDE.md) para padrões canônicos de nomenclatura de domínio.
 
 ```
-sales-order-sync/
+product-catalog/
 ├── application/
+│   ├── dto/
+│   │   ├── get-product-catalog-production-ready.dto.ts
+│   │   ├── get-product-catalog-read-model.dto.ts
+│   │   ├── sync-all-product-catalog.dto.ts
+│   │   └── sync-product-catalog.dto.ts
+│   ├── mappers/
+│   │   └── map-omie-product-to-summary.ts
 │   ├── ports/
-│   │   └── sales-order-sync-fetch.gateway.ts
-│   └── use-cases/
-│       └── sync-sales-order.usecase.ts
+│   │   ├── product-catalog-fetch.gateway.ts
+│   │   ├── product-catalog-fetch-page.gateway.ts
+│   │   └── product-catalog-fetch-page.ts
+│   ├── use-cases/
+│   │   ├── get-product-catalog-production-ready.usecase.ts
+│   │   ├── get-product-catalog-read-model.usecase.ts
+│   │   ├── get-product-catalog-summary.usecase.ts
+│   │   ├── refresh-product-catalog-production-ready.usecase.ts
+│   │   ├── sync-all-product-catalog.usecase.ts
+│   │   └── sync-product-catalog.usecase.ts
+│   └── utils/
+│       └── query.utils.ts
 ├── infrastructure/
 │   ├── db/
-│   │   └── sales-order-sync-command.store.ts
+│   │   ├── product-catalog-command.store.ts
+│   │   ├── product-catalog-integration.store.ts
+│   │   ├── product-catalog-production-ready-read-model.store.ts
+│   │   └── product-catalog-sales-order-aggregation.store.ts
 │   ├── gateways/
 │   │   ├── fetch/
-│   │   │   ├── real-sales-order-sync-fetch.gateway.ts
-│   │   │   └── fake-sales-order-sync-fetch.gateway.ts
+│   │   │   ├── fake-product-catalog-fetch.gateway.ts
+│   │   │   └── real-product-catalog-fetch.gateway.ts
+│   │   └── fetch-page/
+│   │       ├── fake-product-catalog-fetch-page.gateway.ts
+│   │       └── real-product-catalog-fetch-page.gateway.ts
 │   └── jobs/
-│       ├── reconcile-sales-orders.job.ts
-│       └── sales-order-sync-jobs.register.ts
+│       ├── product-catalog-jobs.register.ts
+│       └── refresh-product-catalog-production-ready.job.ts
 ├── presentation/
 │   └── http/
-│       ├── routes/
-│       │   ├── commands/
-│       │   │   └── sync-sales-order.route.ts
-│       │   └── read/
-│       │       └── get-sales-order-status.route.ts
+│       ├── index.ts
+│       ├── openapi.ts
 │       ├── routes.ts
-│       └── index.ts
+│       └── routes/
+│           ├── Routes.md
+│           ├── commands/
+│           │   ├── refresh-product-catalog-production-ready.route.ts
+│           │   ├── sync-all-product-catalog.route.ts
+│           │   └── sync-product-catalog.route.ts
+│           └── read/
+│               ├── get-product-catalog-last-sync.route.ts
+│               ├── get-product-catalog-production-ready.route.ts
+│               ├── get-product-catalog-read-model.route.ts
+│               ├── get-product-catalog-stats.route.ts
+│               ├── get-product-catalog-summary.route.ts
+│               ├── get-product-catalog-sync-failures.route.ts
+│               ├── get-product-catalog-sync-history.route.ts
+│               └── get-product-catalog-sync-status.route.ts
 ├── index.ts
-└── sales-order-sync-integration-register.ts
+├── product-catalog-integration-register.ts
+└── README.md
 ```
+
+> 💡 **Por que este módulo é o exemplo ideal?**
+> `product-catalog` é o módulo mais completo do projeto, pois combina:
+> - **Commands de sincronização** (`sync`, `sync-all`) — com idempotência via `externalRequestId`
+> - **Read-models materializados** (`production-ready`) — consolida dados de produto, estoque, estrutura, OP e pedidos
+> - **Múltiplas stores** — command store, integration store, read-model store, aggregation store
+> - **Gateways reais e fake** — para fetch (produto individual) e fetch-page (paginação)
+> - **Jobs agendados** — refresh periódico do read-model de produção
+> - **Múltiplos endpoints de leitura** — status, histórico, falhas, summary, stats, read-model
+> - **DTOs e mappers específicos** — separação clara entre camadas
 
 ---
 
@@ -800,7 +845,7 @@ sales-order-sync/
 - [NAMING_CONVENTIONS.md](./NAMING_CONVENTIONS.md): Padrões de nomenclatura
 - [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md): Arquitetura técnica
 - [DECISIONS.md](./DECISIONS.md): Decisões arquiteturais fundamentais (ADR)
-- Módulo `product-structure`: Implementação de referência
+- Módulo `product-catalog`: Implementação de referência em `apps/api/src/modules/integration/product-catalog/`
 
 **Próximos passos**:
 1. Use `pnpm --filter api gen:module` para scaffold automático

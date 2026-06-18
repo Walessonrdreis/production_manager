@@ -457,58 +457,102 @@ import { ApplyProductStructureUseCase } from "../use-cases/apply-product-structu
 ```
 nome-do-modulo/
 ├── application/
-│   ├── ports/
-│   │   └── nome-do-modulo-[ação].gateway.ts
-│   └── use-cases/
-│       └── [ação]-nome-do-modulo.usecase.ts
+│   ├── dto/                                           # DTOs de entrada/saída dos use cases
+│   │   ├── sync-nome-do-modulo.dto.ts
+│   │   ├── sync-all-nome-do-modulo.dto.ts
+│   │   ├── get-nome-do-modulo-read-model.dto.ts
+│   │   └── get-nome-do-modulo-production-ready.dto.ts
+│   ├── mappers/                                       # Mapeamento entre domínios
+│   │   └── map-omie-[entidade]-to-summary.ts
+│   ├── ports/                                         # Interfaces (Ports)
+│   │   ├── nome-do-modulo-fetch.gateway.ts
+│   │   ├── nome-do-modulo-fetch-page.gateway.ts
+│   │   └── nome-do-modulo-fetch-page.ts
+│   ├── use-cases/                                     # Casos de uso
+│   │   ├── sync-nome-do-modulo.usecase.ts
+│   │   ├── sync-all-nome-do-modulo.usecase.ts
+│   │   ├── get-nome-do-modulo-read-model.usecase.ts
+│   │   ├── get-nome-do-modulo-summary.usecase.ts
+│   │   ├── get-nome-do-modulo-production-ready.usecase.ts
+│   │   └── refresh-nome-do-modulo-production-ready.usecase.ts
+│   └── utils/                                         # Utilitários do módulo
+│       └── query.utils.ts
 ├── infrastructure/
-│   ├── db/
-│   │   └── nome-do-modulo-[tipo].store.ts
-│   ├── gateways/
-│   │   ├── [ação]/
-│   │   │   ├── real-nome-do-modulo-[ação].gateway.ts
-│   │   │   └── fake-nome-do-modulo-[ação].gateway.ts
-│   └── jobs/
-│       ├── [ação]-nome-do-modulo.job.ts
+│   ├── db/                                            # Repositórios/Stores
+│   │   ├── nome-do-modulo-command.store.ts
+│   │   ├── nome-do-modulo-integration.store.ts
+│   │   ├── nome-do-modulo-read-model.store.ts
+│   │   └── nome-do-modulo-aggregation.store.ts
+│   ├── gateways/                                      # Gateways organizados por capacidade
+│   │   ├── fetch/
+│   │   │   ├── fake-nome-do-modulo-fetch.gateway.ts
+│   │   │   └── real-nome-do-modulo-fetch.gateway.ts
+│   │   └── fetch-page/
+│   │       ├── fake-nome-do-modulo-fetch-page.gateway.ts
+│   │       └── real-nome-do-modulo-fetch-page.gateway.ts
+│   └── jobs/                                          # Jobs agendados
+│       ├── refresh-nome-do-modulo-production-ready.job.ts
 │       └── nome-do-modulo-jobs.register.ts
 ├── presentation/
-│   └── http/
-│       ├── routes/
-│       │   ├── commands/
-│       │   │   └── [ação]-nome-do-modulo.route.ts
-│       │   └── read/
-│       │       └── get-[modelo]-read-model.route.ts
-│       ├── routes.ts
-│       └── index.ts
+│   └── http/                                          # Interface HTTP
+│       ├── index.ts
+│       ├── openapi.ts                                 # Documentação OpenAPI do módulo
+│       ├── routes.ts                                  # Agregador de rotas
+│       └── routes/
+│           ├── Routes.md                              # Documentação das rotas
+│           ├── commands/                              # Rotas de comando (POST)
+│           │   ├── sync-nome-do-modulo.route.ts
+│           │   ├── sync-all-nome-do-modulo.route.ts
+│           │   └── refresh-nome-do-modulo-production-ready.route.ts
+│           └── read/                                  # Rotas de leitura (GET)
+│               ├── get-nome-do-modulo-read-model.route.ts
+│               ├── get-nome-do-modulo-summary.route.ts
+│               ├── get-nome-do-modulo-production-ready.route.ts
+│               ├── get-nome-do-modulo-stats.route.ts
+│               ├── get-nome-do-modulo-last-sync.route.ts
+│               ├── get-nome-do-modulo-sync-status.route.ts
+│               ├── get-nome-do-modulo-sync-history.route.ts
+│               └── get-nome-do-modulo-sync-failures.route.ts
 ├── index.ts
-└── nome-do-modulo-integration-register.ts
+├── nome-do-modulo-integration-register.ts
+└── README.md                                          # Documentação do módulo
 ```
+
+> 💡 **Referência real**: Consulte o módulo `product-catalog` em `apps/api/src/modules/integration/product-catalog/` como implementação de referência completa.
 
 ### 2. NOMENCLATURA DE ARQUIVOS
 
 | Tipo de Arquivo | Padrão | Exemplo |
 |----------------|--------|---------|
-| **Port (Interface)** | `nome-do-modulo-[ação].gateway.ts` | `product-structure-apply.gateway.ts` |
-| **Use Case** | `[ação]-nome-do-modulo.usecase.ts` | `apply-product-structure.usecase.ts` |
-| **Store (DB)** | `nome-do-modulo-[tipo].store.ts` | `product-structure-command.store.ts` |
-| **Gateway Real** | `real-nome-do-modulo-[ação].gateway.ts` | `real-product-structure-apply.gateway.ts` |
-| **Gateway Fake** | `fake-nome-do-modulo-[ação].gateway.ts` | `fake-product-structure-apply.gateway.ts` |
-| **Job** | `[ação]-nome-do-modulo.job.ts` | `reconcile-product-structures.job.ts` |
-| **Job Register** | `nome-do-modulo-jobs.register.ts` | `product-structure-jobs.register.ts` |
-| **Route (Command)** | `[ação]-nome-do-modulo.route.ts` | `apply-product-structure.route.ts` |
-| **Route (Read)** | `get-[modelo]-read-model.route.ts` | `get-production-readiness.route.ts` |
-| **Module Register** | `nome-do-modulo-integration-register.ts` | `product-structure-integration-register.ts` |
+| **DTO** | `[ação]-nome-do-modulo.dto.ts` | `sync-product-catalog.dto.ts` |
+| **Mapper** | `map-[origem]-[entidade]-to-[destino].ts` | `map-omie-product-to-summary.ts` |
+| **Utils** | `[contexto].utils.ts` | `query.utils.ts` |
+| **Port (Interface)** | `nome-do-modulo-[ação].gateway.ts` | `product-catalog-fetch-page.gateway.ts` |
+| **Use Case** | `[ação]-nome-do-modulo.usecase.ts` | `sync-product-catalog.usecase.ts` |
+| **Store (DB)** | `nome-do-modulo-[tipo].store.ts` | `product-catalog-command.store.ts` |
+| **Gateway Real** | `real-nome-do-modulo-[ação].gateway.ts` | `real-product-catalog-fetch.gateway.ts` |
+| **Gateway Fake** | `fake-nome-do-modulo-[ação].gateway.ts` | `fake-product-catalog-fetch.gateway.ts` |
+| **Job** | `[ação]-nome-do-modulo.job.ts` | `refresh-product-catalog-production-ready.job.ts` |
+| **Job Register** | `nome-do-modulo-jobs.register.ts` | `product-catalog-jobs.register.ts` |
+| **Route (Command)** | `[ação]-nome-do-modulo.route.ts` | `sync-product-catalog.route.ts` |
+| **Route (Read)** | `get-nome-do-modulo-[modelo].route.ts` | `get-product-catalog-production-ready.route.ts` |
+| **Module Register** | `nome-do-modulo-integration-register.ts` | `product-catalog-integration-register.ts` |
+| **OpenAPI** | `openapi.ts` | `openapi.ts` |
+| **README** | `README.md` | `README.md` |
+| **Routes Doc** | `Routes.md` | `Routes.md` |
 
 ### 3. NOMENCLATURA DE CLASSES
 
 #### Padrão PascalCase:
 | Tipo de Classe | Padrão | Exemplo |
 |----------------|--------|---------|
-| **Use Case** | `[Ação]NomeDoModuloUseCase` | `ApplyProductStructureUseCase` |
-| **Store** | `NomeDoModulo[Tipo]Store` | `ProductStructureCommandStore` |
-| **Gateway Real** | `RealNomeDoModulo[Ação]Gateway` | `RealProductStructureApplyGateway` |
-| **Gateway Fake** | `FakeNomeDoModulo[Ação]Gateway` | `FakeProductStructureApplyGateway` |
-| **Job** | `[Ação]NomeDoModuloJob` | `ReconcileProductStructuresJob` |
+| **DTO** | `[Ação]NomeDoModulo[Modelo]Dto` | `SyncProductCatalogDto` |
+| **Mapper** | `Map[Nome]To[Nome]` | `MapOmieProductToSummary` |
+| **Use Case** | `[Ação]NomeDoModuloUseCase` | `SyncProductCatalogUseCase` |
+| **Store** | `NomeDoModulo[Tipo]Store` | `ProductCatalogCommandStore` |
+| **Gateway Real** | `RealNomeDoModulo[Ação]Gateway` | `RealProductCatalogFetchGateway` |
+| **Gateway Fake** | `FakeNomeDoModulo[Ação]Gateway` | `FakeProductCatalogFetchGateway` |
+| **Job** | `[Ação]NomeDoModuloJob` | `RefreshProductCatalogProductionReadyJob` |
 
 ### 4. NOMENCLATURA DE FUNÇÕES E MÉTODOS
 
