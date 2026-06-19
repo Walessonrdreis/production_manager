@@ -15,6 +15,10 @@ import { RealSalesOrderFetchPageGateway } from "../../../../infrastructure/gatew
 import { ProductCatalogProductionReadyReadModelStore } from "@/modules/integration/product-catalog/infrastructure/db/product-catalog-production-ready-read-model.store";
 import { RefreshProductCatalogProductionReadyUseCase } from "@/modules/integration/product-catalog/application/use-cases/refresh-product-catalog-production-ready.usecase";
 
+// ✅ imports do sales-order-summary (NOVO)
+import { SalesOrderSummaryReadModelStore } from "../../../../infrastructure/db/sales-order-summary-read-model.store";
+import { RefreshSalesOrderSummaryReadModelUseCase } from "../../../../application/use-cases/refresh-sales-order-summary-read-model.usecase";
+
 const logger = getLogger("sync-all-sales-orders.route");
 
 type SyncAllSalesOrdersRequestDTO = {
@@ -63,8 +67,8 @@ export async function registerSyncAllSalesOrdersRoute(
       const fetchPageGateway =
         env.SALES_ORDER_SYNC_GATEWAY === "real"
           ? new RealSalesOrderFetchPageGateway(
-              omieClient as OmieHttpClientPort
-            )
+            omieClient as OmieHttpClientPort
+          )
           : new FakeSalesOrderFetchPageGateway();
 
       // ✅ instancia o refresh do product-catalog (NOVO)
@@ -73,13 +77,20 @@ export async function registerSyncAllSalesOrdersRoute(
           new ProductCatalogProductionReadyReadModelStore()
         );
 
+      // ✅ instancia o refresh do sales-order-summary (NOVO)
+      const refreshSalesOrderSummaryUseCase =
+        new RefreshSalesOrderSummaryReadModelUseCase(
+          new SalesOrderSummaryReadModelStore()
+        );
+
       // ✅ usecase completo com ordem correta de parâmetros
       const useCase = new SyncAllSalesOrdersUseCase(
         fetchPageGateway,
         new SalesOrderSyncIntegrationStore(prisma),
         new SalesOrderSyncCommandStore(prisma),
         new SalesOrderSyncStateStore(),
-        refreshProductCatalogUseCase, // ✅ aqui estava faltando
+        refreshProductCatalogUseCase, // ✅ product-catalog
+        refreshSalesOrderSummaryUseCase, // ✅ sales-order-summary
         {
           noWrite: env.SALES_ORDER_SYNC_GATEWAY === "fake",
         }

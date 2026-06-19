@@ -7,6 +7,7 @@ import { SalesOrderSyncIntegrationStore } from "../../infrastructure/db/sales-or
 import { SalesOrderSyncCommandStore } from "../../infrastructure/db/sales-order-sync-command.store";
 import { SalesOrderSyncStateStore } from "../../infrastructure/db/sales-order-sync-state.store";
 import { RefreshProductCatalogProductionReadyUseCase } from "@/modules/integration/product-catalog/application/use-cases/refresh-product-catalog-production-ready.usecase";
+import { RefreshSalesOrderSummaryReadModelUseCase } from "./refresh-sales-order-summary-read-model.usecase";
 
 export type SyncAllSalesOrdersCommand = {
   externalRequestId: string;
@@ -28,8 +29,9 @@ export class SyncAllSalesOrdersUseCase {
     private readonly commandStore: SalesOrderSyncCommandStore,
     private readonly stateStore: SalesOrderSyncStateStore,
     private readonly refreshProductCatalogUseCase: RefreshProductCatalogProductionReadyUseCase,
+    private readonly refreshSalesOrderSummaryUseCase: RefreshSalesOrderSummaryReadModelUseCase,
     private readonly options: { noWrite?: boolean } = {}
-  ) {}
+  ) { }
 
   private extractRedundantWaitSeconds(sample: string): number | null {
     const match = sample.match(/aguarde\s+(\d+)\s+segundos/i);
@@ -309,6 +311,12 @@ export class SyncAllSalesOrdersUseCase {
         });
 
         await this.refreshProductCatalogUseCase.execute();
+
+        this.logger.info("Triggering sales-order summary refresh after sync", {
+          externalRequestId: command.externalRequestId,
+        });
+
+        await this.refreshSalesOrderSummaryUseCase.execute();
       }
 
       this.logger.info("Sales-order sync completed", {
