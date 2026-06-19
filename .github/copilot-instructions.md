@@ -14,6 +14,13 @@
 
 - **"pode codar"**: autorização para gerar código. Siga os passos definidos na conversa, **um passo por vez**.
 
+### 🧹 Cleanup pós-teste
+
+- Após testar alterações (curl, refresh, etc.), **sempre mate o servidor de dev** imediatamente.
+- Não mantenha servidores rodando entre interações — terminou os testes, encerre o processo.
+- Use `Get-Process -Id (Get-NetTCPConnection -LocalPort 3333).OwningProcess | Stop-Process -Force` no Windows ou `taskkill /F /PID <pid>`.
+- Verificar portas ocupadas com `netstat -ano | findstr :PORTA` antes de iniciar novo servidor.
+
 ---
 
 ## 📂 Diretórios Base para Contexto
