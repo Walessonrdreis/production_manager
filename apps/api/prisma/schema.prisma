@@ -170,7 +170,7 @@ model SalesOrderItem {
   omieItemId String @db.VarChar(64) @map("omie_item_id")
 
   // 🔥 CHAVE CANÔNICA DO PRODUTO
-  productCode String @db.VarChar(64)
+  productCode String @db.VarChar(64) @map("product_code")
 
   // 🔴 ID técnico do produto no Omie
   productOmieId String @db.VarChar(64) @map("product_omie_id")
@@ -196,7 +196,7 @@ model SalesOrderItem {
   lastSyncAt DateTime @default(now()) @map("last_sync_at")
 
   // 🔗 FK
-  salesOrderId String
+  salesOrderId String @map("sales_order_id")
 
   // ✅ RELATION INLINE (SEM ERRO PRISMA)
   order SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)

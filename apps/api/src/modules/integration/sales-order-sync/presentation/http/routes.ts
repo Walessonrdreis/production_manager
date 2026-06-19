@@ -3,10 +3,12 @@ import { registerSyncAllSalesOrdersRoute } from "./routes/commands/sync-all-sale
 import { registerGetSalesOrderSyncStatusRoute } from "./routes/read/get-sales-order-sync-status.route";
 import { registerGetSalesOrderSummaryRoutes } from "./routes/read/get-sales-order-summary.route";
 import { registerGetSalesOrderTransitionsRoutes } from "./routes/read/get-sales-order-transitions.route";
+import { registerGetSalesOrdersOpenItemsRoute } from "./routes/read/get-sales-orders-open-items.route";
 
 export async function salesOrderSyncRoutes(app: FastifyInstance) {
   await registerSyncAllSalesOrdersRoute(app);
   await registerGetSalesOrderSyncStatusRoute(app);
   await registerGetSalesOrderSummaryRoutes(app);
   await registerGetSalesOrderTransitionsRoutes(app);
+  await registerGetSalesOrdersOpenItemsRoute(app);
 }
