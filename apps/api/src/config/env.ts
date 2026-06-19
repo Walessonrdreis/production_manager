@@ -32,14 +32,19 @@ const envSchema = z.object({
   PRODUCT_CATALOG_GATEWAY: z.enum(["fake", "real"]).default("fake"),
   SALES_ORDER_SYNC_GATEWAY: z.enum(["fake", "real"]).default("fake"),
 
+  // ✅ módulo product-stock-fetch
+  PRODUCT_STOCK_FETCH_GATEWAY: z.enum(["fake", "real"]).default("fake"),
+
   // Omie
   OMIE_APP_KEY: z.string().min(1),
   OMIE_APP_SECRET: z.string().min(1),
   OMIE_BASE_URL: z.string().url(),
 
   // Jobs
-  ENABLE_STOCK_REFRESH_JOB: envBoolean.default(false),
-  STOCK_REFRESH_CRON: z.string().default("*/5 * * * *"),
+
+  // ✅ módulo product-stock-fetch
+  ENABLE_PRODUCT_STOCK_FETCH_REFRESH_JOB: envBoolean.default(false),
+  PRODUCT_STOCK_FETCH_REFRESH_CRON: z.string().default("*/30 * * * *"),
 
   ENABLE_OMIE_PRODUCT_SYNC_JOB: envBoolean.default(false),
   OMIE_PRODUCT_SYNC_CRON: z.string().default("*/30 * * * *"),

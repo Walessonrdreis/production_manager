@@ -755,3 +755,53 @@ model ProductCatalogCommand {
   @@schema("integration")
 }
 
+// ---------------------------------------------------------------------------
+// ProductStockCommand
+// ---------------------------------------------------------------------------
+
+enum ProductStockCommandType {
+  REFRESH_STOCK
+
+  @@schema("integration")
+}
+
+enum ProductStockCommandStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+
+  @@schema("integration")
+}
+
+enum ProductStockCommandSource {
+  API2
+  JOB
+  ADMIN
+
+  @@schema("integration")
+}
+
+model ProductStockCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @map("external_request_id")
+  productId         String @map("product_id")
+
+  commandType ProductStockCommandType @map("command_type")
+  status      ProductStockCommandStatus @default(ACCEPTED)
+
+  source    ProductStockCommandSource @default(API2)
+  lastError Json? @map("last_error")
+
+  executedAt  DateTime? @map("executed_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([productId])
+  @@index([status])
+  @@map("product_stock_command")
+  @@schema("integration")
+}
+
