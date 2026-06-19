@@ -219,13 +219,46 @@ POST /v1/admin/product-catalog/refresh-production-ready
 
 ### 🔹 Status de lock
 
+```
 GET /v1/admin/product-catalog/lock-status
+```
+
+Indica se há sync global em execução (protege contra concorrência).
+
+#### Exemplo
+
+```bash
+curl "http://localhost:3333/v1/admin/product-catalog/lock-status"
+```
+
+#### Resposta
+
+```json
+{
+  "success": true,
+  "data": {
+    "locked": false,
+    "lockedAt": null,
+    "externalRequestId": null
+  }
+}
+```
 
 ---
 
 ### 🔹 Liberação de lock
 
+```
 POST /v1/admin/product-catalog/release-lock
+```
+
+Remove lock manualmente em caso de falha.
+
+#### Exemplo
+
+```bash
+curl -X POST "http://localhost:3333/v1/admin/product-catalog/release-lock"
+```
 
 ---
 
@@ -280,6 +313,70 @@ Este módulo é responsável por:
 - Estrutura completa NÃO está embutida no catálogo
 - O endpoint production-ready só fica “rico” quando os espelhos auxiliares estiverem atualizados
 - Mesmo com dados incompletos, o endpoint continua retornando produtos para facilitar debug e observabilidade
+
+---
+
+## 🚀 Exemplos práticos (curl)
+
+### Sync de 1 produto
+
+```bash
+curl -X POST "http://localhost:3333/v1/integration/product-catalog/55P/sync" \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId": "manual-55p-001"}'
+```
+
+### Sync global do catálogo
+
+```bash
+curl -X POST "http://localhost:3333/v1/integration/product-catalog/sync-global" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### Refresh do read-model production-ready
+
+```bash
+curl -X POST "http://localhost:3333/v1/admin/product-catalog/refresh-production-ready" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### Catálogo completo com filtros
+
+```bash
+curl "http://localhost:3333/v1/admin/read/products/catalog?q=chocolate&activeOnly=true&limit=10&sort=description&order=asc"
+```
+
+### Production-ready com disponibilidade
+
+```bash
+curl "http://localhost:3333/v1/products/catalog/production-ready?onlyActive=true&onlyInStock=true&limit=20"
+```
+
+### Status de um comando
+
+```bash
+curl "http://localhost:3333/v1/integration/product-catalog/sync-status/meu-request-id-123"
+```
+
+### Último sync global
+
+```bash
+curl "http://localhost:3333/v1/integration/product-catalog/last-sync"
+```
+
+### Histórico de comandos
+
+```bash
+curl "http://localhost:3333/v1/integration/product-catalog/sync-history?limit=5"
+```
+
+### Falhas de sincronização
+
+```bash
+curl "http://localhost:3333/v1/integration/product-catalog/sync-failures?limit=5"
+```
 
 ---
 

@@ -29,6 +29,15 @@ HTTP (Fastify) → UseCase → Gateway (real/fake) → Omie API
 | GET | `/v1/admin/read/customers/stats` | Estatísticas (total, ativos, inativos) |
 | GET | `/v1/customers/summary` | Sumário de clientes ativos |
 
+#### Query params — GET /v1/admin/read/customers
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `q` | string | Busca por nome, código, CNPJ/CPF ou fantasia |
+| `activeOnly` | boolean | `true` = apenas clientes ativos |
+| `limit` | number | Máx. itens (default: 100) |
+| `offset` | number | Deslocamento |
+
 ### Sync (integração)
 
 | Método | Rota | Descrição |
@@ -109,3 +118,57 @@ customer-sync/
 - `OmieCustomer` (`omie_customer`) — espelho local dos clientes
 - `CustomerCommand` (`customer_command`) — command store com idempotência
 - `CustomerSyncState` (`customer_sync_state`) — estado do último sync global
+
+## 🚀 Exemplos práticos (curl)
+
+### Sync de 1 cliente
+
+```bash
+curl -X POST "http://localhost:3333/v1/integration/customer-sync/9428243340/sync" \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId": "manual-cliente-001"}'
+```
+
+### Sync global de clientes
+
+```bash
+curl -X POST "http://localhost:3333/v1/integration/customer-sync/sync-global" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### Listar/buscar clientes
+
+```bash
+curl "http://localhost:3333/v1/admin/read/customers?q=chocolate&activeOnly=true&limit=5"
+```
+
+### Cliente específico
+
+```bash
+curl "http://localhost:3333/v1/admin/read/customers/9428243340"
+```
+
+### Estatísticas
+
+```bash
+curl "http://localhost:3333/v1/admin/read/customers/stats"
+```
+
+### Sumário para API2
+
+```bash
+curl "http://localhost:3333/v1/customers/summary"
+```
+
+### Status de um comando
+
+```bash
+curl "http://localhost:3333/v1/integration/customer-sync/sync-status/meu-request-id-123"
+```
+
+### Último sync global
+
+```bash
+curl "http://localhost:3333/v1/integration/customer-sync/last-sync"
+```
