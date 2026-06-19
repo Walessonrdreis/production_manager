@@ -8,6 +8,7 @@ export type SalesOrderSummaryRecord = {
     isClosed: boolean;
     customerOmieId: string | null;
     companyOmieId: string | null;
+    customerName: string | null;
     forecastDate: Date | null;
     totalAmount: number | null;
     totalItems: number;
@@ -20,6 +21,7 @@ export type ListSalesOrderSummaryParams = {
     isCanceled?: boolean;
     isClosed?: boolean;
     customerOmieId?: string | null;
+    activeOnly?: boolean;
     q?: string | null;
     limit?: number;
     offset?: number;
@@ -53,6 +55,7 @@ export class SalesOrderSummaryReadModelStore {
                     isClosed: record.isClosed,
                     customerOmieId: record.customerOmieId,
                     companyOmieId: record.companyOmieId,
+                    customerName: record.customerName,
                     forecastDate: record.forecastDate,
                     totalAmount: record.totalAmount,
                     totalItems: record.totalItems,
@@ -69,6 +72,7 @@ export class SalesOrderSummaryReadModelStore {
             isCanceled,
             isClosed,
             customerOmieId = null,
+            activeOnly,
             q = null,
             limit = 100,
             offset = 0,
@@ -91,6 +95,12 @@ export class SalesOrderSummaryReadModelStore {
             where.isClosed = isClosed;
         }
 
+        // activeOnly = !isCanceled AND !isClosed
+        if (activeOnly === true) {
+            where.isCanceled = false;
+            where.isClosed = false;
+        }
+
         if (customerOmieId !== null && customerOmieId !== "") {
             where.customerOmieId = customerOmieId;
         }
@@ -99,6 +109,7 @@ export class SalesOrderSummaryReadModelStore {
             where.OR = [
                 { orderNumber: { contains: q, mode: "insensitive" as const } },
                 { customerOmieId: { contains: q, mode: "insensitive" as const } },
+                { customerName: { contains: q, mode: "insensitive" as const } },
             ];
         }
 

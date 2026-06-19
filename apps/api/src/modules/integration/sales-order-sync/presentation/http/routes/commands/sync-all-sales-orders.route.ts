@@ -17,6 +17,7 @@ import { RefreshProductCatalogProductionReadyUseCase } from "@/modules/integrati
 
 // ✅ imports do sales-order-summary (NOVO)
 import { SalesOrderSummaryReadModelStore } from "../../../../infrastructure/db/sales-order-summary-read-model.store";
+import { SalesOrderStageTransitionStore } from "../../../../infrastructure/db/sales-order-stage-transition.store";
 import { RefreshSalesOrderSummaryReadModelUseCase } from "../../../../application/use-cases/refresh-sales-order-summary-read-model.usecase";
 
 const logger = getLogger("sync-all-sales-orders.route");
@@ -80,7 +81,8 @@ export async function registerSyncAllSalesOrdersRoute(
       // ✅ instancia o refresh do sales-order-summary (NOVO)
       const refreshSalesOrderSummaryUseCase =
         new RefreshSalesOrderSummaryReadModelUseCase(
-          new SalesOrderSummaryReadModelStore()
+          new SalesOrderSummaryReadModelStore(),
+          new SalesOrderStageTransitionStore()
         );
 
       // ✅ usecase completo com ordem correta de parâmetros

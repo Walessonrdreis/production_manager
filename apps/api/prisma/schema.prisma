@@ -589,6 +589,7 @@ model SalesOrderSummaryReadModel {
   isClosed                Boolean  @default(false)            @map("is_closed")
   customerOmieId          String?  @db.VarChar(64)            @map("customer_omie_id")
   companyOmieId           String?  @db.VarChar(64)            @map("company_omie_id")
+  customerName            String?  @db.Text                   @map("customer_name")
   forecastDate            DateTime?                           @map("forecast_date")
   totalAmount             Decimal? @db.Decimal(18, 2)         @map("total_amount")
   totalItems              Int      @default(0)                @map("total_items")
@@ -604,6 +605,22 @@ model SalesOrderSummaryReadModel {
   @@index([customerOmieId])
 
   @@map("sales_order_summary_read_model")
+}
+
+model SalesOrderStageTransition {
+  id               String   @id @default(cuid())
+
+  salesOrderOmieId String   @db.VarChar(64)            @map("sales_order_omie_id")
+  fromStage        String?  @db.VarChar(10)            @map("from_stage")
+  toStage          String   @db.VarChar(10)            @map("to_stage")
+  detectedAt       DateTime @default(now())            @map("detected_at")
+
+  createdAt        DateTime @default(now())            @map("created_at")
+
+  @@index([salesOrderOmieId])
+  @@index([toStage])
+  @@index([detectedAt])
+  @@map("sales_order_stage_transition")
 }
 
 enum ProductStructureCommandType {

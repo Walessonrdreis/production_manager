@@ -17,6 +17,7 @@
     "db:studio": "prisma studio",
     "db:studio:local": "cross-env DATABASE_URL=postgresql://postgres:postgres@localhost:5432/production_manager?schema=public prisma studio",
     "test": "vitest run",
+    "seed:sales-order-transitions": "tsx scripts/seed-sales-order-transitions.ts",
     "backfill:omie-code": "tsx scripts/backfill-omie-code.ts",
     "trello:register-webhook": "tsx scripts/trello/register-webhook.ts",
     "metrics:all": "node scripts/metrics/all.mjs",

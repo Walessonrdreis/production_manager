@@ -6,6 +6,7 @@ type ListSalesOrdersQueryString = {
     isCanceled?: string;
     isClosed?: string;
     customerOmieId?: string;
+    activeOnly?: string;
     q?: string;
     limit?: number;
     offset?: number;
@@ -32,10 +33,16 @@ export async function registerGetSalesOrderSummaryRoutes(
                     ? query.isClosed === "true"
                     : undefined;
 
+            const activeOnly =
+                query.activeOnly !== undefined
+                    ? query.activeOnly === "true"
+                    : undefined;
+
             const result = await store.list({
                 stage: query.stage ?? null,
                 isCanceled,
                 isClosed,
+                activeOnly,
                 customerOmieId: query.customerOmieId ?? null,
                 q: query.q ?? null,
                 limit: query.limit,
