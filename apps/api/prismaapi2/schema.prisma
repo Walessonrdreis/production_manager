@@ -1,656 +1,166 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  schemas  = ["domain"]
 }
 
-model SyncLock {
-  key         String   @id
-  lockedUntil DateTime
-}
-
-model JobLock {
-  key         String   @id @db.VarChar(64)
-  lockedUntil DateTime
-  updatedAt   DateTime @updatedAt
-
-  @@map("job_lock")
-}
-
-model OmieProduct {
-  id                  String   @id @default(uuid())
-
-  omieCode            String   @db.VarChar(64)  @map("omie_code")
-  omieId              String?  @db.VarChar(64)  @map("omie_id")
-
-  sku                 String?  @db.VarChar(128)
-  description         String   @db.Text
-  familyDescription   String?  @db.Text         @map("family_description")
-
-  active              Boolean  @default(true)
-
-  rawPayload          Json     @map("raw_payload")
-  lastSyncAt          DateTime @default(now())  @map("last_sync_at")
-
-  @@unique([omieCode])
-  @@index([description])
-  @@map("omie_product")
-}
-
-model Product {
-  id            String      @id @default(uuid())
-  omieProductId String      @unique
-  omieProduct   OmieProduct @relation(fields: [omieProductId], references: [id], onDelete: Cascade)
-  nickname      String?
-  active        Boolean     @default(true)
-
-  productSector ProductSector?
-  planItems     ProductionPlanItem[]
-}
-
-model Sector {
-  id     String  @id @default(uuid())
-  name   String  @unique
-  order  Int     @default(0)
-  active Boolean @default(true)
-
-  productSectors ProductSector[]
-  planItems      ProductionPlanItem[]
-}
-
-model ProductSector {
-  productId String  @id
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sectorId  String
-  sector    Sector  @relation(fields: [sectorId], references: [id], onDelete: Restrict)
-  notes     String?
-}
-
-enum PlanStatus {
-  DRAFT
-  PUBLISHED
-  CLOSED
-}
-
-model ProductionPlan {
-  id        String     @id @default(uuid())
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Collaborator {
+  id        String   @id
   name      String
-  startDate DateTime
-  endDate   DateTime
-  status    PlanStatus @default(DRAFT)
-  createdAt DateTime   @default(now())
+  role      String?
+  metrics   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  category  String?
+  dailyGoal Int?     @map("daily_goal")
+  sectorId  String?  @map("sector_id")
+  status    String?  @default("active")
 
-  items ProductionPlanItem[]
-
-  @@index([startDate, endDate])
+  @@map("collaborator")
+  @@schema("domain")
 }
 
-model ProductionPlanItem {
-  id        String         @id @default(uuid())
-  planId    String
-  plan      ProductionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-  productId String
-  product   Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
-  sectorId  String
-  sector    Sector         @relation(fields: [sectorId], references: [id], onDelete: Restrict)
-  quantity  Int
-  notes     String?
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Goal {
+  id                 String   @id
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  collaboratorId     String?  @map("collaborator_id")
+  collaboratorName   String?  @map("collaborator_name")
+  isActive           Boolean  @default(true) @map("is_active")
+  lastModified       String?  @map("last_modified")
+  period             String
+  productCode        String?  @map("product_code")
+  productDescription String?  @map("product_description")
+  sectorId           String?  @map("sector_id")
+  sectorName         String?  @map("sector_name")
+  synced             Boolean  @default(true)
+  targetQuantity     Int      @map("target_quantity")
+  type               String?
 
-  @@index([planId, sectorId])
-  @@index([productId])
+  @@map("goal")
+  @@schema("domain")
 }
 
-
-
-model OmieOrder {
-  id           String  @id @default(uuid())
-
-  /// cabecalho.codigo_pedido
-  omieCode     String  @db.VarChar(64)
-
-  /// cabecalho.numero_pedido (ex: "1305")
-  numeroPedido String? @db.VarChar(64)
-
-
-  /// cabecalho.codigo_cliente
-  codigoCliente String?  @db.VarChar(64)
-
-  // ✅ NOVOS CAMPOS
-  clientLegalName String?  @db.Text
-  clientTradeName String?  @db.Text
-
-  codigoEmpresa String?  @db.VarChar(64)
-  etapa         String   @db.VarChar(10)
-
-  cancelado     String   @default("N") @db.Char(1)
-  encerrado     String   @default("N") @db.Char(1)
-
-  dataPrevisao  DateTime?
-
-  rawPayload    Json
-  lastSyncAt    DateTime @default(now())
-
-  items         OmieOrderItem[]
-
-  @@unique([omieCode])
-  @@index([etapa])
-  @@index([cancelado, encerrado])
-  @@index([codigoCliente])
-  @@map("omie_order")
-}
-
-
-
-model OmieOrderItem {
-  id           String   @id @default(uuid())
-
-  /// ide.codigo_item
-  omieItemCode String   @db.VarChar(64)
-
-  /// relação com pedido
-  omieOrderId  String
-  order        OmieOrder @relation(fields: [omieOrderId], references: [id], onDelete: Cascade)
-
-  /// produto.codigo_produto / produto.codigo (SKU)
-  omieProductCode String? @db.VarChar(64)
-  sku             String? @db.VarChar(128)
-
-  /// produto.descricao
-  description     String  @db.Text
-
-  /// produto.unidade
-  unit            String? @db.VarChar(16)
-
-  /// produto.quantidade (vem como número; guardamos Decimal)
-  quantity        Decimal @db.Decimal(18, 4)
-
-  /// opcionais úteis
-  unitPrice       Decimal? @db.Decimal(18, 6)
-  totalPrice      Decimal? @db.Decimal(18, 2)
-
-  rawPayload      Json
-  lastSyncAt      DateTime @default(now())
-
-  @@unique([omieItemCode])
-  @@index([omieOrderId])
-  @@index([omieProductCode])
-  @@index([description])
-  @@map("omie_order_item")
-}
-model Client {
-  id String @id @default(uuid())
-
-  omieClientCode BigInt @unique @map("codigo_cliente_omie")
-
-  legalName  String  @map("razao_social")
-  tradeName  String? @map("nome_fantasia")
-  document   String  @map("documento")
-
-  personType PersonType @map("tipo_pessoa")
-
-  email String?
-  phone String? @map("telefone")
-
-  isActive         Boolean @default(true)
-  isBlocked        Boolean @default(false)
-  isBillingBlocked Boolean @default(false)
-
-  createdAtOmie DateTime?
-  updatedAtOmie DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // relacionamento lógico apenas (sem FK)
-  // orders OmieOrder[]
-
-  @@map("clientes")
-}
-
-model OmieProductionOrder {
-  id           String  @id @default(uuid())
-
-  /// identificacao.nCodOP
-  omieCode     String  @db.VarChar(64)
-
-  /// identificacao.cCodIntOP
-  internalCode String? @db.VarChar(64)
-
-  /// identificacao.nCodProduto
-  productCode  String? @db.VarChar(64)
-
-  /// identificacao.cCodIntProd
-  productIntegrationCode String? @db.VarChar(128)
-
-  /// identificacao.nQtde
-  quantity     String  @db.VarChar(32)
-
-  /// identificacao.dDtPrevisao
-  forecastDate DateTime?
-
-  /// infAdicionais.dDtInicio
-  startDate    DateTime?
-
-  /// infAdicionais.dDtConclusao
-  completionDate DateTime?
-
-  /// infAdicionais.cEtapa
-  stage        String? @db.VarChar(10)
-
-  /// infAdicionais.nCodProjeto
-  projectCode  String? @db.VarChar(64)
-
-  /// outrasInf.cConcluida
-  completed    Boolean @default(false)
-
-  /// Flag para controle de reconciliação
-  active       Boolean @default(true)
-
-  rawPayload   Json
-  lastSyncAt   DateTime @default(now())
-
-  items        OmieProductionOrderItem[]
-
-  @@unique([omieCode])
-  @@index([productCode])
-  @@index([productIntegrationCode])
-  @@index([completed])
-  @@index([forecastDate])
-  @@index([completionDate])
-  @@map("omie_production_order")
-}
-
-model OmieProductionOrderItem {
-  id           String   @id @default(uuid())
-
-  /// Código único do item (gerado internamente)
-  omieItemCode String   @db.VarChar(128)
-
-  /// relação com ordem de produção
-  omieProductionOrderId  String
-  productionOrder        OmieProductionOrder @relation(fields: [omieProductionOrderId], references: [id], onDelete: Cascade)
-
-  /// nIdProdutoMalha
-  productMeshId BigInt?
-
-  /// cUtilizarDoEstoque
-  useFromStock  String? @db.Char(1)
-
-  /// nQtde (itensDetalhes)
-  quantity      String? @db.VarChar(32)
-
-  /// codigo_local_estoque
-  stockLocationCode BigInt?
-
-  /// cObs
-  observation   String? @db.Text
-
-  rawPayload    Json
-  lastSyncAt    DateTime @default(now())
-
-  @@unique([omieItemCode])
-  @@index([omieProductionOrderId])
-  @@index([productMeshId])
-  @@map("omie_production_order_item")
-}
-
-model SyncRecord {
-  id            String   @id @default(uuid())
-  syncType      String   @db.VarChar(32)
-  status        String   @db.VarChar(32)
-  startedAt     DateTime
-  completedAt   DateTime?
-  durationMs    Int?
-  itemsProcessed Int     @default(0)
-  itemsFailed   Int      @default(0)
-  error         String?  @db.Text
-  metadata      Json?
-
-  @@index([syncType])
-  @@index([status])
-  @@index([startedAt])
-  @@map("sync_record")
-}
-
-model StockAlert {
-  id                 String   @id @default(uuid())
-  productCode        String   @db.VarChar(64)
-  productDescription String   @db.Text
-  currentStock       Decimal  @db.Decimal(18, 4)
-  minimumStock       Decimal  @db.Decimal(18, 4)
-  severity           String   @db.VarChar(16)
-  status             String   @db.VarChar(16)
-  createdAt          DateTime @default(now())
-  resolvedAt         DateTime?
-  metadata           Json?
-
-  @@index([productCode])
-  @@index([severity])
-  @@index([status])
-  @@index([createdAt])
-  @@map("stock_alert")
-}
-
-model AlertConfig {
-  id                   String   @id @default(uuid())
-  productCode          String?  @db.VarChar(64)
-  criticalThreshold    Decimal  @db.Decimal(18, 4)
-  warningThreshold     Decimal  @db.Decimal(18, 4)
-  notificationChannels String[] // Array de strings para canais
-  autoResolveDays      Int      @default(7)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  @@unique([productCode])
-  @@index([productCode])
-  @@map("alert_config")
-}
-
-enum InternalProductionOrderSource {
-  MANUAL
-  TRELLO
-
-  @@map("internal_production_order_source")
-}
-
-enum InternalProductionOrderStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-
-  @@map("internal_production_order_status")
-}
-
-enum InternalProductionOrderQuantityUnit {
-  UN
-  B
-  G
-  KG
-
-  @@map("internal_production_order_quantity_unit")
-}
-
-enum InternalProductionOrderActorType {
-  SYSTEM
-  INTEGRATION
-  USER
-
-  @@map("internal_production_order_actor_type")
-}
-
-enum InternalProductionOrderEventSource {
-  TRELLO
-  MANUAL
-  SYSTEM
-
-  @@map("internal_production_order_event_source")
-}
-
-model InternalProductionOrder {
-  id                String                                @id @default(uuid())
-  trelloCardId      String?                               @unique @db.VarChar(128)
-  trelloCardUrl     String?                               @db.VarChar(1024)
-  source            InternalProductionOrderSource          @default(MANUAL)
-  status            InternalProductionOrderStatus          @default(PENDING)
-
-  lote              String                                @db.VarChar(64)
-  quantityValue     Decimal                               @db.Decimal(18, 4)
-  quantityUnit      InternalProductionOrderQuantityUnit    @default(UN)
-
-  omieCode          String?                               @db.VarChar(64)
-  parsedProductName String?                               @db.VarChar(512)
-  productDescription String?                              @db.Text
-  stockQuantity     Decimal?                              @db.Decimal(18, 4)
-  minimumStock      Decimal?                              @db.Decimal(18, 4)
-
-  startedAt         DateTime?
-  completedAt       DateTime?
-  createdAt         DateTime                              @default(now())
-  updatedAt         DateTime                              @updatedAt
-
-  events            InternalProductionOrderEvent[]
-
-  @@index([status])
-  @@index([source])
-  @@index([createdAt])
-  @@index([omieCode])
-  @@map("internal_production_order")
-}
-
-model InternalProductionOrderEvent {
-  id        String                            @id @default(uuid())
-  orderId   String
-  type      String                            @db.VarChar(64)
-  actorType InternalProductionOrderActorType
-  actorId   String?                           @db.VarChar(128)
-  source    InternalProductionOrderEventSource
-  message   String                            @db.VarChar(512)
-
-  createdAt DateTime                          @default(now())
-
-  order     InternalProductionOrder           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  changes   InternalProductionOrderChange[]
-
-  @@index([orderId])
-  @@index([type])
-  @@index([createdAt])
-  @@map("internal_production_order_event")
-}
-
-model InternalProductionOrderChange {
-  id       String                               @id @default(uuid())
-  eventId  String
-  field    String                               @db.VarChar(128)
-  before   String?                              @db.Text
-  after    String?                              @db.Text
-
-  event    InternalProductionOrderEvent          @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  @@index([eventId])
-  @@map("internal_production_order_change")
-}
-
-enum PersonType {
-  INDIVIDUAL @map("FISICA")
-  COMPANY    @map("JURIDICA")
-
-  // Se o tipo enum no Postgres já se chama "TipoPessoa", mantenha:
-  @@map("TipoPessoa")
-}
-
-model ProductStructure {
-  id                  String   @id @default(cuid())
-
-  // domínio estável
-  codProduto           String   @map("cod_produto")
-  descrProduto         String?  @map("descr_produto")
-  codFamilia           String?  @map("cod_familia")
-  descrFamilia         String?  @map("descr_familia")
-
-  tipoProduto          String?  @map("tipo_produto")
-  unidProduto          String?  @map("unid_produto")
-
-  pesoBruto            Decimal? @db.Decimal(18, 6) @map("peso_bruto")
-  pesoLiquido          Decimal? @db.Decimal(18, 6) @map("peso_liquido")
-
-  hasStructure         Boolean  @default(false)    @map("has_structure")
-
-  // integração Omie
-  idProdutoOmie        BigInt?  @map("id_produto_omie")
-  intProdutoOmie       String?  @map("int_produto_omie")
-
-  // idempotência / controle
-  structureHash        String?  @map("structure_hash")
-
-  items                ProductStructureItem[]
-
-  createdAt            DateTime @default(now())   @map("created_at")
-  updatedAt            DateTime @updatedAt        @map("updated_at")
-
-  @@unique([codProduto])
-  @@index([codProduto])
-  @@map("product_structure")
-}
-
-model ProductStructureItem {
-  id                     String   @id @default(cuid())
-
-  // FK lógica -> ProductStructure.codProduto
-  codProdutoPai           String   @map("cod_produto_pai")
-
-  // produto componente
-  codProdutoComponente    String   @map("cod_produto_componente")
-  descrProdutoComponente  String?  @map("descr_produto_componente")
-
-  codFamiliaComponente    String?  @map("cod_familia_componente")
-  descrFamiliaComponente  String?  @map("descr_familia_componente")
-
-  quantidade              Decimal  @db.Decimal(18, 6)
-  unidade                 String?
-
-  tipoProdutoComponente   String?  @map("tipo_produto_componente")
-  percentualPerda         Decimal? @db.Decimal(18, 6) @map("percentual_perda")
-
-  // integração Omie
-  idMalhaOmie             BigInt?  @map("id_malha_omie")
-
-  createdAt               DateTime @default(now()) @map("created_at")
-  updatedAt               DateTime @updatedAt      @map("updated_at")
-
-  parent ProductStructure @relation(
-    fields: [codProdutoPai],
-    references: [codProduto],
-    onDelete: Cascade
-  )
-
-  @@unique([codProdutoPai, codProdutoComponente, idMalhaOmie])
-  @@index([codProdutoPai])
-  @@map("product_structure_item")
-}
-enum ProductionOrderIntegrationStatus {
-  ACCEPTED
-  CONFIRMED
-  FAILED
-}
-
-model ProductionOrderIntegration {
-  id String @id @default(uuid())
-
-  externalRequestId String @db.VarChar(64) @unique @map("external_request_id")
-
-  omieProductionOrderId String? @db.VarChar(64) @map("omie_production_order_id")
-
-  productId String @db.VarChar(64) @map("product_id")
-
-  quantity Int
-
-  status ProductionOrderIntegrationStatus
-
-  lastError Json? @map("last_error")
-
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PlanningBatch {
+  id        String   @id
+  name      String
+  date      String
+  status    String
+  createdBy String   @map("created_by")
+  synced    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@index([externalRequestId])
-  @@index([omieProductionOrderId])
-  @@index([status])
-  @@map("production_order_integration")
+  @@map("planning_batch")
+  @@schema("domain")
 }
 
-// ============================================
-// MÓDULO: PRODUCTION-CONTROL
-// ============================================
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PlanningItem {
+  id          String   @id
+  batchId     String   @map("batch_id")
+  productCode String   @map("product_code")
+  description String
+  unit        String?
+  quantity    Int
+  sectorId    String?  @map("sector_id")
+  sectorName  String?  @map("sector_name")
+  synced      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-enum ProductionControlStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-
-  @@map("production_control_status")
+  @@map("planning_item")
+  @@schema("domain")
 }
 
-enum ProductionControlHistoryAction {
-  SNAPSHOT_CREATED
-  ORDER_CHECKED
-  ORDER_UNCHECKED
-  PRODUCT_CHECKED
-  PRODUCT_UNCHECKED
-  DATE_UPDATED
-  AUTO_COMPLETED
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProducedRecord {
+  id          String   @id
+  description String
+  quantity    Int
+  orderId     String?  @map("order_id")
+  orderNumber String?  @map("order_number")
+  synced      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  @@map("production_control_history_action")
+  @@map("produced_record")
+  @@schema("domain")
 }
 
-model ProductionControlSnapshot {
-  id          String   @id @default(uuid())
-  snapshotId  String   @unique @db.VarChar(64)
-  description String?  @db.Text
-  createdAt   DateTime @default(now())
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Product {
+  id        String   @id
+  name      String
+  code      String?
+  price     Float?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  products    ProductionControlProduct[]
-
-  @@index([snapshotId])
-  @@index([createdAt])
-  @@map("production_control_snapshot")
+  @@map("product")
+  @@schema("domain")
 }
 
-model ProductionControlProduct {
-  id          String   @id @default(uuid())
-  snapshotId  String
-  snapshot    ProductionControlSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
-  description String   @db.Text
-  totalQuantity Decimal @db.Decimal(18, 4)
-  pendingQuantity Decimal @db.Decimal(18, 4)
-  status      ProductionControlStatus @default(PENDING)
-  scheduledDate DateTime?
-  actualDate   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductionOrder {
+  id                 String    @id
+  lote               String
+  productId          String?   @map("product_id")
+  productCode        String    @map("product_code")
+  productDescription String    @map("product_description")
+  quantity           Int
+  sectorId           String?   @map("sector_id")
+  sectorName         String?   @map("sector_name")
+  collaboratorId     String?   @map("collaborator_id")
+  collaboratorName   String?   @map("collaborator_name")
+  status             String
+  startDate          DateTime? @map("start_date")
+  endDate            DateTime? @map("end_date")
+  notes              String?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  orders      ProductionControlOrder[]
-  history     ProductionControlHistory[]
-
-  @@index([snapshotId])
-  @@index([description])
-  @@index([status])
-  @@map("production_control_product")
+  @@map("production_order")
+  @@schema("domain")
 }
 
-model ProductionControlOrder {
-  id          String   @id @default(uuid())
-  productId   String
-  product     ProductionControlProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
-  orderNumber String?  @db.VarChar(64)
-  clientName  String?  @db.Text
-  quantity    Decimal  @db.Decimal(18, 4)
-  checked     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductionSchedule {
+  id          String    @id
+  productCode String    @map("product_code")
+  description String
+  quantity    Int?
+  sectorId    String?   @map("sector_id")
+  sectorName  String?   @map("sector_name")
+  scheduledAt DateTime? @map("scheduled_at")
+  notes       String?
+  synced      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  history     ProductionControlHistory[]
-
-  @@index([productId])
-  @@index([orderNumber])
-  @@map("production_control_order")
+  @@map("production_schedule")
+  @@schema("domain")
 }
 
-model ProductionControlHistory {
-  id          String   @id @default(uuid())
-  orderId     String?
-  order       ProductionControlOrder? @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId   String?
-  product     ProductionControlProduct? @relation(fields: [productId], references: [id], onDelete: Cascade)
-  action      ProductionControlHistoryAction
-  details     Json?
-  createdAt   DateTime @default(now())
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Sector {
+  id         String   @id
+  name       String
+  isSystem   Boolean  @default(false) @map("is_system")
+  systemCode String?  @unique @map("system_code") // Ex: "REFINO", "TEMPERAGEM", "CONFEITARIA", "EMBALAGEM"
+  status     String?  @default("active") // "active" | "inactive"
+  
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  @@index([orderId])
-  @@index([productId])
-  @@index([action])
-  @@index([createdAt])
-  @@map("production_control_history")
+  @@map("sector")
+  @@schema("domain")
 }
