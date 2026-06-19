@@ -20,6 +20,7 @@ export type ProductCatalogProductionReadyStatus =
 
 export type ProductCatalogProductionReadyItemDTO = {
   productCode: string;
+  omieCode: string | null;
   description: string;
   sku: string | null;
   active: boolean;
@@ -38,6 +39,7 @@ export type ProductCatalogProductionReadyItemDTO = {
 
   hasStructure: boolean;
   structureItemsCount: number;
+  structureItemsBelowMinStock: number;
 
   hasOpenProductionOrder: boolean;
   openProductionOrderCount: number;

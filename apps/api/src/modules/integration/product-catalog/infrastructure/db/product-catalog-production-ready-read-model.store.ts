@@ -2,6 +2,7 @@ import { prisma } from "@/shared/db/prisma";
 
 export type ProductCatalogProductionReadyRecord = {
   productCode: string;
+  omieCode: string | null;
   description: string;
   sku: string | null;
   active: boolean;
@@ -16,6 +17,7 @@ export type ProductCatalogProductionReadyRecord = {
   belowMinimumStock: boolean;
   hasStructure: boolean;
   structureItemsCount: number;
+  structureItemsBelowMinStock: number;
   hasOpenProductionOrder: boolean;
   openProductionOrderCount: number;
   hasOpenSalesOrderStage20: boolean;
@@ -47,6 +49,7 @@ export class ProductCatalogProductionReadyReadModelStore {
       await tx.productCatalogProductionReadyReadModel.createMany({
         data: records.map((record) => ({
           productCode: record.productCode,
+          omieCode: record.omieCode,
           description: record.description,
           sku: record.sku,
           active: record.active,
@@ -61,6 +64,7 @@ export class ProductCatalogProductionReadyReadModelStore {
           belowMinimumStock: record.belowMinimumStock,
           hasStructure: record.hasStructure,
           structureItemsCount: record.structureItemsCount,
+          structureItemsBelowMinStock: record.structureItemsBelowMinStock,
           hasOpenProductionOrder: record.hasOpenProductionOrder,
           openProductionOrderCount: record.openProductionOrderCount,
           hasOpenSalesOrderStage20: record.hasOpenSalesOrderStage20,

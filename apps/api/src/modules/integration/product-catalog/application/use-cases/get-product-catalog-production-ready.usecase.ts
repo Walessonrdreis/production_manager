@@ -50,6 +50,7 @@ export class GetProductCatalogProductionReadyUseCase {
       // ✅🔥 CORREÇÃO AQUI
       data: result.data.map((record) => ({
         productCode: record.productCode,
+        omieCode: record.omieCode ?? null,
         description: record.description,
         sku: record.sku ?? null,
         active: record.active,
@@ -71,6 +72,7 @@ export class GetProductCatalogProductionReadyUseCase {
 
         hasStructure: record.hasStructure,
         structureItemsCount: record.structureItemsCount,
+        structureItemsBelowMinStock: record.structureItemsBelowMinStock,
 
         hasOpenProductionOrder: record.hasOpenProductionOrder,
         openProductionOrderCount: record.openProductionOrderCount,

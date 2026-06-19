@@ -62,11 +62,12 @@ export class RefreshProductCatalogProductionReadyUseCase {
   async execute() {
     this.logger.info("Starting production-ready read-model refresh");
 
-    const [products, stocks, structures, productionOrders, stage20OrderItems] =
+    const [products, stocks, structures, productionOrders, stage20OrderItems, structureItems] =
       await Promise.all([
         prisma.omieProduct.findMany({
           select: {
             omieCode: true,
+            omieId: true,
             description: true,
             sku: true,
             familyDescription: true,
@@ -122,12 +123,19 @@ export class RefreshProductCatalogProductionReadyUseCase {
           },
           select: {
             productCode: true,
-            quantity: true, // ✅ ADICIONA ISSO
+            quantity: true,
             order: {
               select: {
                 stage: true,
               },
             },
+          },
+        }),
+
+        prisma.productStructureItem.findMany({
+          select: {
+            codProdutoPai: true,
+            codProdutoComponente: true,
           },
         }),
       ]);
@@ -179,6 +187,32 @@ export class RefreshProductCatalogProductionReadyUseCase {
       ])
     );
 
+    // Mapa: display code (omieCode) → internal ID (omieId) para lookup de estoque de componentes
+    const displayCodeToOmieCodeMap = new Map<string, string>(
+      products
+        .filter((p): p is typeof p & { omieId: string } => !!p.omieId)
+        .map((p) => [p.omieCode, p.omieId])
+    );
+
+    // Mapa de estoque dos componentes (por código do componente — internal ID)
+    const componentStockMap = new Map<string, { stock: number; minimumStock: number }>(
+      stocks.map((stock: StockRow) => [
+        stock.omieCode,
+        {
+          stock: Number(stock.stockQuantity),
+          minimumStock: Number(stock.minimumStock),
+        },
+      ])
+    );
+
+    // Mapa: código do produto pai → lista de códigos dos componentes
+    const structureComponentsMap = new Map<string, string[]>();
+    for (const item of structureItems) {
+      const components = structureComponentsMap.get(item.codProdutoPai) ?? [];
+      components.push(item.codProdutoComponente);
+      structureComponentsMap.set(item.codProdutoPai, components);
+    }
+
     const openProductionOrderMap = new Map<string, number>(
       productionOrders
         .filter(
@@ -209,7 +243,8 @@ export class RefreshProductCatalogProductionReadyUseCase {
       (product: ProductRow) => {
         const raw = asRecord(product.rawPayload);
 
-        const stockEntry = stockMap.get(product.omieCode);
+        const stockKey = product.omieId ?? product.omieCode;
+        const stockEntry = stockMap.get(stockKey);
         const structureEntry = structureMap.get(product.omieCode);
 
         const stock = stockEntry?.stock ?? 0;
@@ -224,6 +259,18 @@ export class RefreshProductCatalogProductionReadyUseCase {
         const structureItemsCount =
           structureEntry?.structureItemsCount ?? 0;
 
+        let structureItemsBelowMinStock = 0;
+        if (hasStructure) {
+          const componentCodes = structureComponentsMap.get(product.omieCode) ?? [];
+          for (const compCode of componentCodes) {
+            const compInternalId = displayCodeToOmieCodeMap.get(compCode) ?? compCode;
+            const compStock = componentStockMap.get(compInternalId);
+            if (!compStock || compStock.stock < compStock.minimumStock) {
+              structureItemsBelowMinStock++;
+            }
+          }
+        }
+
         const openProductionOrderCount =
           openProductionOrderMap.get(product.omieCode) ?? 0;
 
@@ -235,6 +282,7 @@ export class RefreshProductCatalogProductionReadyUseCase {
 
         return {
           productCode: product.omieCode,
+          omieCode: stockKey,
           description: product.description,
           sku: product.sku ?? null,
           active: product.active,
@@ -249,6 +297,7 @@ export class RefreshProductCatalogProductionReadyUseCase {
           belowMinimumStock,
           hasStructure,
           structureItemsCount,
+          structureItemsBelowMinStock,
           hasOpenProductionOrder: openProductionOrderCount > 0,
           openProductionOrderCount,
           hasOpenSalesOrderStage20: openSalesOrderStage20Count > 0,

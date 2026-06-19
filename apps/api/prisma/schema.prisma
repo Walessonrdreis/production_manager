@@ -567,6 +567,7 @@ model ProductCatalogProductionReadyReadModel {
   id String @id @default(cuid())
 
   productCode String @unique @db.VarChar(64) @map("product_code")
+  omieCode String? @db.VarChar(64) @map("omie_code")
 
   description String @db.Text
   sku String? @db.VarChar(128)
@@ -588,6 +589,7 @@ model ProductCatalogProductionReadyReadModel {
 
   hasStructure Boolean @default(false) @map("has_structure")
   structureItemsCount Int @default(0) @map("structure_items_count")
+  structureItemsBelowMinStock Int @default(0) @map("structure_items_below_min_stock")
 
   hasOpenProductionOrder Boolean @default(false) @map("has_open_production_order")
   openProductionOrderCount Int @default(0) @map("open_production_order_count")
@@ -802,6 +804,19 @@ model ProductStockCommand {
   @@index([productId])
   @@index([status])
   @@map("product_stock_command")
+  @@schema("integration")
+}
+
+// ---------------------------------------------------------------------------
+// ProductStockFetchSyncState
+// ---------------------------------------------------------------------------
+
+model ProductStockFetchSyncState {
+  id         String   @id
+  lastSyncAt DateTime @map("last_sync_at")
+  updatedAt  DateTime @updatedAt
+
+  @@map("product_stock_fetch_sync_state")
   @@schema("integration")
 }
 
