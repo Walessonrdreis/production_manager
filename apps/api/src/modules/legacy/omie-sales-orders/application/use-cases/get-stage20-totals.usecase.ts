@@ -7,8 +7,8 @@ export function createGetStage20TotalsUseCase(deps: { prisma: any }) {
         SELECT
           i.description,
           SUM(i.quantity) AS total_quantity
-        FROM omie_order_item i
-        JOIN omie_order o ON o.id = i."omieOrderId"
+        FROM "integration"."omie_order_item" i
+        JOIN "integration"."omie_order" o ON o.id = i."omieOrderId"
         WHERE
           o.etapa = '20'
           AND o.cancelado = 'N'

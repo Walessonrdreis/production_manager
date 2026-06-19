@@ -31,7 +31,7 @@ export function createPublicProductsRepoPrisma(prisma: any) {
             "stock_quantity",
             "minimum_stock",
             "captured_at"
-          FROM "product_stock"
+          FROM "integration"."product_stock"
           ORDER BY "omie_code", "captured_at" DESC
         )
         SELECT
@@ -43,7 +43,7 @@ export function createPublicProductsRepoPrisma(prisma: any) {
           COALESCE(to_char(latest_stock."stock_quantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
           COALESCE(to_char(latest_stock."minimum_stock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
           latest_stock."captured_at" AS "stockUpdatedAt"
-        FROM "omie_product" o
+        FROM "integration"."omie_product" o
         LEFT JOIN latest_stock
           ON latest_stock."omie_code" = o."omie_code"
         WHERE
@@ -61,7 +61,7 @@ export function createPublicProductsRepoPrisma(prisma: any) {
 
       const totalRows = await prisma.$queryRaw<Array<{ total: bigint | number }>>`
         SELECT COUNT(*) AS "total"
-        FROM "omie_product" o
+        FROM "integration"."omie_product" o
         WHERE
           (${activeOnly}::boolean = false OR o."active" = true)
           AND (
@@ -86,7 +86,7 @@ export function createPublicProductsRepoPrisma(prisma: any) {
             "stock_quantity",
             "minimum_stock",
             "captured_at"
-          FROM "product_stock"
+          FROM "integration"."product_stock"
           ORDER BY "omie_code", "captured_at" DESC
         )
         SELECT
@@ -98,7 +98,7 @@ export function createPublicProductsRepoPrisma(prisma: any) {
           COALESCE(to_char(latest_stock."stock_quantity", 'FM999999999999990.0000'), '0.0000') AS "stockQuantity",
           COALESCE(to_char(latest_stock."minimum_stock", 'FM999999999999990.0000'), '0.0000') AS "minimumStock",
           latest_stock."captured_at" AS "stockUpdatedAt"
-        FROM "omie_product" o
+        FROM "integration"."omie_product" o
         LEFT JOIN latest_stock
           ON latest_stock."omie_code" = o."omie_code"
         WHERE o."omie_code" = ${normalizedCode}::text

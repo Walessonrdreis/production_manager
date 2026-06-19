@@ -105,7 +105,7 @@ export class GetProductsProductionReadModelUseCase {
     }
 
     const whereSql = Prisma.sql`
-      FROM omie_product p
+      FROM "integration"."omie_product" p
       WHERE 1=1
       ${Prisma.join(whereParts, " ")}
     `;

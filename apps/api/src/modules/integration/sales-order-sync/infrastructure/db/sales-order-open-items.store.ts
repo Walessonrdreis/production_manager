@@ -79,9 +79,9 @@ export class SalesOrderOpenItemsStore {
         // ── COUNT ─────────────────────────────────────────
         const countResult = await prisma.$queryRaw<{ count: bigint }[]>`
             SELECT COUNT(*) AS count
-            FROM sales_order so
-            LEFT JOIN omie_customer oc ON oc.omie_code = so.customer_omie_id
-            JOIN sales_order_item soi ON soi.sales_order_id = so.id
+            FROM "integration"."sales_order" so
+            LEFT JOIN "integration"."omie_customer" oc ON oc.omie_code = so.customer_omie_id
+            JOIN "integration"."sales_order_item" soi ON soi.sales_order_id = so.id
             WHERE ${baseCondition} ${searchCondition}
         `;
 
@@ -103,12 +103,9 @@ export class SalesOrderOpenItemsStore {
                 soi.quantity                            AS quantity,
                 soi.unit_price                          AS unit_price,
                 soi.total_price                         AS total_price
-            FROM sales_order so
-            LEFT JOIN omie_customer oc ON oc.omie_code = so.customer_omie_id
-            JOIN sales_order_item soi ON soi.sales_order_id = so.id
-            WHERE ${baseCondition} ${searchCondition}
-            ORDER BY so.order_number NULLS LAST, soi.product_code
-            LIMIT ${safeLimit} OFFSET ${safeOffset}
+            FROM "integration"."sales_order" so
+            LEFT JOIN "integration"."omie_customer" oc ON oc.omie_code = so.customer_omie_id
+            JOIN "integration"."sales_order_item" soi ON soi.sales_order_id = so.id
         `;
 
         // ── Mapeamento ────────────────────────────────────

@@ -1,11 +1,13 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  schemas   = ["integration", "read_model"]
 }
 
 model SyncLock {
@@ -13,6 +15,7 @@ model SyncLock {
   lockedUntil   DateTime @map("locked_until")
 
   @@map("sync_lock")
+  @@schema("integration")
 }
 
 model JobLock {
@@ -21,6 +24,7 @@ model JobLock {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("job_lock")
+  @@schema("integration")
 }
 
 model OmieProduct {
@@ -41,6 +45,7 @@ model OmieProduct {
   @@unique([omieCode])
   @@index([description])
   @@map("omie_product")
+  @@schema("integration")
 }
 
 model ProductStock {
@@ -55,6 +60,7 @@ model ProductStock {
 
   @@unique([omieCode])
   @@map("product_stock")
+  @@schema("integration")
 }
 
 model OmieOrder {
@@ -85,6 +91,7 @@ model OmieOrder {
   @@index([cancelado, encerrado])
   @@index([codigoCliente])
   @@map("omie_order")
+  @@schema("integration")
 }
 
 model OmieOrderItem {
@@ -113,6 +120,7 @@ model OmieOrderItem {
   @@index([omieProductCode])
   @@index([description])
   @@map("omie_order_item")
+  @@schema("integration")
 }
 
 model SalesOrder {
@@ -161,6 +169,7 @@ model SalesOrder {
   @@unique([omieId])
 
   @@map("sales_order")
+  @@schema("integration")
 }
 
 model SalesOrderItem {
@@ -210,6 +219,7 @@ model SalesOrderItem {
   @@unique([omieItemId])
 
   @@map("sales_order_item")
+  @@schema("integration")
 }
 
 model SalesOrderSyncCommand {
@@ -233,18 +243,23 @@ model SalesOrderSyncCommand {
   @@index([resourceId])
 
   @@map("sales_order_sync_command")
+  @@schema("integration")
 }
 
 enum SalesOrderSyncCommandStatus {
   ACCEPTED
   CONFIRMED
   FAILED
+
+  @@schema("integration")
 }
 
 enum SalesOrderSyncCommandSource {
   API2
   JOB
   ADMIN
+
+  @@schema("integration")
 }
 
 model SalesOrderSyncState {
@@ -259,6 +274,7 @@ model SalesOrderSyncState {
   @@unique([id])
 
   @@map("sales_order_sync_state")
+  @@schema("integration")
 }
 
 model Client {
@@ -286,6 +302,7 @@ model Client {
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("clientes")
+  @@schema("integration")
 }
 
 enum PersonType {
@@ -293,6 +310,7 @@ enum PersonType {
   COMPANY    @map("JURIDICA")
 
   @@map("TipoPessoa")
+  @@schema("integration")
 }
 
 // ============================================================
@@ -301,18 +319,24 @@ enum PersonType {
 
 enum CustomerCommandType {
   SYNC
+
+  @@schema("integration")
 }
 
 enum CustomerCommandStatus {
   ACCEPTED
   CONFIRMED
   FAILED
+
+  @@schema("integration")
 }
 
 enum CustomerCommandSource {
   API2
   JOB
   ADMIN
+
+  @@schema("integration")
 }
 
 model OmieCustomer {
@@ -348,6 +372,7 @@ model OmieCustomer {
   @@index([isBlocked])
   @@index([lastSyncAt])
   @@map("omie_customer")
+  @@schema("integration")
 }
 
 model CustomerCommand {
@@ -372,6 +397,7 @@ model CustomerCommand {
   @@index([status])
   @@index([commandType])
   @@map("customer_command")
+  @@schema("integration")
 }
 
 model CustomerSyncState {
@@ -381,6 +407,7 @@ model CustomerSyncState {
   updatedAt  DateTime @updatedAt
 
   @@map("customer_sync_state")
+  @@schema("integration")
 }
 
 model OmieProductionOrder {
@@ -416,6 +443,7 @@ model OmieProductionOrder {
   @@index([forecastDate])
   @@index([completionDate])
   @@map("omie_production_order")
+  @@schema("integration")
 }
 
 model OmieProductionOrderItem {
@@ -440,6 +468,7 @@ model OmieProductionOrderItem {
   @@index([omieProductionOrderId])
   @@index([productMeshId])
   @@map("omie_production_order_item")
+  @@schema("integration")
 }
 
 model ProductStructure {
@@ -472,6 +501,7 @@ model ProductStructure {
   @@unique([codProduto])
   @@index([codProduto])
   @@map("product_structure")
+  @@schema("integration")
 }
 
 model ProductStructureItem {
@@ -500,12 +530,15 @@ model ProductStructureItem {
   @@unique([codProdutoPai, codProdutoComponente, idMalhaOmie])
   @@index([codProdutoPai])
   @@map("product_structure_item")
+  @@schema("integration")
 }
 
 enum ProductionOrderIntegrationStatus {
   ACCEPTED
   CONFIRMED
   FAILED
+
+  @@schema("integration")
 }
 
 model ProductionOrderIntegration {
@@ -527,6 +560,7 @@ model ProductionOrderIntegration {
   @@index([omieProductionOrderId])
   @@index([status])
   @@map("production_order_integration")
+  @@schema("integration")
 }
 
 model ProductCatalogProductionReadyReadModel {
@@ -577,6 +611,7 @@ model ProductCatalogProductionReadyReadModel {
   @@index([updatedAt])
 
   @@map("product_catalog_production_ready_read_model")
+  @@schema("read_model")
 }
 
 model SalesOrderSummaryReadModel {
@@ -605,6 +640,7 @@ model SalesOrderSummaryReadModel {
   @@index([customerOmieId])
 
   @@map("sales_order_summary_read_model")
+  @@schema("read_model")
 }
 
 model SalesOrderStageTransition {
@@ -621,24 +657,31 @@ model SalesOrderStageTransition {
   @@index([toStage])
   @@index([detectedAt])
   @@map("sales_order_stage_transition")
+  @@schema("read_model")
 }
 
 enum ProductStructureCommandType {
   SYNC
   APPLY
   DELETE
+
+  @@schema("integration")
 }
 
 enum ProductStructureCommandStatus {
   ACCEPTED
   CONFIRMED
   FAILED
+
+  @@schema("integration")
 }
 
 enum ProductStructureCommandSource {
   API2
   JOB
   ADMIN
+
+  @@schema("integration")
 }
 
 model ProductStructureCommand {
@@ -663,22 +706,29 @@ model ProductStructureCommand {
   @@index([status])
   @@index([commandType])
   @@map("product_structure_command")
+  @@schema("integration")
 }
 
 enum ProductCatalogCommandType {
   SYNC
+
+  @@schema("integration")
 }
 
 enum ProductCatalogCommandStatus {
   ACCEPTED
   CONFIRMED
   FAILED
+
+  @@schema("integration")
 }
 
 enum ProductCatalogCommandSource {
   API2
   JOB
   ADMIN
+
+  @@schema("integration")
 }
 
 model ProductCatalogCommand {
@@ -702,5 +752,6 @@ model ProductCatalogCommand {
   @@index([productCode])
   @@index([status])
   @@map("product_catalog_command")
+  @@schema("integration")
 }
 

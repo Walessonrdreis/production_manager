@@ -7,7 +7,7 @@ export function createGetOmieStockInfoUseCase(deps: { prisma: any }) {
         SELECT
           MAX("captured_at") AS "lastRefreshAt",
           COUNT(DISTINCT "omie_code") AS "totalItems"
-        FROM "product_stock"
+        FROM "integration"."product_stock"
       `;
 
       const row = rows[0] ?? { lastRefreshAt: null, totalItems: 0 };

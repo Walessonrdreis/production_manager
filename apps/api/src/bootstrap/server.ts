@@ -3,9 +3,6 @@ import { env } from "../config";
 
 export async function startServer() {
   const app = await buildApp();
-app.ready(() => {
-  app.log.info('\n' + app.printRoutes());
-});
 
   await app.listen({
     port: env.PORT,
