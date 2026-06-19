@@ -61,8 +61,8 @@ export class GetProductsProductionReadModelUseCase {
       sort === "productCode"
         ? Prisma.sql`p.omie_code`
         : sort === "hasStructure"
-        ? Prisma.sql`has_structure`
-        : Prisma.sql`p.description`;
+          ? Prisma.sql`has_structure`
+          : Prisma.sql`p.description`;
 
     const existsStructure = Prisma.sql`
       EXISTS (
