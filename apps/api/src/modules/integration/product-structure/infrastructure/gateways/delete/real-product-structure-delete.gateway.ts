@@ -8,10 +8,13 @@ export class RealProductStructureDeleteGateway implements ProductStructureDelete
   constructor(private readonly omieClient: OmieHttpClientPort) {}
 
   async delete(productCode: string): Promise<DeleteProductStructureResult> {
-    // TODO: Ajustar payload conforme contrato real do Omie
+    if (!productCode || typeof productCode !== "string" || productCode.trim() === "") {
+      throw new Error("Invalid delete: productCode must be a non-empty string");
+    }
+
     const response = await this.omieClient.post<any>("produto/estrutura/", {
       call: "ExcluirEstrutura",
-      param: [{ codigo_produto: productCode }],
+      param: [{ codProduto: productCode }],
     });
 
     return {
