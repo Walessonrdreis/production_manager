@@ -98,6 +98,63 @@ Indica se o produto pode gerar Ordem de Produção (baseado na existência de BO
 ```
 
 * Apenas GET
+
+---
+
+### Sync Status
+```
+GET /v1/integration/product-structure/sync-status/:externalRequestId
+```
+**Descrição:** Retorna o status de um comando de integração (SYNC/APPLY/DELETE) pelo `externalRequestId`.
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "externalRequestId": "string",
+    "productCode": "string",
+    "commandType": "SYNC | APPLY | DELETE",
+    "status": "ACCEPTED | CONFIRMED | FAILED",
+    "source": "API2 | JOB | ADMIN",
+    "executedAt": "datetime",
+    "completedAt": "datetime|null",
+    "lastError": "object|null"
+  }
+}
+```
+
+---
+
+### Summary
+```
+GET /v1/integration/product-structure/summary
+```
+**Descrição:** Lista resumida de produtos com estrutura espelhada e estatísticas de comandos.
+**Query params:** `onlyWithStructure`, `q`, `limit`, `offset`
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "summary": {
+      "total": 0,
+      "withStructure": 0,
+      "withoutStructure": 0,
+      "commands": { "accepted": 0, "confirmed": 0, "failed": 0 }
+    },
+    "meta": { "limit": 50, "offset": 0, "returned": 0 },
+    "items": [
+      {
+        "productCode": "string",
+        "description": "string",
+        "hasStructure": true,
+        "componentCount": 0,
+        "lastSyncAt": "datetime"
+      }
+    ]
+  }
+}
+```
 * Apenas leitura
 * Sem side effects
 * Sem Fake/Real
@@ -162,13 +219,15 @@ apps/api/ROUTES.md
 ## Product Structure (BOM)
 
 ### Read‑Models
-- `GET /v1/admin/read/products/production-readiness`
+- `GET /v1/admin/read/products/production-readiness` — Readiness de produção
+- `GET /v1/integration/product-structure/summary` — Sumário de estruturas espelhadas
+- `GET /v1/integration/product-structure/sync-status/:externalRequestId` — Status de comando
 
 ### Comandos de Integração
-- `POST /v1/integration/product-structure/:productCode/sync`
-- `POST /v1/integration/product-structure/sync-global`
-- `POST /v1/integration/product-structure/:productCode/apply`
-- `POST /v1/integration/product-structure/:productCode/delete`
+- `POST /v1/integration/product-structure/:productCode/sync` — Sync individual
+- `POST /v1/integration/product-structure/sync-global` — Sync em lote
+- `POST /v1/integration/product-structure/:productCode/apply` — Aplicar estrutura
+- `POST /v1/integration/product-structure/:productCode/delete` — Excluir estrutura
 
 ### Jobs
 - Product Structure Sync (cron)
