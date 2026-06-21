@@ -5,11 +5,13 @@ import { registerSyncProductStructureRoute } from "./commands/sync-product-struc
 import { registerApplyProductStructureRoute } from "./commands/apply-product-structure.route";
 import { registerSubmitProductStructureRoute } from "./commands/submit-product-structure.route";
 import { registerDeleteProductStructureRoute } from "./commands/delete-product-structure.route";
+import { registerSyncAllProductStructuresRoute } from "./commands/sync-all-product-structures.route";
 
 export function registerProductStructureRoutes(app: FastifyInstance) {
   registerGetProductionReadinessRoute(app);
 
   registerSyncProductStructureRoute(app);
+  registerSyncAllProductStructuresRoute(app);
   registerApplyProductStructureRoute(app);
   registerSubmitProductStructureRoute(app);
   registerDeleteProductStructureRoute(app);

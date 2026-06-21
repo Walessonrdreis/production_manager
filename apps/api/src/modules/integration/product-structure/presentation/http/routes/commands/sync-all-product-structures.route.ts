@@ -1,0 +1,82 @@
+import type { FastifyInstance } from "fastify";
+import { env } from "@/config";
+import { getLogger } from "@/shared/logger";
+import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
+
+import type {
+    SyncAllProductStructureRequestDTO,
+    SyncAllProductStructureResponseDTO,
+} from "../../../../application/dto/sync-all-product-structure.dto";
+
+import { SyncAllProductStructuresUseCase } from "../../../../application/use-cases/sync-all-product-structures.usecase";
+import { ProductStructureIntegrationStore } from "../../../../infrastructure/db/product-structure-integration.store";
+import { ProductStructureCommandStore } from "../../../../infrastructure/db/product-structure-command.store";
+
+import { FakeProductStructureFetchPageGateway } from "../../../../infrastructure/gateways/fetch-page/fake-product-structure-fetch-page.gateway";
+import { RealProductStructureFetchPageGateway } from "../../../../infrastructure/gateways/fetch-page/real-product-structure-fetch-page.gateway";
+
+const logger = getLogger("sync-all-product-structures.route");
+
+export function registerSyncAllProductStructuresRoute(app: FastifyInstance) {
+    app.post(
+        "/v1/integration/product-structure/sync-global",
+        {
+            schema: {
+                tags: ["product-structure"],
+                summary: "Sincronizar todas as estruturas (BOM) via Omie",
+                description:
+                    "Comando de integração: percorre todas as páginas de ListarEstruturas e atualiza o espelho local. Idempotente por externalRequestId.",
+                body: {
+                    type: "object",
+                    properties: {
+                        externalRequestId: { type: "string" },
+                        pageSize: { type: "number" },
+                        maxPages: { type: "number" },
+                    },
+                },
+            },
+        },
+        async (request, reply) => {
+            const body = (request.body as SyncAllProductStructureRequestDTO | undefined) ?? {};
+
+            const externalRequestId =
+                body.externalRequestId ?? `product-structure-global-${Date.now()}`;
+
+            const omieClient = (app as any).omieClient as OmieHttpClientPort;
+            const isFake = env.PRODUCT_STRUCTURE_GATEWAY === "fake";
+
+            const fetchPageGateway = isFake
+                ? new FakeProductStructureFetchPageGateway()
+                : new RealProductStructureFetchPageGateway(omieClient);
+
+            const useCase = new SyncAllProductStructuresUseCase(
+                fetchPageGateway,
+                new ProductStructureIntegrationStore((app as any).prisma),
+                new ProductStructureCommandStore((app as any).prisma),
+                { noWrite: isFake }
+            );
+
+            void useCase
+                .execute({
+                    externalRequestId,
+                    pageSize: body.pageSize,
+                    maxPages: body.maxPages,
+                    source: "API2",
+                })
+                .catch((error) => {
+                    logger.error("Sync global failed", error as any);
+                });
+
+            const response: SyncAllProductStructureResponseDTO = {
+                status: "ACCEPTED",
+                externalRequestId,
+                resourceId: "__GLOBAL__",
+            };
+
+            return reply.code(202).send({
+                success: true,
+                data: response,
+            });
+        }
+    );
+}

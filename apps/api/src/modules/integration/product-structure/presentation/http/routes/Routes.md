@@ -15,6 +15,22 @@ POST /v1/integration/product-structure/:productCode/sync
 
 ---
 
+### Sync all (bulk)
+```
+POST /v1/integration/product-structure/sync-global
+```
+**Payload:**
+```json
+{
+  "externalRequestId": "opcional - gerado automaticamente se omitido",
+  "pageSize": 100,
+  "maxPages": 1000
+}
+```
+**Descrição:** Percorre todas as páginas de `ListarEstruturas` e atualiza o espelho local. Idempotente por `externalRequestId`.
+
+---
+
 ### Aplicar estrutura
 ```
 POST /v1/integration/product-structure/:productCode/apply
@@ -150,6 +166,7 @@ apps/api/ROUTES.md
 
 ### Comandos de Integração
 - `POST /v1/integration/product-structure/:productCode/sync`
+- `POST /v1/integration/product-structure/sync-global`
 - `POST /v1/integration/product-structure/:productCode/apply`
 - `POST /v1/integration/product-structure/:productCode/delete`
 

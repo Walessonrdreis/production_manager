@@ -1,10 +1,13 @@
 import { getLogger } from "@/shared/logger";
 import { prisma } from "@/shared/db/prisma";
+import { env } from "@/config";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 
 import { ProductStructureCommandStore } from "@/modules/integration/product-structure/infrastructure/db/product-structure-command.store";
 import { ProductStructureIntegrationStore } from "@/modules/integration/product-structure/infrastructure/db/product-structure-integration.store";
-import { RealProductStructureFetchGateway } from "@/modules/integration/product-structure/infrastructure/gateways/fetch/real-product-structure-fetch.gateway";
+import { SyncAllProductStructuresUseCase } from "@/modules/integration/product-structure/application/use-cases/sync-all-product-structures.usecase";
+import { FakeProductStructureFetchPageGateway } from "@/modules/integration/product-structure/infrastructure/gateways/fetch-page/fake-product-structure-fetch-page.gateway";
+import { RealProductStructureFetchPageGateway } from "@/modules/integration/product-structure/infrastructure/gateways/fetch-page/real-product-structure-fetch-page.gateway";
 
 type ExecuteInput = {
   source: "JOB";
@@ -15,16 +18,28 @@ export class ReconcileProductStructuresJob {
   static async execute({ source, omieClient }: ExecuteInput): Promise<void> {
     const logger = getLogger("product-structure:reconcile-job");
 
-    const fetchGateway = new RealProductStructureFetchGateway(omieClient);
-    const commandStore = new ProductStructureCommandStore(prisma);
-    const integrationStore = new ProductStructureIntegrationStore(prisma);
+    const isFake = env.PRODUCT_STRUCTURE_GATEWAY === "fake";
 
-    logger.info("Reconciling product structures", { source });
+    const fetchPageGateway = isFake
+      ? new FakeProductStructureFetchPageGateway()
+      : new RealProductStructureFetchPageGateway(omieClient);
 
-    // Aqui você pode implementar a estratégia final (ListarEstruturas + sync etc.)
-    // Por enquanto, exemplo simples: nada impede você de trocar depois.
-    // ...
+    const useCase = new SyncAllProductStructuresUseCase(
+      fetchPageGateway,
+      new ProductStructureIntegrationStore(prisma),
+      new ProductStructureCommandStore(prisma),
+      { noWrite: isFake }
+    );
 
-    logger.info("Finished product structure reconciliation job");
+    const externalRequestId = `product-structure-reconcile-${Date.now()}`;
+
+    logger.info("Reconciling product structures", { source, gatewayMode: isFake ? "fake" : "real" });
+
+    await useCase.execute({
+      externalRequestId,
+      source: "JOB",
+    });
+
+    logger.info("Finished product structure reconciliation job", { externalRequestId });
   }
 }
