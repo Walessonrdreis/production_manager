@@ -2,7 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import type { ProductStructureFetchResult } from "../../application/ports/product-structure-fetch.gateway";
 
 export class ProductStructureIntegrationStore {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaClient) { }
 
   async save(result: ProductStructureFetchResult): Promise<void> {
     const {

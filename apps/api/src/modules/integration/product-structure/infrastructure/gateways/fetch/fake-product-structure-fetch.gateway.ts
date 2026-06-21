@@ -6,8 +6,7 @@ import {
 } from "../../../application/ports/product-structure-fetch.gateway";
 
 export class FakeProductStructureFetchGateway
-  implements ProductStructureFetchGateway
-{
+  implements ProductStructureFetchGateway {
   async fetchByProductCode(productCode: string): Promise<ProductStructureFetchResult> {
     return {
       productCode,

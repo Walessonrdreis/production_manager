@@ -20,9 +20,8 @@ function getNumber(value: unknown): number | null {
 }
 
 export class RealProductStructureFetchGateway
-  implements ProductStructureFetchGateway
-{
-  constructor(private readonly omieClient: OmieHttpClientPort) {}
+  implements ProductStructureFetchGateway {
+  constructor(private readonly omieClient: OmieHttpClientPort) { }
 
   async fetchByProductCode(productCode: string): Promise<ProductStructureFetchResult> {
     const response = await this.omieClient.post<any>("produto/estrutura/", {
