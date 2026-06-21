@@ -14,13 +14,18 @@ import { SyncAllSalesOrdersUseCase } from "../../application/use-cases/sync-all-
 import { ProductCatalogProductionReadyReadModelStore } from "@/modules/integration/product-catalog/infrastructure/db/product-catalog-production-ready-read-model.store";
 import { RefreshProductCatalogProductionReadyUseCase } from "@/modules/integration/product-catalog/application/use-cases/refresh-product-catalog-production-ready.usecase";
 
+// ✅ imports do sales-order-summary
+import { SalesOrderSummaryReadModelStore } from "../db/sales-order-summary-read-model.store";
+import { SalesOrderStageTransitionStore } from "../db/sales-order-stage-transition.store";
+import { RefreshSalesOrderSummaryReadModelUseCase } from "../../application/use-cases/refresh-sales-order-summary-read-model.usecase";
+
 // 🔒 lock em memória (singleton no processo)
 let isRunning = false;
 
 export class SyncSalesOrdersJob {
   private readonly logger = getLogger("SyncSalesOrdersJob");
 
-  constructor(private readonly omieClient: OmieHttpClientPort) {}
+  constructor(private readonly omieClient: OmieHttpClientPort) { }
 
   async execute() {
     // ✅ evita execução concorrente
@@ -49,6 +54,13 @@ export class SyncSalesOrdersJob {
         new ProductCatalogProductionReadyReadModelStore()
       );
 
+    // ✅ instancia o refresh do sales-order-summary
+    const refreshSalesOrderSummaryUseCase =
+      new RefreshSalesOrderSummaryReadModelUseCase(
+        new SalesOrderSummaryReadModelStore(),
+        new SalesOrderStageTransitionStore()
+      );
+
     // ✅ usecase com ordem correta dos parâmetros
     const useCase = new SyncAllSalesOrdersUseCase(
       fetchPageGateway,
@@ -56,6 +68,7 @@ export class SyncSalesOrdersJob {
       new SalesOrderSyncCommandStore(prisma),
       new SalesOrderSyncStateStore(),
       refreshProductCatalogUseCase,
+      refreshSalesOrderSummaryUseCase,
       {
         noWrite: env.SALES_ORDER_SYNC_GATEWAY === "fake",
       }
