@@ -18,7 +18,7 @@ function validateApplyItems(items: ApplyProductStructureItem[]): void {
 }
 
 export class RealProductStructureApplyGateway implements ProductStructureApplyGateway {
-  constructor(private readonly omieClient: OmieHttpClientPort) {}
+  constructor(private readonly omieClient: OmieHttpClientPort) { }
 
   async apply(productCode: string, items: ApplyProductStructureItem[]): Promise<ApplyProductStructureResult> {
     // Valida payload antes de enviar ao Omie

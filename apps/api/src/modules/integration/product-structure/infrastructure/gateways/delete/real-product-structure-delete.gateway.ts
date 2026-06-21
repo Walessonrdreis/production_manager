@@ -5,7 +5,7 @@ import type {
 } from "../../../application/ports/product-structure-delete.gateway";
 
 export class RealProductStructureDeleteGateway implements ProductStructureDeleteGateway {
-  constructor(private readonly omieClient: OmieHttpClientPort) {}
+  constructor(private readonly omieClient: OmieHttpClientPort) { }
 
   async delete(productCode: string): Promise<DeleteProductStructureResult> {
     if (!productCode || typeof productCode !== "string" || productCode.trim() === "") {
