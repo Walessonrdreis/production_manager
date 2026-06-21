@@ -2,12 +2,27 @@
 
 export type ProductStructureItem = {
   componentCode: string;
+  description: string | null;
+  familyCode: string | null;
+  familyDescription: string | null;
   quantity: string;
-  unit?: string;
+  unit: string | null;
+  loss: string | null;
+  omieMeshId: string | null;
+  productType: string | null;
 };
 
 export type ProductStructureFetchResult = {
   productCode: string;
+  description: string | null;
+  familyCode: string | null;
+  familyDescription: string | null;
+  productType: string | null;
+  unit: string | null;
+  grossWeight: number | null;
+  netWeight: number | null;
+  omieProductId: string | null;
+  omieProductIntegrationId: string | null;
   hasStructure: boolean;
   items: ProductStructureItem[];
   rawPayload?: unknown;

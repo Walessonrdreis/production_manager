@@ -94,11 +94,26 @@ export class SyncAllProductStructuresUseCase {
                 for (const item of pageResult.items) {
                     await this.integrationStore.save({
                         productCode: item.productCode,
+                        description: item.description,
+                        familyCode: item.familyCode,
+                        familyDescription: item.familyDescription,
+                        productType: item.productType,
+                        unit: item.unit,
+                        grossWeight: item.grossWeight,
+                        netWeight: item.netWeight,
+                        omieProductId: item.omieProductId,
+                        omieProductIntegrationId: null,
                         hasStructure: item.hasStructure,
                         items: item.items.map((i) => ({
                             componentCode: i.componentCode,
+                            description: i.description,
+                            familyCode: i.familyCode,
+                            familyDescription: i.familyDescription,
                             quantity: i.quantity,
-                            unit: i.unit ?? undefined,
+                            unit: i.unit,
+                            loss: i.loss,
+                            omieMeshId: i.omieMeshId,
+                            productType: null,
                         })),
                     });
                 }
