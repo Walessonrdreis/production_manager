@@ -11,81 +11,81 @@ import { mapProductionOrder } from "@/shared/integrations/omie/OmieProductionOrd
 import type { ProductionOrderSyncPageItem } from "../../application/ports/production-order-sync-page.gateway";
 
 export class ProductionOrderSyncStore {
-  constructor(private readonly prisma: PrismaClient) {}
+    constructor(private readonly prisma: PrismaClient) { }
 
-  async save(item: ProductionOrderSyncPageItem): Promise<void> {
-    const { order, items } = mapProductionOrder(item.raw);
+    async save(item: ProductionOrderSyncPageItem): Promise<void> {
+        const { order, items } = mapProductionOrder(item.raw);
 
-    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const savedOrder = await tx.omieProductionOrder.upsert({
-        where: { omieCode: order.omieCode },
-        create: {
-          omieCode: order.omieCode,
-          internalCode: order.internalCode,
-          productCode: order.productCode,
-          productIntegrationCode: order.productIntegrationCode,
-          quantity: order.quantity,
-          forecastDate: order.forecastDate
-            ? new Date(order.forecastDate)
-            : null,
-          startDate: order.startDate ? new Date(order.startDate) : null,
-          completionDate: order.completionDate
-            ? new Date(order.completionDate)
-            : null,
-          stage: order.stage,
-          projectCode: order.projectCode,
-          completed: order.completed,
-          active: true,
-          rawPayload: order.rawPayload as Prisma.InputJsonValue,
-          lastSyncAt: new Date(),
-        },
-        update: {
-          internalCode: order.internalCode,
-          productCode: order.productCode,
-          productIntegrationCode: order.productIntegrationCode,
-          quantity: order.quantity,
-          forecastDate: order.forecastDate
-            ? new Date(order.forecastDate)
-            : null,
-          startDate: order.startDate ? new Date(order.startDate) : null,
-          completionDate: order.completionDate
-            ? new Date(order.completionDate)
-            : null,
-          stage: order.stage,
-          projectCode: order.projectCode,
-          completed: order.completed,
-          active: true,
-          rawPayload: order.rawPayload as Prisma.InputJsonValue,
-          lastSyncAt: new Date(),
-        },
-        select: { id: true },
-      });
+        await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+            const savedOrder = await tx.omieProductionOrder.upsert({
+                where: { omieCode: order.omieCode },
+                create: {
+                    omieCode: order.omieCode,
+                    internalCode: order.internalCode,
+                    productCode: order.productCode,
+                    productIntegrationCode: order.productIntegrationCode,
+                    quantity: order.quantity,
+                    forecastDate: order.forecastDate
+                        ? new Date(order.forecastDate)
+                        : null,
+                    startDate: order.startDate ? new Date(order.startDate) : null,
+                    completionDate: order.completionDate
+                        ? new Date(order.completionDate)
+                        : null,
+                    stage: order.stage,
+                    projectCode: order.projectCode,
+                    completed: order.completed,
+                    active: true,
+                    rawPayload: order.rawPayload as Prisma.InputJsonValue,
+                    lastSyncAt: new Date(),
+                },
+                update: {
+                    internalCode: order.internalCode,
+                    productCode: order.productCode,
+                    productIntegrationCode: order.productIntegrationCode,
+                    quantity: order.quantity,
+                    forecastDate: order.forecastDate
+                        ? new Date(order.forecastDate)
+                        : null,
+                    startDate: order.startDate ? new Date(order.startDate) : null,
+                    completionDate: order.completionDate
+                        ? new Date(order.completionDate)
+                        : null,
+                    stage: order.stage,
+                    projectCode: order.projectCode,
+                    completed: order.completed,
+                    active: true,
+                    rawPayload: order.rawPayload as Prisma.InputJsonValue,
+                    lastSyncAt: new Date(),
+                },
+                select: { id: true },
+            });
 
-      for (const it of items) {
-        await tx.omieProductionOrderItem.upsert({
-          where: { omieItemCode: it.omieItemCode },
-          create: {
-            omieItemCode: it.omieItemCode,
-            omieProductionOrderId: savedOrder.id,
-            productMeshId: it.productMeshId,
-            useFromStock: it.useFromStock,
-            quantity: it.quantity,
-            stockLocationCode: it.stockLocationCode,
-            observation: it.observation,
-            rawPayload: it.rawPayload as Prisma.InputJsonValue,
-            lastSyncAt: new Date(),
-          },
-          update: {
-            productMeshId: it.productMeshId,
-            useFromStock: it.useFromStock,
-            quantity: it.quantity,
-            stockLocationCode: it.stockLocationCode,
-            observation: it.observation,
-            rawPayload: it.rawPayload as Prisma.InputJsonValue,
-            lastSyncAt: new Date(),
-          },
+            for (const it of items) {
+                await tx.omieProductionOrderItem.upsert({
+                    where: { omieItemCode: it.omieItemCode },
+                    create: {
+                        omieItemCode: it.omieItemCode,
+                        omieProductionOrderId: savedOrder.id,
+                        productMeshId: it.productMeshId,
+                        useFromStock: it.useFromStock,
+                        quantity: it.quantity,
+                        stockLocationCode: it.stockLocationCode,
+                        observation: it.observation,
+                        rawPayload: it.rawPayload as Prisma.InputJsonValue,
+                        lastSyncAt: new Date(),
+                    },
+                    update: {
+                        productMeshId: it.productMeshId,
+                        useFromStock: it.useFromStock,
+                        quantity: it.quantity,
+                        stockLocationCode: it.stockLocationCode,
+                        observation: it.observation,
+                        rawPayload: it.rawPayload as Prisma.InputJsonValue,
+                        lastSyncAt: new Date(),
+                    },
+                });
+            }
         });
-      }
-    });
-  }
+    }
 }

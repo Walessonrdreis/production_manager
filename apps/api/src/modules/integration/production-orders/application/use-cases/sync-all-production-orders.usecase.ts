@@ -24,7 +24,7 @@ export class SyncAllProductionOrdersUseCase {
     private readonly logger = getLogger("SyncAllProductionOrdersUseCase");
 
     constructor(
-        private readonly fetchPageGateway: ProductionOrderSyncPageGateway,        private readonly syncStore: ProductionOrderSyncStore,        private readonly commandStore: ProductionOrderCommandStore,
+        private readonly fetchPageGateway: ProductionOrderSyncPageGateway, private readonly syncStore: ProductionOrderSyncStore, private readonly commandStore: ProductionOrderCommandStore,
         private readonly syncStateStore: SyncStateStoreContract,
         private readonly options: { noWrite?: boolean } = {}
     ) { }
