@@ -21,22 +21,6 @@ const logger = getLogger("sync-all-product-structures.route");
 export function registerSyncAllProductStructuresRoute(app: FastifyInstance) {
     app.post(
         "/v1/integration/product-structure/sync-global",
-        {
-            schema: {
-                tags: ["product-structure"],
-                summary: "Sincronizar todas as estruturas (BOM) via Omie",
-                description:
-                    "Comando de integração: percorre todas as páginas de ListarEstruturas e atualiza o espelho local. Idempotente por externalRequestId. Sincronização incremental com retry adaptativo.",
-                body: {
-                    type: "object",
-                    properties: {
-                        externalRequestId: { type: "string" },
-                        pageSize: { type: "number" },
-                        maxPages: { type: "number" },
-                    },
-                },
-            },
-        },
         async (request, reply) => {
             const body = (request.body as SyncAllProductStructureRequestDTO | undefined) ?? {};
 

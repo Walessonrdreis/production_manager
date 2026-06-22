@@ -1,25 +1,40 @@
 
 # Product Structure — Routes
 
-## 🚀 Comandos (POST)
-
-### Sync estrutura
-```
-POST /v1/integration/product-structure/:productCode/sync
-```
-**Payload:**
-```json
-{ "externalRequestId": "obrigatório" }
-```
-**Descrição:** Sincroniza estrutura (BOM) do produto via Omie.
+## � Total: 8 rotas (5 Comandos + 3 Read-models)
 
 ---
 
-### Sync all (bulk)
+## 🚀 COMANDOS (POST) — Sempre com efeito colateral / Fake-Real
+
+### 1. Sync individual
+```
+POST /v1/integration/product-structure/:productCode/sync
+```
+**Payload (obrigatório):**
+```json
+{ "externalRequestId": "string" }
+```
+**Resposta (202 Accepted):**
+```json
+{
+  "success": true,
+  "data": {
+    "externalRequestId": "string",
+    "status": "ACCEPTED",
+    "productCode": "string"
+  }
+}
+```
+**Descrição:** Sincroniza estrutura (BOM) de um único produto via Omie.
+
+---
+
+### 2. Sync global (bulk)
 ```
 POST /v1/integration/product-structure/sync-global
 ```
-**Payload:**
+**Payload (todos opcionais):**
 ```json
 {
   "externalRequestId": "opcional - gerado automaticamente se omitido",
@@ -27,86 +42,161 @@ POST /v1/integration/product-structure/sync-global
   "maxPages": 1000
 }
 ```
-**Descrição:** Percorre todas as páginas de `ListarEstruturas` e atualiza o espelho local. Idempotente por `externalRequestId`.
-
----
-
-### Aplicar estrutura
-```
-POST /v1/integration/product-structure/:productCode/apply
-```
-**Payload:**
+**Resposta (202 Accepted):**
 ```json
 {
-  "externalRequestId": "obrigatório",
-  "structure": {
-    "items": [{ "componentCode": "string", "quantity": 0 }]
+  "success": true,
+  "data": {
+    "status": "ACCEPTED",
+    "externalRequestId": "string",
+    "resourceId": "__GLOBAL__"
   }
 }
 ```
-**Descrição:** Cria ou altera estrutura no Omie (IncluirEstrutura / AlterarEstrutura).
+**Descrição:** Percorre todas as páginas de `ListarEstruturas` do Omie e atualiza o espelho local. Sincronização incremental com retry adaptativo. Idempotente por `externalRequestId`.
+
+> ⚠️ **Curl exige body JSON** — mesmo vazio:
+> ```bash
+> curl -s -X POST http://localhost:3333/v1/integration/product-structure/sync-global \
+>   -H "Content-Type: application/json" \
+>   -d '{"externalRequestId":"meu-sync-001"}'
+> ```
 
 ---
 
-### Excluir estrutura
+### 3. Aplicar estrutura
+```
+POST /v1/integration/product-structure/:productCode/apply
+```
+**Payload (obrigatório):**
+```json
+{
+  "externalRequestId": "string",
+  "structure": {
+    "items": [
+      {
+        "componentCode": "string",
+        "quantity": "number|string",
+        "unit": "opcional",
+        "loss": "number|string (opcional)"
+      }
+    ]
+  }
+}
+```
+**Resposta (202 Accepted):**
+```json
+{
+  "success": true,
+  "data": {
+    "externalRequestId": "string",
+    "status": "ACCEPTED",
+    "productCode": "string"
+  }
+}
+```
+**Descrição:** Cria ou altera estrutura no Omie (IncluirEstrutura / AlterarEstrutura) e sincroniza espelho local.
+
+---
+
+### 4. Excluir estrutura
 ```
 POST /v1/integration/product-structure/:productCode/delete
 ```
-**Payload:**
+**Payload (obrigatório):**
 ```json
-{ "externalRequestId": "obrigatório" }
+{ "externalRequestId": "string" }
 ```
-**Descrição:** Exclui estrutura do produto no Omie.
+**Resposta (202 Accepted):**
+```json
+{
+  "success": true,
+  "data": {
+    "externalRequestId": "string",
+    "status": "ACCEPTED",
+    "productCode": "string"
+  }
+}
+```
+**Descrição:** Exclui estrutura do produto no Omie e atualiza espelho local.
 
 ---
 
-### Submeter (reservado)
+### 5. Submeter (reservado)
 ```
 POST /v1/integration/product-structure/:productCode/submit
 ```
 **⚠️ 501 Not Implemented** — Use `/apply` no MVP.
+```json
+{
+  "success": false,
+  "error": "NOT_IMPLEMENTED",
+  "message": "Use /apply para aplicar a estrutura no MVP. /submit será habilitado quando houver drafts/aprovação."
+}
+```
 
 ---
 
-## 📘 Read-models (GET)
+## 📘 READ-MODELS (GET) — Sem side effects / Sem Fake-Real
 
-### Production readiness
+### 6. Production readiness
 ```
 GET /v1/admin/read/products/production-readiness
 ```
-Indica se o produto pode gerar Ordem de Produção (baseado na existência de BOM).
+**Descrição:** Read-model que indica se um produto está apto a gerar Ordem de Produção, baseado na existência de BOM (`product_structure.has_structure`).
 
 | Parâmetro | Tipo | Descrição |
 |-----------|------|-----------|
 | `view` | string | `summary` ou `data` |
 | `q` | string | Busca por descrição ou código |
-| `activeOnly` | boolean | `true` = apenas ativos |
+| `activeOnly` | boolean | `true` = apenas ativos (default: true) |
 | `structureStatus` | string | `with` ou `without` |
 | `onlyWithoutStructure` | boolean | `true` = só sem estrutura |
-| `limit` | number | Máx. itens (default: 50) |
+| `limit` | number | Máx. itens (default: 50, max: 200) |
 | `offset` | number | Deslocamento |
 | `sort` | string | `description`, `productCode`, `hasStructure` |
-| `order` | string | `asc`, `desc` |
-| `includeItems` | boolean | Incluir itens da estrutura no payload |
+| `order` | string | `asc` ou `desc` |
+| `since` | string | ISO date — filtra por `updated_at` |
+| `includeItems` | boolean | Incluir itens da estrutura |
 
 **Resposta (summary):**
 ```json
 {
   "success": true,
-  "summary": { "total": 1697, "withStructure": 374, "withoutStructure": 1323 }
+  "summary": {
+    "total": 1635,
+    "withStructure": 356,
+    "withoutStructure": 1279,
+    "canCreateProductionOrder": 356,
+    "blockedFromProduction": 1279
+  }
 }
 ```
-
-* Apenas GET
+**Resposta (data):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "productCode": "100kg",
+      "description": "100% cacau 1 Kg",
+      "hasStructure": true,
+      "canCreateProductionOrder": true
+    }
+  ]
+}
+```
+> ⚠️ Apenas GET. Sem efeitos colaterais. Não chama Omie.
 
 ---
 
-### Sync Status
+### 7. Sync Status
 ```
 GET /v1/integration/product-structure/sync-status/:externalRequestId
 ```
 **Descrição:** Retorna o status de um comando de integração (SYNC/APPLY/DELETE) pelo `externalRequestId`.
-**Response:**
+
+**Resposta (200):**
 ```json
 {
   "success": true,
@@ -116,50 +206,82 @@ GET /v1/integration/product-structure/sync-status/:externalRequestId
     "commandType": "SYNC | APPLY | DELETE",
     "status": "ACCEPTED | CONFIRMED | FAILED",
     "source": "API2 | JOB | ADMIN",
-    "executedAt": "datetime",
+    "executedAt": "datetime|null",
     "completedAt": "datetime|null",
+    "createdAt": "datetime",
+    "updatedAt": "datetime",
     "lastError": "object|null"
   }
+}
+```
+**Resposta (404 — não encontrado):**
+```json
+{
+  "success": false,
+  "error": "NOT_FOUND",
+  "message": "Comando não encontrado"
 }
 ```
 
 ---
 
-### Summary
+### 8. Summary
 ```
 GET /v1/integration/product-structure/summary
 ```
-**Descrição:** Lista resumida de produtos com estrutura espelhada e estatísticas de comandos.
-**Query params:** `onlyWithStructure`, `q`, `limit`, `offset`
-**Response:**
+**Descrição:** Lista resumida de produtos com estrutura espelhada e estatísticas de comandos. Usa query params para filtrar.
+
+| Parâmetro | Tipo | Default | Descrição |
+|-----------|------|---------|-----------|
+| `onlyWithStructure` | boolean | `false` | Apenas produtos com estrutura |
+| `q` | string | — | Busca por código ou descrição |
+| `limit` | number | 50 | Máx. itens (max: 500) |
+| `offset` | number | 0 | Deslocamento |
+
+**Resposta:**
 ```json
 {
   "success": true,
   "data": {
     "summary": {
-      "total": 0,
-      "withStructure": 0,
+      "total": 356,
+      "withStructure": 356,
       "withoutStructure": 0,
-      "commands": { "accepted": 0, "confirmed": 0, "failed": 0 }
+      "commands": { "accepted": 0, "confirmed": 1, "failed": 0 }
     },
-    "meta": { "limit": 50, "offset": 0, "returned": 0 },
+    "meta": { "limit": 50, "offset": 0, "returned": 10 },
     "items": [
       {
-        "productCode": "string",
-        "description": "string",
+        "productCode": "100kg",
+        "description": "100% cacau 1 Kg",
         "hasStructure": true,
-        "componentCount": 0,
-        "lastSyncAt": "datetime"
+        "componentCount": 5,
+        "lastSyncAt": "2026-06-22T13:23:33.505Z"
       }
     ]
   }
 }
 ```
-* Apenas leitura
-* Sem side effects
-* Sem Fake/Real
+> ⚠️ Apenas leitura. Sem side effects. Sem Fake/Real.
 
-#### `commands/`
+---
+
+## 🧭 Resumo
+
+| # | Método | Rota | Descrição |
+|---|--------|------|-----------|
+| 1 | POST | `/v1/integration/product-structure/:productCode/sync` | Sync individual |
+| 2 | POST | `/v1/integration/product-structure/sync-global` | Sync em lote |
+| 3 | POST | `/v1/integration/product-structure/:productCode/apply` | Aplicar estrutura |
+| 4 | POST | `/v1/integration/product-structure/:productCode/delete` | Excluir estrutura |
+| 5 | POST | `/v1/integration/product-structure/:productCode/submit` | Submeter (501) |
+| 6 | GET | `/v1/admin/read/products/production-readiness` | Production readiness |
+| 7 | GET | `/v1/integration/product-structure/sync-status/:externalRequestId` | Status de comando |
+| 8 | GET | `/v1/integration/product-structure/summary` | Sumário de estruturas |
+
+---
+
+## ✅ Regras do módulo
 
 * Apenas POST
 * Sempre com efeito colateral

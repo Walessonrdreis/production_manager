@@ -135,6 +135,85 @@ GET /v1/admin/read/products/production-readiness
 
 ***
 
+### ✅ Rota — Status de comando de integração
+
+```
+GET /v1/integration/product-structure/sync-status/:externalRequestId
+```
+
+**Descrição:**
+
+* Retorna o status de um comando de integração (SYNC/APPLY/DELETE)
+* Parâmetro `externalRequestId` vem na URL (path param)
+* Retorna 404 se o comando não existir
+
+### ✅ Exemplo de resposta
+
+```json
+{
+  "success": true,
+  "data": {
+    "externalRequestId": "meu-sync-001",
+    "productCode": "100kg",
+    "commandType": "SYNC",
+    "status": "CONFIRMED",
+    "source": "API2",
+    "executedAt": "2026-06-22T13:23:33.505Z",
+    "completedAt": "2026-06-22T13:23:35.120Z",
+    "lastError": null
+  }
+}
+```
+
+***
+
+### ✅ Rota — Sumário de estruturas
+
+```
+GET /v1/integration/product-structure/summary
+```
+
+#### Query params suportados
+
+- `onlyWithStructure=true|false`
+- `q=<string>`
+- `limit=<number>`
+- `offset=<number>`
+
+**Descrição:**
+
+* Lista resumida de produtos com estrutura espelhada
+* Inclui estatísticas de comandos (accepted/confirmed/failed)
+* Apenas leitura — sem side effects
+
+### ✅ Exemplo de resposta
+
+```json
+{
+  "success": true,
+  "data": {
+    "summary": {
+      "total": 356,
+      "withStructure": 356,
+      "withoutStructure": 0,
+      "commands": { "accepted": 0, "confirmed": 1, "failed": 0 }
+    },
+    "meta": { "limit": 50, "offset": 0, "returned": 10 },
+    "items": [
+      {
+        "productCode": "100kg",
+        "description": "100% cacau 1 Kg",
+        "hasStructure": true,
+        "componentCount": 5,
+        "lastSyncAt": "2026-06-22T13:23:33.505Z"
+      }
+    ]
+  }
+}
+```
+
+***
+
 ## ✅ Comandos de Integração (efeito colateral)
 
 **📌 REGRAS CANÔNICAS PARA TODOS OS COMANDOS:**
@@ -220,6 +299,42 @@ POST /v1/integration/product-structure/:productCode/delete
 * Exclui a estrutura do produto no Omie
 * Atualiza espelho local
 * Bloqueia produto para produção
+
+*** 
+
+### 🔹 Sync global (todas as estruturas)
+
+```
+POST /v1/integration/product-structure/sync-global
+```
+
+**Payload (todos opcionais):**
+
+```json
+{
+  "externalRequestId": "<string> (opcional — gerado automático se omitido)",
+  "pageSize": "<number> (opcional)",
+  "maxPages": "<number> (opcional)"
+}
+```
+
+**Descrição:**
+
+* Comando de integração: percorre todas as páginas de `ListarEstruturas` do Omie
+* Sincronização incremental com retry adaptativo
+* Idempotente por `externalRequestId`
+* Se omitido, `externalRequestId` é gerado automaticamente (product-structure-global-{timestamp})
+* ⚠️ **Requer Content-Type: application/json** mesmo com body vazio
+
+***
+
+### 🔹 Submeter estrutura (reservado)
+
+```
+POST /v1/integration/product-structure/:productCode/submit
+```
+
+**⚠️ 501 Not Implemented** — Rota reservada para fluxo de draft/aprovação futuro. Usar `/apply` no MVP.
 
 ---
 
@@ -834,6 +949,31 @@ POST /v1/admin/product-catalog/release-lock
 ```
 Libera lock travado manualmente.
 ```
+
+***
+
+## ✅ Product Structure Sync (cron)
+
+**Controle por variáveis de ambiente:**
+
+```env
+ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB=true
+OMIE_PRODUCT_STRUCTURE_SYNC_CRON=0 */12 * * *
+```
+
+**Descrição:**
+
+```
+Executa sync global de estruturas (BOM) a cada 12h.
+Usa PrismaSyncStateStore para controle de estado incremental.
+Idempotente por externalRequestId.
+```
+
+**Jobs ativos:**
+
+| Job | Variável | Cron |
+|-----|----------|------|
+| Sync estruturas | `ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB` | 0 */12 * * * |
 
 ***
 
