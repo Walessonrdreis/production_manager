@@ -8,11 +8,19 @@ export type ProductCatalogExternalProduct = {
   rawPayload: any;
 };
 
+export type ProductCatalogFetchPageInput = {
+  page: number;
+  pageSize: number;
+  updatedSince?: Date;
+};
+
 export type ProductCatalogFetchPageResult = {
   items: ProductCatalogExternalProduct[];
   hasNextPage: boolean;
+  totalPages: number | null;
+  currentPage: number;
 };
 
 export interface ProductCatalogFetchPageGateway {
-  fetchPage(page: number, pageSize: number): Promise<ProductCatalogFetchPageResult>;
+  fetchPage(input: ProductCatalogFetchPageInput): Promise<ProductCatalogFetchPageResult>;
 }

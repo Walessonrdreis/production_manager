@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { env } from "@/config";
 import { getLogger } from "@/shared/logger";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
+import { prisma } from "@/shared/db/prisma";
+import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 
 import type {
     SyncAllCustomersRequestDTO,
@@ -10,7 +12,7 @@ import type {
 
 import { SyncAllCustomersUseCase } from "../../../../application/use-cases/sync-all-customers.usecase";
 import type { IntegrationStoreContract, CommandStoreContract } from "../../../../application/use-cases/sync-all-customers.usecase";
-import { OmieCustomerStore, CustomerCommandStore, CustomerSyncStateStore } from "../../../../infrastructure/db";
+import { OmieCustomerStore, CustomerCommandStore } from "../../../../infrastructure/db";
 import { fakeOmieCustomerStore, fakeCustomerCommandStore } from "../../../../infrastructure/db/fake-stores.singletons";
 
 import { FakeCustomerFetchPageGateway } from "../../../../infrastructure/gateways/customer-fetch-page/fake-customer-fetch-page.gateway";
@@ -43,7 +45,7 @@ export async function registerSyncAllCustomersRoute(app: FastifyInstance) {
         const commandStore: CommandStoreContract = useFake
             ? fakeCustomerCommandStore
             : new CustomerCommandStore();
-        const stateStore = new CustomerSyncStateStore();
+        const stateStore = new PrismaSyncStateStore(prisma.customerSyncState, "global");
 
         const useCase = new SyncAllCustomersUseCase(
             fetchPageGateway,

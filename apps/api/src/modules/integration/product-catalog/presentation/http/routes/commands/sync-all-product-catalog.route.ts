@@ -11,6 +11,8 @@ import type {
 import { SyncAllProductCatalogUseCase } from "../../../../application/use-cases/sync-all-product-catalog.usecase";
 import { ProductCatalogIntegrationStore } from "../../../../infrastructure/db/product-catalog-integration.store";
 import { ProductCatalogCommandStore } from "../../../../infrastructure/db/product-catalog-command.store";
+import { prisma } from "@/shared/db/prisma";
+import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 
 import { FakeProductCatalogFetchPageGateway } from "../../../../infrastructure/gateways/fetch-page/fake-product-catalog-fetch-page.gateway";
 import { RealProductCatalogFetchPageGateway } from "../../../../infrastructure/gateways/fetch-page/real-product-catalog-fetch-page.gateway";
@@ -35,6 +37,7 @@ export async function registerSyncAllProductCatalogRoute(app: FastifyInstance) {
       fetchPageGateway,
       new ProductCatalogIntegrationStore(),
       new ProductCatalogCommandStore(),
+      new PrismaSyncStateStore(prisma.productCatalogSyncState, "global"),
       {
         noWrite: env.PRODUCT_CATALOG_GATEWAY === "fake",
       }

@@ -12,10 +12,10 @@ import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-cl
 import { SyncAllProductStockUseCase } from "../../application/use-cases/sync-all-product-stock.usecase";
 import { ProductStockIntegrationStore } from "../db/product-stock-integration.store";
 import { ProductStockCommandStore } from "../db/product-stock-command.store";
-import { ProductStockFetchSyncStateStore } from "../db/product-stock-fetch-sync-state.store";
+import { prisma } from "@/shared/db/prisma";
+import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 import { FakeProductStockIntegrationStore } from "../db/fake-product-stock-integration.store";
 import { FakeProductStockCommandStore } from "../db/fake-product-stock-command.store";
-import { FakeProductStockFetchSyncStateStore } from "../db/fake-product-stock-fetch-sync-state.store";
 import { RealProductStockFetchPageGateway } from "../gateways/product-stock-fetch/real-product-stock-fetch-page.gateway";
 import { FakeProductStockFetchPageGateway } from "../gateways/product-stock-fetch/fake-product-stock-fetch-page.gateway";
 
@@ -37,9 +37,7 @@ function buildUseCase(omieClient: OmieHttpClientPort) {
     ? new FakeProductStockCommandStore()
     : new ProductStockCommandStore();
 
-  const syncStateStore = useFake
-    ? new FakeProductStockFetchSyncStateStore()
-    : new ProductStockFetchSyncStateStore();
+  const syncStateStore = new PrismaSyncStateStore(prisma.productStockFetchSyncState, "global");
 
   const refreshProductCatalogUseCase =
     new RefreshProductCatalogProductionReadyUseCase(

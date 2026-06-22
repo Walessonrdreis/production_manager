@@ -36,14 +36,14 @@ function extractFaultString(error: any): string {
 }
 
 export class RealProductCatalogFetchPageGateway
-  implements ProductCatalogFetchPageGateway
-{
-  constructor(private readonly omieClient: OmieHttpClientPort) {}
+  implements ProductCatalogFetchPageGateway {
+  constructor(private readonly omieClient: OmieHttpClientPort) { }
 
   async fetchPage(
-    page: number,
-    pageSize: number
+    input: ProductCatalogFetchPageInput
   ): Promise<ProductCatalogFetchPageResult> {
+    const { page, pageSize } = input;
+
     try {
       const response = await this.omieClient.post<any>("geral/produtos/", {
         call: "ListarProdutos",
@@ -66,12 +66,6 @@ export class RealProductCatalogFetchPageGateway
           ? Number(response.total_de_paginas)
           : null;
 
-      console.log(
-        `[SYNC] Page ${page} - Items: ${items.length} - TotalPages: ${
-          totalPages ?? "unknown"
-        }`
-      );
-
       return {
         items: items.map((item: any) => ({
           productCode: String(item.codigo ?? ""),
@@ -81,13 +75,13 @@ export class RealProductCatalogFetchPageGateway
               : null,
           sku:
             item.codigo_produto_integracao != null &&
-            String(item.codigo_produto_integracao).trim() !== ""
+              String(item.codigo_produto_integracao).trim() !== ""
               ? String(item.codigo_produto_integracao)
               : null,
           description: String(item.descricao ?? ""),
           familyDescription:
             item.descricao_familia != null &&
-            String(item.descricao_familia).trim() !== ""
+              String(item.descricao_familia).trim() !== ""
               ? String(item.descricao_familia)
               : null,
           active: String(item.inativo ?? "N") !== "S",
@@ -97,6 +91,8 @@ export class RealProductCatalogFetchPageGateway
           totalPages != null
             ? page < totalPages
             : items.length > 0,
+        totalPages,
+        currentPage: page,
       };
     } catch (error: any) {
       const faultString = extractFaultString(error);

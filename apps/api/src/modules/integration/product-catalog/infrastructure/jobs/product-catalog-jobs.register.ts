@@ -6,6 +6,8 @@ import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-cl
 import { SyncAllProductCatalogUseCase } from "../../application/use-cases/sync-all-product-catalog.usecase";
 import { ProductCatalogIntegrationStore } from "../db/product-catalog-integration.store";
 import { ProductCatalogCommandStore } from "../db/product-catalog-command.store";
+import { prisma } from "@/shared/db/prisma";
+import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 import { FakeProductCatalogFetchPageGateway } from "../gateways/fetch-page/fake-product-catalog-fetch-page.gateway";
 import { RealProductCatalogFetchPageGateway } from "../gateways/fetch-page/real-product-catalog-fetch-page.gateway";
 import { RefreshProductCatalogProductionReadyJob } from "./refresh-product-catalog-production-ready.job";
@@ -29,6 +31,7 @@ export function registerProductCatalogJobs(omieClient: OmieHttpClientPort) {
           fetchPageGateway,
           new ProductCatalogIntegrationStore(),
           new ProductCatalogCommandStore(),
+          new PrismaSyncStateStore(prisma.productCatalogSyncState, "global"),
           {
             noWrite: env.PRODUCT_CATALOG_GATEWAY === "fake",
           }

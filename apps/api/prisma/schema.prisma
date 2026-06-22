@@ -829,3 +829,16 @@ model ProductStockFetchSyncState {
   @@schema("integration")
 }
 
+// ---------------------------------------------------------------------------
+// ProductCatalogSyncState
+// ---------------------------------------------------------------------------
+
+model ProductCatalogSyncState {
+  id         String   @id
+  lastSyncAt DateTime @map("last_sync_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("product_catalog_sync_state")
+  @@schema("integration")
+}
+

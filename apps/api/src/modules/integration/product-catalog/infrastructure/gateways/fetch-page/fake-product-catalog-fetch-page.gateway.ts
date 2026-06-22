@@ -1,14 +1,19 @@
 import type {
   ProductCatalogFetchPageGateway,
+  ProductCatalogFetchPageInput,
   ProductCatalogFetchPageResult,
 } from "../../../application/ports/product-catalog-fetch-page.gateway";
 
 export class FakeProductCatalogFetchPageGateway implements ProductCatalogFetchPageGateway {
-  async fetchPage(page: number, pageSize: number): Promise<ProductCatalogFetchPageResult> {
+  async fetchPage(input: ProductCatalogFetchPageInput): Promise<ProductCatalogFetchPageResult> {
+    const { page, pageSize } = input;
+
     if (page > 1) {
       return {
         items: [],
         hasNextPage: false,
+        totalPages: 1,
+        currentPage: page,
       };
     }
 
@@ -29,6 +34,8 @@ export class FakeProductCatalogFetchPageGateway implements ProductCatalogFetchPa
     return {
       items,
       hasNextPage: false,
+      totalPages: 1,
+      currentPage: page,
     };
   }
 }

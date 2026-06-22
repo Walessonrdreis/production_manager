@@ -10,16 +10,16 @@ import { randomUUID } from "crypto";
 
 import { SyncAllProductStockUseCase } from "../../../../application/use-cases/sync-all-product-stock.usecase";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
+import { prisma } from "@/shared/db/prisma";
+import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 
 import { ProductStockIntegrationStore } from "../../../../infrastructure/db/product-stock-integration.store";
 import { ProductStockCommandStore } from "../../../../infrastructure/db/product-stock-command.store";
-import { ProductStockFetchSyncStateStore } from "../../../../infrastructure/db/product-stock-fetch-sync-state.store";
 
 import { RealProductStockFetchPageGateway } from "../../../../infrastructure/gateways/product-stock-fetch/real-product-stock-fetch-page.gateway";
 import { FakeProductStockFetchPageGateway } from "../../../../infrastructure/gateways/product-stock-fetch/fake-product-stock-fetch-page.gateway";
 import { FakeProductStockIntegrationStore } from "../../../../infrastructure/db/fake-product-stock-integration.store";
 import { FakeProductStockCommandStore } from "../../../../infrastructure/db/fake-product-stock-command.store";
-import { FakeProductStockFetchSyncStateStore } from "../../../../infrastructure/db/fake-product-stock-fetch-sync-state.store";
 
 import { ProductCatalogProductionReadyReadModelStore } from "@/modules/integration/product-catalog/infrastructure/db/product-catalog-production-ready-read-model.store";
 import { RefreshProductCatalogProductionReadyUseCase } from "@/modules/integration/product-catalog/application/use-cases/refresh-product-catalog-production-ready.usecase";
@@ -54,9 +54,7 @@ export async function registerSyncAllProductStockRoute(app: FastifyInstance) {
         ? new FakeProductStockCommandStore()
         : new ProductStockCommandStore();
 
-      const syncStateStore = useFake
-        ? new FakeProductStockFetchSyncStateStore()
-        : new ProductStockFetchSyncStateStore();
+      const syncStateStore = new PrismaSyncStateStore(prisma.productStockFetchSyncState, "global");
 
       // ✅ instancia o refresh do production-ready read model (cascade após sync)
       const refreshProductCatalogUseCase =

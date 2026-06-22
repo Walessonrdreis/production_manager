@@ -5,6 +5,8 @@ import { ProductCatalogIntegrationStore } from "../../infrastructure/db/product-
 import { ProductCatalogCommandStore } from "../../infrastructure/db/product-catalog-command.store";
 import { RefreshProductCatalogProductionReadyUseCase } from "./refresh-product-catalog-production-ready.usecase";
 import { ProductCatalogProductionReadyReadModelStore } from "../../infrastructure/db/product-catalog-production-ready-read-model.store";
+import { fetchPageWithRetry, sleep } from "@/shared/integration/strategies/retry.strategy";
+import type { SyncStateStoreContract } from "@/shared/integration/strategies/types";
 
 export type SyncAllProductCatalogCommand = {
   externalRequestId: string;
@@ -20,8 +22,9 @@ export class SyncAllProductCatalogUseCase {
     private readonly fetchPageGateway: ProductCatalogFetchPageGateway,
     private readonly integrationStore: ProductCatalogIntegrationStore,
     private readonly commandStore: ProductCatalogCommandStore,
+    private readonly syncStateStore: SyncStateStoreContract,
     private readonly options: { noWrite?: boolean } = {}
-  ) {}
+  ) { }
 
   private async refreshProductionReadyIfConfigured(triggerSource: string) {
     if (!env.FORCE_PRODUCTION_READY_REFRESH_ON_SYNC) {
@@ -64,7 +67,7 @@ export class SyncAllProductCatalogUseCase {
       let processedItems = 0;
 
       while (processedPages < maxPages) {
-        const pageResult = await this.fetchPageGateway.fetchPage(page, pageSize);
+        const pageResult = await this.fetchPageGateway.fetchPage({ page, pageSize });
 
         processedPages += 1;
         processedItems += pageResult.items.length;
@@ -116,59 +119,25 @@ export class SyncAllProductCatalogUseCase {
       let processedPages = 0;
       let processedItems = 0;
 
+      const state = await this.syncStateStore.getState();
+      const lastSyncAt = state.lastSyncAt;
+
+      this.logger.info("Product catalog sync window", {
+        externalRequestId: command.externalRequestId,
+        lastSyncAt,
+        isIncremental: lastSyncAt > new Date("2000-01-01"),
+      });
+
       while (processedPages < maxPages) {
-        let pageResult:
-          | Awaited<ReturnType<ProductCatalogFetchPageGateway["fetchPage"]>>
-          | null = null;
-
-        let attempts = 0;
-
-        while (attempts < 3) {
-          try {
-            pageResult = await this.fetchPageGateway.fetchPage(page, pageSize);
-            break;
-          } catch (error: any) {
-            attempts += 1;
-
-            const sample = error?.details?.sample ?? "";
-            const message = error?.message ?? "";
-
-            if (
-              sample.includes("Não existem registros para a página") ||
-              message.includes("Não existem registros para a página")
-            ) {
-              this.logger.info("Reached end of catalog pagination", {
-                externalRequestId: command.externalRequestId,
-                page,
-                processedPages,
-                processedItems,
-              });
-
-              pageResult = {
-                items: [],
-                hasNextPage: false,
-              };
-
-              break;
-            }
-
-            this.logger.warn("Fetch page failed", {
-              externalRequestId: command.externalRequestId,
-              page,
-              attempt: attempts,
-              message,
-              sample,
-            });
-
-            if (attempts >= 3) {
-              throw error;
-            }
+        const pageResult = await fetchPageWithRetry(
+          () => this.fetchPageGateway.fetchPage({ page, pageSize, updatedSince: lastSyncAt }),
+          {
+            label: "product-catalog",
+            externalRequestId: command.externalRequestId,
+            page,
+            pageSize,
           }
-        }
-
-        if (!pageResult) {
-          break;
-        }
+        );
 
         for (const item of pageResult.items) {
           await this.integrationStore.upsertFromExternal({
@@ -199,9 +168,11 @@ export class SyncAllProductCatalogUseCase {
         }
 
         page += 1;
+        await sleep(700);
       }
 
       await this.commandStore.markConfirmed(command.externalRequestId);
+      await this.syncStateStore.updateLastSync(new Date());
 
       await this.refreshProductionReadyIfConfigured(
         `product-catalog-sync-global:${command.externalRequestId}`
