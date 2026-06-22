@@ -16,44 +16,44 @@ import { FakeProductionOrderSyncPageGateway } from "@/modules/integration/produc
 import { RealProductionOrderSyncPageGateway } from "@/modules/integration/production-orders/infrastructure/gateways/sync-page/real-production-order-sync-page.gateway";
 
 type ExecuteInput = {
-  source: "JOB";
-  omieClient: OmieHttpClientPort;
+    source: "JOB";
+    omieClient: OmieHttpClientPort;
 };
 
 export class SyncAllProductionOrdersJob {
-  static async execute({ source, omieClient }: ExecuteInput): Promise<void> {
-    const logger = getLogger("production-orders:sync-job");
+    static async execute({ source, omieClient }: ExecuteInput): Promise<void> {
+        const logger = getLogger("production-orders:sync-job");
 
-    const isFake = env.PRODUCTION_ORDER_GATEWAY === "fake";
+        const isFake = env.PRODUCTION_ORDER_GATEWAY === "fake";
 
-    const fetchPageGateway = isFake
-      ? new FakeProductionOrderSyncPageGateway()
-      : new RealProductionOrderSyncPageGateway(omieClient);
+        const fetchPageGateway = isFake
+            ? new FakeProductionOrderSyncPageGateway()
+            : new RealProductionOrderSyncPageGateway(omieClient);
 
-    const syncStateStore = new PrismaSyncStateStore(
-      prisma.productionOrderSyncState,
-      "GLOBAL"
-    );
+        const syncStateStore = new PrismaSyncStateStore(
+            prisma.productionOrderSyncState,
+            "GLOBAL"
+        );
 
-    const useCase = new SyncAllProductionOrdersUseCase(
-      fetchPageGateway,
-      new ProductionOrderCommandStore(prisma),
-      syncStateStore,
-      { noWrite: isFake }
-    );
+        const useCase = new SyncAllProductionOrdersUseCase(
+            fetchPageGateway,
+            new ProductionOrderCommandStore(prisma),
+            syncStateStore,
+            { noWrite: isFake }
+        );
 
-    const externalRequestId = `production-orders-sync-${Date.now()}`;
+        const externalRequestId = `production-orders-sync-${Date.now()}`;
 
-    logger.info("Syncing production orders", {
-      source,
-      gatewayMode: isFake ? "fake" : "real",
-    });
+        logger.info("Syncing production orders", {
+            source,
+            gatewayMode: isFake ? "fake" : "real",
+        });
 
-    await useCase.execute({
-      externalRequestId,
-      source: "JOB",
-    });
+        await useCase.execute({
+            externalRequestId,
+            source: "JOB",
+        });
 
-    logger.info("Finished production orders sync job", { externalRequestId });
-  }
+        logger.info("Finished production orders sync job", { externalRequestId });
+    }
 }

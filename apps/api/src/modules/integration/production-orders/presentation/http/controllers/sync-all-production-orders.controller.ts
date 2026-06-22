@@ -12,8 +12,8 @@ import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-cl
 import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 
 import type {
-  SyncAllProductionOrdersRequestDTO,
-  SyncAllProductionOrdersResponseDTO,
+    SyncAllProductionOrdersRequestDTO,
+    SyncAllProductionOrdersResponseDTO,
 } from "../../../application/dto/sync-all-production-orders.dto";
 
 import { SyncAllProductionOrdersUseCase } from "../../../application/use-cases/sync-all-production-orders.usecase";
@@ -25,53 +25,53 @@ import { RealProductionOrderSyncPageGateway } from "../../../infrastructure/gate
 const logger = getLogger("sync-all-production-orders.controller");
 
 export async function syncAllProductionOrdersController(
-  request: FastifyRequest,
-  reply: FastifyReply
+    request: FastifyRequest,
+    reply: FastifyReply
 ) {
-  const body = (request.body as SyncAllProductionOrdersRequestDTO | undefined) ?? {};
+    const body = (request.body as SyncAllProductionOrdersRequestDTO | undefined) ?? {};
 
-  const externalRequestId =
-    body.externalRequestId ?? `production-orders-global-${Date.now()}`;
+    const externalRequestId =
+        body.externalRequestId ?? `production-orders-global-${Date.now()}`;
 
-  const omieClient = (request as any).omieClient as OmieHttpClientPort;
-  const isFake = env.PRODUCTION_ORDER_GATEWAY === "fake";
-  const prisma = (request as any).prisma;
+    const omieClient = (request as any).omieClient as OmieHttpClientPort;
+    const isFake = env.PRODUCTION_ORDER_GATEWAY === "fake";
+    const prisma = (request as any).prisma;
 
-  const fetchPageGateway = isFake
-    ? new FakeProductionOrderSyncPageGateway()
-    : new RealProductionOrderSyncPageGateway(omieClient);
+    const fetchPageGateway = isFake
+        ? new FakeProductionOrderSyncPageGateway()
+        : new RealProductionOrderSyncPageGateway(omieClient);
 
-  const syncStateStore = new PrismaSyncStateStore(
-    prisma.productionOrderSyncState,
-    "GLOBAL"
-  );
+    const syncStateStore = new PrismaSyncStateStore(
+        prisma.productionOrderSyncState,
+        "GLOBAL"
+    );
 
-  const useCase = new SyncAllProductionOrdersUseCase(
-    fetchPageGateway,
-    new ProductionOrderCommandStore(prisma),
-    syncStateStore,
-    { noWrite: isFake }
-  );
+    const useCase = new SyncAllProductionOrdersUseCase(
+        fetchPageGateway,
+        new ProductionOrderCommandStore(prisma),
+        syncStateStore,
+        { noWrite: isFake }
+    );
 
-  void useCase
-    .execute({
-      externalRequestId,
-      pageSize: body.pageSize,
-      maxPages: body.maxPages,
-      source: "API2",
-    })
-    .catch((error) => {
-      logger.error("Sync global failed", error as any);
+    void useCase
+        .execute({
+            externalRequestId,
+            pageSize: body.pageSize,
+            maxPages: body.maxPages,
+            source: "API2",
+        })
+        .catch((error) => {
+            logger.error("Sync global failed", error as any);
+        });
+
+    const response: SyncAllProductionOrdersResponseDTO = {
+        status: "ACCEPTED",
+        externalRequestId,
+        resourceId: "__GLOBAL__",
+    };
+
+    return reply.code(202).send({
+        success: true,
+        data: response,
     });
-
-  const response: SyncAllProductionOrdersResponseDTO = {
-    status: "ACCEPTED",
-    externalRequestId,
-    resourceId: "__GLOBAL__",
-  };
-
-  return reply.code(202).send({
-    success: true,
-    data: response,
-  });
 }

@@ -5,13 +5,13 @@
 // ---------------------------------------------------------------------------
 
 export type SyncAllProductionOrdersRequestDTO = {
-  externalRequestId?: string;
-  pageSize?: number;
-  maxPages?: number;
+    externalRequestId?: string;
+    pageSize?: number;
+    maxPages?: number;
 };
 
 export type SyncAllProductionOrdersResponseDTO = {
-  status: "ACCEPTED";
-  externalRequestId: string;
-  resourceId: "__GLOBAL__";
+    status: "ACCEPTED";
+    externalRequestId: string;
+    resourceId: "__GLOBAL__";
 };
