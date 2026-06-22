@@ -197,6 +197,157 @@ export class NomeDoModuloComandoStore {
     });
   }
 }
+
+### 2.3b CommandStore com Command Queue (Fila Assíncrona)
+
+Para operações que exigem **rate-limit** contra o Omie, use a variante com `enqueue`/`dequeue`.
+
+> 📌 **Decisão arquitetural**: Consulte **[ADR-008](./DECISIONS.md)** para o racional completo deste padrão.
+
+```typescript
+// apps/api/src/modules/integration/nome-do-modulo/infrastructure/db/nome-do-modulo-command.store.ts
+// NOVOS métodos para fila:
+
+export type EnqueueCommandInput = {
+  externalRequestId: string;
+  commandType: "CRIAR" | "ATUALIZAR" | "SINCRONIZAR";
+  payload?: Record<string, unknown>;
+  source?: "API2" | "JOB" | "ADMIN";
+};
+
+export type StatusCounts = {
+  pending: number;
+  processing: number;
+  confirmed: number;
+  failed: number;
+};
+
+// ─── Enfileiramento ──────────────────────────────────────────────────
+async enqueue(
+  input: EnqueueCommandInput
+): Promise<{ record: ProductionOrderCommand; created: boolean }> {
+  const existing = await this.buscarPorExternalRequestId(input.externalRequestId);
+  if (existing) return { record: existing, created: false };
+
+  const record = await this.prisma.nomeDoModuloComando.create({
+    data: {
+      externalRequestId: input.externalRequestId,
+      tipoComando: input.commandType,
+      status: "PENDENTE",
+      fonte: input.source ?? "API2",
+      payload: input.payload ?? Prisma.DbNull,
+    },
+  });
+  return { record, created: true };
+}
+
+// ─── Dequeuing atômico (FOR UPDATE SKIP LOCKED) ────────────────────
+async dequeue(batchSize = 1): Promise<ProductionOrderCommand[]> {
+  const rows: Array<{ id: string }> = await this.prisma.$queryRawUnsafe(
+    `SELECT id FROM integration.nome_do_modulo_comando
+     WHERE status = 'PENDENTE'
+     ORDER BY created_at ASC
+     LIMIT $1
+     FOR UPDATE SKIP LOCKED`,
+    batchSize
+  );
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.id);
+  await this.prisma.nomeDoModuloComando.updateMany({
+    where: { id: { in: ids } },
+    data: { status: "PROCESSANDO", executadoEm: new Date() },
+  });
+
+  return this.prisma.nomeDoModuloComando.findMany({
+    where: { id: { in: ids } },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+// ─── Transições ─────────────────────────────────────────────────────
+async marcarConfirmado(externalRequestId: string) { /* ... */ }
+async marcarFalha(externalRequestId: string, erro: unknown) { /* ... */ }
+
+// ─── Consultas ──────────────────────────────────────────────────────
+async contarPorStatusAll(): Promise<StatusCounts> { /* ... */ }
+async listarRecentes(limit = 20): Promise<ProductionOrderCommand[]> { /* ... */ }
+async listarFalhas(limit = 20): Promise<ProductionOrderCommand[]> { /* ... */ }
+```
+
+### 2.3c QueryStore (Leitura do Espelho Local)
+
+Para consultas READ no espelho local (ex: `omie_production_order`), use um QueryStore:
+
+```typescript
+// apps/api/src/modules/integration/nome-do-modulo/infrastructure/db/nome-do-modulo-query.store.ts
+
+import type { PrismaClient } from "@prisma/client";
+
+export type NomeDoModuloListFilters = {
+  ativo?: boolean;
+  concluido?: boolean;
+  codigo?: string;
+};
+
+export type NomeDoModuloListResult = {
+  id: string;
+  codigo: string;
+  // ... campos do espelho
+  ultimaSincronizacao: string;
+};
+
+export type NomeDoModuloDetailResult = NomeDoModuloListResult & {
+  itens: Array<{ /* ... */ }>;
+};
+
+export type NomeDoModuloStatsResult = {
+  total: number;
+  ativos: number;
+  concluidos: number;
+};
+
+export class NomeDoModuloQueryStore {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async listar(pagina = 1, limite = 20, filtros?: NomeDoModuloListFilters) {
+    const skip = (pagina - 1) * limite;
+    const where: any = {};
+    if (filtros?.ativo !== undefined) where.ativo = filtros.ativo;
+    if (filtros?.codigo) where.codigo = filtros.codigo;
+
+    const [itens, total] = await this.prisma.$transaction([
+      this.prisma.omieEntidade.findMany({
+        where, skip, take: limite, orderBy: { ultimaSincronizacao: "desc" },
+      }),
+      this.prisma.omieEntidade.count({ where }),
+    ]);
+
+    return {
+      itens: itens.map(mapper),
+      total, pagina, limite,
+    };
+  }
+
+  async obterPorCodigo(codigo: string): Promise<NomeDoModuloDetailResult | null> {
+    const registro = await this.prisma.omieEntidade.findUnique({
+      where: { codigo },
+      include: { itens: true },
+    });
+    if (!registro) return null;
+    return mapperDetalhe(registro);
+  }
+
+  async obterStats(): Promise<NomeDoModuloStatsResult> {
+    const [total, ativos, concluidos] = await Promise.all([
+      this.prisma.omieEntidade.count(),
+      this.prisma.omieEntidade.count({ where: { ativo: true } }),
+      this.prisma.omieEntidade.count({ where: { concluido: true } }),
+    ]);
+    return { total, ativos, concluidos };
+  }
+}
+```
 ```
 
 ### 2.4 Gateway Real - `infrastructure/gateways/[ação]/`
@@ -354,7 +505,71 @@ export function criarNomeDoModuloAcaoJob(
   const useCase = new NomeDoModuloAcaoUseCase(gateway, store, commandStore);
   return new NomeDoModuloAcaoJob(useCase);
 }
+
+### 2.6b Queue Processor Job (Command Queue) - `infrastructure/jobs/`
+
+Para jobs que processam uma **fila de comandos** com rate-limit contra o Omie:
+
+```typescript
+// apps/api/src/modules/integration/nome-do-modulo/infrastructure/jobs/process-nome-do-modulo-queue.job.ts
+
+import { createJobLock } from "@/shared/utils/job-lock";
+import { getLogger } from "@/shared/logger";
+import { prisma } from "@/shared/db/prisma";
+import { NomeDoModuloComandoStore } from "../db/nome-do-modulo-command.store";
+
+const logger = getLogger("process-nome-do-modulo-queue");
+const LOCK_KEY = "nome-do-modulo-queue-processor";
+const LOCK_TTL_MS = 60000;
+
+export class ProcessNomeDoModuloQueueJob {
+  static async execute() {
+    const lock = createJobLock(LOCK_KEY, LOCK_TTL_MS);
+    const acquired = await lock.acquire();
+    if (!acquired) {
+      logger.info("Queue processor já está rodando em outra instância");
+      return;
+    }
+
+    try {
+      const commandStore = new NomeDoModuloComandoStore(prisma);
+      const renewInterval = setInterval(() => lock.renew(), 30000);
+
+      try {
+        while (true) {
+          const [command] = await commandStore.dequeue(1);
+          if (!command) break;
+
+          logger.info("Processando comando", {
+            externalRequestId: command.externalRequestId,
+            tipo: command.tipoComando,
+          });
+
+          try {
+            await executarComando(command);
+            await commandStore.marcarConfirmado(command.externalRequestId);
+          } catch (error) {
+            await commandStore.marcarFalha(command.externalRequestId, error);
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      } finally {
+        clearInterval(renewInterval);
+      }
+    } finally {
+      await lock.release();
+    }
+  }
+}
 ```
+
+**Regras:**
+- Usa `createJobLock` para garantir singleton entre workers
+- `dequeue(1)` usa `FOR UPDATE SKIP LOCKED` — atômico e sem lock em tabela
+- `sleep(1000)` entre comandos respeita rate-limit do Omie
+- Lock renovado a cada 30s (TTL = 60s)
+- Registrado via cron `* * * * * *` (a cada 1 segundo)
 
 ### 2.7 Job Register - `infrastructure/jobs/`
 
@@ -591,6 +806,76 @@ export function registerGetModeloReadModelRoute(app: FastifyInstance) {
 }
 ```
 
+### 2.9b Route (Read) com Gateway Pattern - `presentation/http/routes/read/`
+
+Para consultas que usam o **espelho local** via Gateway Pattern (Real/Fake) e QueryStore:
+
+```typescript
+// Port: application/ports/nome-do-modulo-query.gateway.ts
+export interface NomeDoModuloQueryGateway {
+  listar(page: number, limit: number, filters?: Record<string, unknown>)
+    : Promise<{ itens: any[]; total: number; pagina: number; limite: number }>;
+  obterPorCodigo(codigo: string): Promise<any | null>;
+  obterStats(): Promise<{ total: number; ativos: number; concluidos: number }>;
+}
+
+// Real Gateway: infrastructure/gateways/read/real-nome-do-modulo-query.gateway.ts
+import { NomeDoModuloQueryStore } from "../../db/nome-do-modulo-query.store";
+
+export class RealNomeDoModuloQueryGateway implements NomeDoModuloQueryGateway {
+  constructor(private readonly queryStore: NomeDoModuloQueryStore) {}
+  async listar(page, limit, filters?) { return this.queryStore.listar(page, limit, filters); }
+  async obterPorCodigo(codigo) { return this.queryStore.obterPorCodigo(codigo); }
+  async obterStats() { return this.queryStore.obterStats(); }
+}
+
+// Seleção na rota (switch real/fake):
+const queryGateway: NomeDoModuloQueryGateway =
+  process.env.NOME_DO_MODULO_GATEWAY === "real"
+    ? new RealNomeDoModuloQueryGateway(new NomeDoModuloQueryStore(prisma))
+    : new FakeNomeDoModuloQueryGateway();
+```
+
+**Implementação completa da rota de listagem:**
+
+```typescript
+export function registerListNomeDoModuloRoute(app: FastifyInstance) {
+  app.get("/v1/integration/nome-do-modulo", {
+    schema: {
+      tags: ["nome-do-modulo"],
+      summary: "Listar registros (espelho local)",
+      querystring: {
+        type: "object",
+        properties: {
+          pagina: { type: "integer", default: 1 },
+          limite: { type: "integer", default: 20 },
+          ativo: { type: "boolean" },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            itens: { type: "array" },
+            total: { type: "integer" },
+            pagina: { type: "integer" },
+            limite: { type: "integer" },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const { pagina = 1, limite = 20, ativo } = request.query as any;
+    const prisma = request.server.prisma;
+    const gateway: NomeDoModuloQueryGateway =
+      process.env.NOME_DO_MODULO_GATEWAY === "real"
+        ? new RealNomeDoModuloQueryGateway(new NomeDoModuloQueryStore(prisma))
+        : new FakeNomeDoModuloQueryGateway();
+    return reply.send(await gateway.listar(pagina, limite, { ativo }));
+  });
+}
+```
+
 ### 2.10 Routes Index - `presentation/http/routes/`
 
 **Arquivo**: `index.ts`
@@ -694,6 +979,10 @@ NOME_DO_MODULO_GATEWAY=fake  # desenvolvimento
 ENABLE_OMIE_NOME_DO_MODULO_ACAO_JOB=false
 OMIE_NOME_DO_MODULO_ACAO_CRON=0 */5 * * * *
 EXECUTE_OMIE_NOME_DO_MODULO_ACAO_JOB_ON_START=false
+
+# Queue Processor (Command Queue Pattern - ADR-008)
+ENABLE_OMIE_NOME_DO_MODULO_QUEUE_JOB=true
+OMIE_NOME_DO_MODULO_QUEUE_CRON=* * * * * *
 ```
 
 ### 3.2 Schema do Prisma

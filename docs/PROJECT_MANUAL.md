@@ -120,6 +120,10 @@ OMIE_PRODUCT_STRUCTURE_SYNC_CRON=0 */12 * * * *
 ENABLE_OMIE_PRODUCT_MANAGEMENT_SYNC_JOB=false
 OMIE_PRODUCT_MANAGEMENT_SYNC_CRON=0 */6 * * * *
 
+# Queue Processor (fila de comandos assíncrona)
+ENABLE_OMIE_PRODUCTION_ORDER_QUEUE_JOB=true
+OMIE_PRODUCTION_ORDER_QUEUE_CRON=* * * * * *
+
 # Padrão para gateways por módulo
 PRODUCT_STRUCTURE_GATEWAY=fake|real
 PRODUCTION_ORDER_GATEWAY=fake|real
@@ -164,6 +168,7 @@ Cada gateway no projeto representa uma **capacidade específica** de comunicaç�
 | **ADR‑005** | Idempotência Obrigatória em Comandos de Integração | ✅ Aceita | Garantia de execução única |
 | **ADR‑006** | `index.ts` só exporta `register` em módulos com registro explícito | ✅ Aceita | Evita double registration |
 | **ADR‑007** | Frontend chamando Omie diretamente (rejeitada) | ❌ Rejeitada | Mantém anti-corruption layer intacta |
+| **ADR‑008** | Command Queue Pattern para Rate-Limit e Concorrência | ✅ Aceita | Fila assíncrona com FOR UPDATE SKIP LOCKED |
 
 > **📌 NOTA**: Para detalhes completos, racional, consequências e alternativas, consulte o documento completo: **[DECISIONS.md](./DECISIONS.md)**
 
@@ -184,6 +189,13 @@ OMIE_PRODUCT_STRUCTURE_SYNC_CRON=0 */12 * * * *
 - **Sincronização**: Traz dados do Omie para o espelho local
 - **Reconciliação**: Detecta e corrige divergências
 - **Processamento em lote**: Executa operações em massa
+- **Queue Processor**: Consome fila de comandos (`PENDING → PROCESSING → CONFIRMED/FAILED`) com rate-limit entre chamadas Omie
+
+#### Convenção de Nomenclatura para Queue Processor:
+```env
+ENABLE_OMIE_{MODULO}_QUEUE_JOB=true
+OMIE_{MODULO}_QUEUE_CRON="* * * * * *"  # A cada 1 segundo
+```
 
 ### 5. PADRÃO CANÔNICO: READ + COMMAND + JOB
 
@@ -246,11 +258,15 @@ export function create{NomeModulo}Integration() {
 #### 3. CommandStore (Obrigatório em comandos)
 O CommandStore é responsável por:
 - **Garantir idempotência**: Verifica `externalRequestId` para evitar execução duplicada
-- **Armazenar status**: Mantém estados (ACCEPTED / CONFIRMED / FAILED) de cada comando
+- **Armazenar status**: Mantém estados (PENDING / PROCESSING / ACCEPTED / CONFIRMED / FAILED)
 - **Permitir retry seguro**: Rastreia tentativas e permite retentativas controladas
 - **Base para observabilidade**: Fornece logs e métricas para monitoramento
 
-**Exemplo de uso**:
+**Dois modos de operação**:
+- **Síncrono (legacy)**: `getOrCreateAccepted()` → cria com status `ACCEPTED`, executa imediatamente
+- **Assíncrono (Command Queue)**: `enqueue()` → cria com status `PENDING`, processado pelo Queue Processor job
+
+**Exemplo de uso (síncrono)**:
 ```typescript
 // No use case de comando
 const existing = await commandStore.findByExternalRequestId(externalRequestId);
@@ -259,12 +275,57 @@ if (existing) {
 }
 ```
 
-#### 4. Anti-corruption Layer
+**Exemplo de uso (Command Queue)**:
+```typescript
+// Na rota — apenas enfileira e retorna 202
+const { record, created } = await commandStore.enqueue({
+  externalRequestId,
+  commandType: "CREATE_OP",
+  source: "API2",
+  payload: { productId, quantity },
+});
+return reply.code(202).send({ status: "PENDING", externalRequestId });
+```
+
+#### 4. Command Queue Pattern (Processamento Assíncrono)
+
+**Propósito**: Evitar chamadas simultâneas ao Omie, garantindo rate-limit de 1 chamada/segundo via fila.
+
+> 📌 **Decisão arquitetural**: Consulte **[ADR-008](./DECISIONS.md)** para racional completo, alternativas e consequências deste padrão.
+
+**Fluxo**:
+```
+Rota POST → enqueue(PENDING)
+                ↓
+Queue Processor job (a cada 1s)
+                ↓
+        dequeue() → FOR UPDATE SKIP LOCKED
+                ↓
+         status = PROCESSING
+                ↓
+       Executa comando (Omie)
+                ↓
+         CONFIRMED ou FAILED
+```
+
+**Status da fila**:
+- `PENDING` — Aguardando processamento
+- `PROCESSING` — Em execução (protegido contra concorrência via SKIP LOCKED)
+- `CONFIRMED` — Executado com sucesso
+- `FAILED` — Falha na execução
+
+**Garantias**:
+- **Atômico**: `dequeue()` usa `SELECT ... FOR UPDATE SKIP LOCKED` — sem concorrência entre workers
+- **Rate-limit**: 1 segundo entre chamadas Omie (via `sleep(1000)` no processor)
+- **Idempotência**: `enqueue()` retorna registro existente se `externalRequestId` duplicado
+- **Recuperação**: Jobs travados por >60s são detectados como stalled e podem ser retomados
+
+#### 5. Anti-corruption Layer
 - API 1 traduz payloads do Omie
 - Domínio interno não conhece detalhes do Omie
 - Isolamento de mudanças no Omie
 
-#### 4. Strategy Pattern
+#### 6. Strategy Pattern
 - Gateways configuráveis (real/fake)
 - Mesma interface, implementações diferentes
 - Troca em runtime via configuração
@@ -688,8 +749,12 @@ OMIE_APP_SECRET="sua-app-secret"
 OMIE_BASE_URL="https://app.omie.com.br/api/v1/"
 
 # Gateways (fake/real)
-PRODUCTION_ORDER_GATEWAY=real
+PRODUCTION_ORDER_GATEWAY=fake  # Use 'real' em produção
 PRODUCT_STRUCTURE_GATEWAY=fake  # Use 'fake' para desenvolvimento
+
+# Command Queue (fila de comandos assíncrona)
+ENABLE_OMIE_PRODUCTION_ORDER_QUEUE_JOB=true
+OMIE_PRODUCTION_ORDER_QUEUE_CRON=* * * * * *
 ```
 
 #### Banco de Dados Local:

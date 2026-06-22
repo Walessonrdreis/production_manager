@@ -12,7 +12,7 @@ export const CreateProductionOrderResponseSchema = z.object({
   success: z.boolean(),
   data: z.object({
     externalRequestId: z.string(),
-    status: z.enum(["ACCEPTED"]),
+    status: z.enum(["PENDING"]),
   }),
 });
 
@@ -30,6 +30,8 @@ export const InternalErrorResponseSchema = z.object({
 
 // ✅ NOVO: Tracking (GET por externalRequestId)
 export const ProductionOrderIntegrationStatusSchema = z.enum([
+  "PENDING",
+  "PROCESSING",
   "ACCEPTED",
   "CONFIRMED",
   "FAILED",

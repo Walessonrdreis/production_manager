@@ -1,7 +1,8 @@
 // ---------------------------------------------------------------------------
-// Route — Get Production Order Status (Read)
+// Route — Get Production Order Stats (Read-Model)
 // ---------------------------------------------------------------------------
-// Tracking de comando: busca status por externalRequestId.
+// GET /v1/integration/read/production-orders/stats
+// Retorna contagens do espelho local.
 // Usa o padrão Real/Fake gateway selecionado via env var.
 // ---------------------------------------------------------------------------
 
@@ -12,35 +13,24 @@ import { prisma } from "@/shared/db/prisma";
 import { FakeProductionOrderQueryGateway } from "../../../../infrastructure/gateways/query/fake-production-order-query.gateway";
 import { RealProductionOrderQueryGateway } from "../../../../infrastructure/gateways/query/real-production-order-query.gateway";
 
-export async function registerGetProductionOrderStatusRoute(
-    app: FastifyInstance
-) {
+export async function registerGetProductionOrderStatsRoute(app: FastifyInstance) {
     app.get(
-        "/v1/integration/production-order/:externalRequestId",
+        "/v1/integration/read/production-orders/stats",
         async (request, reply) => {
             try {
-                const { externalRequestId } = request.params as {
-                    externalRequestId: string;
-                };
-
                 const isFake = env.PRODUCTION_ORDER_GATEWAY === "fake";
                 const queryGateway = isFake
                     ? new FakeProductionOrderQueryGateway()
                     : new RealProductionOrderQueryGateway(prisma);
 
-                const record = await queryGateway.getByExternalRequestId(externalRequestId);
+                const stats = await queryGateway.getProductionOrderStats();
 
-                if (!record) {
-                    return reply.code(404).send({
-                        success: false,
-                        error: "NOT_FOUND",
-                        message: "Production order request not found",
-                    });
-                }
-
-                return reply.code(200).send({ success: true, data: record });
+                return reply.code(200).send({
+                    success: true,
+                    data: stats,
+                });
             } catch (error) {
-                console.error("[OP][STATUS][ERROR]", error);
+                console.error("[OP][STATS][ERROR]", error);
                 return reply.code(500).send({
                     success: false,
                     error: "INTERNAL_ERROR",

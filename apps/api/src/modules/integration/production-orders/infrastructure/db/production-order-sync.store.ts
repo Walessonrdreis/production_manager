@@ -22,6 +22,7 @@ export class ProductionOrderSyncStore {
                 create: {
                     omieCode: order.omieCode,
                     internalCode: order.internalCode,
+                    orderNumber: order.orderNumber,
                     productCode: order.productCode,
                     productIntegrationCode: order.productIntegrationCode,
                     quantity: order.quantity,
@@ -41,6 +42,7 @@ export class ProductionOrderSyncStore {
                 },
                 update: {
                     internalCode: order.internalCode,
+                    orderNumber: order.orderNumber,
                     productCode: order.productCode,
                     productIntegrationCode: order.productIntegrationCode,
                     quantity: order.quantity,

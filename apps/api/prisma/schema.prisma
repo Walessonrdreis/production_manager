@@ -415,6 +415,7 @@ model OmieProductionOrder {
 
   omieCode               String   @db.VarChar(64) @map("omie_code")
   internalCode           String?  @db.VarChar(64) @map("internal_code")
+  orderNumber            String?  @db.VarChar(32) @map("order_number")
 
   productCode            String?  @db.VarChar(64) @map("product_code")
   productIntegrationCode String?  @db.VarChar(128) @map("product_integration_code")
@@ -569,11 +570,16 @@ model ProductionOrderIntegration {
 
 enum ProductionOrderCommandType {
   SYNC_GLOBAL
+  CREATE_OP
+  UPDATE_OP
+  SYNC_OP
 
   @@schema("integration")
 }
 
 enum ProductionOrderCommandStatus {
+  PENDING
+  PROCESSING
   ACCEPTED
   CONFIRMED
   FAILED
@@ -595,10 +601,12 @@ model ProductionOrderCommand {
   externalRequestId String @unique @map("external_request_id")
 
   commandType ProductionOrderCommandType @map("command_type")
-  status      ProductionOrderCommandStatus @default(ACCEPTED)
+  status      ProductionOrderCommandStatus @default(PENDING)
 
-  source    ProductionOrderCommandSource @default(API2)
-  lastError Json? @map("last_error")
+  source      ProductionOrderCommandSource @default(API2)
+  lastError   Json? @map("last_error")
+  payload     Json? @map("payload")
+  retryCount  Int    @default(0) @map("retry_count")
 
   executedAt  DateTime? @map("executed_at")
   completedAt DateTime? @map("completed_at")

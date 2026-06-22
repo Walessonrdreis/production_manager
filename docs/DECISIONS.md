@@ -231,6 +231,59 @@ Quando existir `{modulo}-register.ts`:
 
 ---
 
+## ✅ ADR-008 — Command Queue Pattern para Rate-Limit e Concorrência
+
+**Status:** ✅ Aceita  
+**Data:** 2026-06  
+**Categoria:** Confiabilidade / Concorrência
+
+### Contexto
+O Omie impõe rate-limit de aproximadamente 1 chamada/segundo por endpoint. Sem controle de concorrência:
+
+- Chamadas simultâneas geram erros 429 (rate-limit)
+- Jobs concorrentes podem processar o mesmo item
+- Sem recuperação automática em caso de falha
+- Sem visibilidade do estado de comandos em andamento
+
+### Decisão
+Adotar **Command Queue Pattern** com fila no PostgreSQL (próprio banco de integração):
+
+**Fluxo:**
+1. Comando é enfileirado com status `PENDING` (via `enqueue()`)
+2. Queue Processor (job cron `* * * * * *`) executa `dequeue()` com `FOR UPDATE SKIP LOCKED`
+3. Comando transiciona para `PROCESSING`
+4. Executa chamada Omie via gateway
+5. Sucesso → `CONFIRMED` | Falha → `FAILED`
+6. Sleep de 1 segundo entre comandos (rate-limit)
+
+**Garantias:**
+- `dequeue()` atômico — sem concorrência entre workers
+- `createJobLock()` — apenas um processor roda por vez
+- Idempotência via `externalRequestId` (mesmo `enqueue()` sendo seguro)
+- Stale processing detection (comandos `PROCESSING` há mais de N segundos)
+
+### Justificativa
+- Rate-limit de 1 chamada/segundo exige fila
+- `FOR UPDATE SKIP LOCKED` evita locks em tabela
+- Sem dependência externa (Redis, SQS, RabbitMQ)
+- Banco de dados único → transação consistente
+- Visibilidade total do estado de cada comando
+
+### Consequências
+✅ Latência controlada (1 comando/segundo)  
+✅ Sem concorrência destrutiva  
+✅ Recuperação automática (retry em próxima execução do cron)  
+✅ Observabilidade (status counts, listRecent, listFailures)  
+⚠️ Complexidade adicional de fila (Store + Processor + Schemas)  
+⚠️ Throughput limitado a 1 chamada/segundo (aceitável por rate-limit)
+
+### Alternativas Consideradas
+❌ **Locks distribuídos** (Redis) — dependência externa, complexidade operacional  
+❌ **Filas externas** (Redis/SQS/RabbitMQ) — infraestrutura extra, latência de rede  
+❌ **JobLock simples sem fila** — sem visibilidade, sem retry granular, sem fila
+
+---
+
 ## 📌 Decisões Futuras (Placeholder)
 
 Use esta seção para decisões ainda em discussão:

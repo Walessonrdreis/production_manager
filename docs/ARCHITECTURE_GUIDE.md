@@ -180,8 +180,16 @@ export function createProductStructureFetchGateway(omieClient: OmieHttpClientPor
 ```
 infrastructure/jobs/
 ├── {nome-modulo}-jobs.register.ts    # Registro e configuração
-└── {verbo}-{entidade}.job.ts         # Implementação do job
+├── {verbo}-{entidade}.job.ts         # Job de sincronização/reconciliação
+└── process-{entidade}-queue.job.ts   # Queue Processor (fila de comandos)
 ```
+
+#### Tipos de Jobs:
+| Tipo | Descrição | Exemplo |
+|------|-----------|--------|
+| **Sincronização** | Traz dados do Omie para espelho local | `sync-all-production-orders.job.ts` |
+| **Reconciliação** | Detecta e corrige divergências | `reconcile-product-structures.job.ts` |
+| **Queue Processor** | Consome fila de comandos com rate-limit | `process-production-order-queue.job.ts` |
 
 ### 4.2 Job Register (Configuração)
 ```typescript
@@ -243,6 +251,51 @@ ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB=true
 OMIE_PRODUCT_STRUCTURE_SYNC_CRON="0 */12 * * *"
 ENABLE_OMIE_STOCK_REFRESH_JOB=false
 STOCK_REFRESH_CRON="*/30 * * * *"
+
+// Queue Processor (fila de comandos)
+ENABLE_OMIE_PRODUCTION_ORDER_QUEUE_JOB=true
+OMIE_PRODUCTION_ORDER_QUEUE_CRON="* * * * * *"
+```
+
+### 4.5 Queue Processor Job
+
+```typescript
+// infrastructure/jobs/process-{entidade}-queue.job.ts
+// Job que roda a cada 1 segundo, processa 1 comando por vez com rate-limit.
+
+import { createJobLock } from "@/shared/utils/job-lock";
+
+const LOCK_KEY = "{entidade}-queue-processor";
+const LOCK_TTL_MS = 60000;
+
+export class Process{Entidade}QueueJob {
+  static async execute(prisma: PrismaClient) {
+    const lock = createJobLock(LOCK_KEY, LOCK_TTL_MS);
+    const acquired = await lock.acquire();
+    if (!acquired) return; // Já tem outro worker rodando
+
+    try {
+      const commandStore = new {Entidade}CommandStore(prisma);
+
+      while (true) {
+        const [command] = await commandStore.dequeue(1);
+        if (!command) break; // Fila vazia
+
+        try {
+          // Executa comando (Omie)
+          await executeCommand(command);
+          await commandStore.markConfirmed(command.externalRequestId);
+        } catch (error) {
+          await commandStore.markFailed(command.externalRequestId, error);
+        }
+
+        await sleep(1000); // Rate-limit: 1 chamada/segundo
+      }
+    } finally {
+      await lock.release();
+    }
+  }
+}
 ```
 
 ---
@@ -298,6 +351,74 @@ export class ReconcileProductStructuresJob {
 }
 ```
 
+### 5.4 Command Queue (Fila de Comandos Assíncrona)
+
+**Quando usar**: Operações que exigem rate-limit contra o Omie (ex: 1 chamada/segundo).
+
+> 📌 **Decisão arquitetural documentada**: Consulte **[ADR-008](../DECISIONS.md)** para racional completo, alternativas consideradas e consequências deste padrão.
+
+**Fluxo**:
+```
+Route POST → ProductionOrderCommandStore.enqueue({ commandType: "CREATE_OP", status: "PENDING" })
+                ↓
+ProcessProductionOrderQueueJob (cron * * * * * *)
+                ↓
+    commandStore.dequeue(1) → SELECT ... FOR UPDATE SKIP LOCKED
+                ↓
+         status = PROCESSING
+                ↓
+       Executa gateway (Omie)
+                ↓
+         CONFIRMED ou FAILED
+```
+
+**Estrutura do CommandStore para fila**:
+```typescript
+// infrastructure/db/{entidade}-command.store.ts
+export class {Entidade}CommandStore {
+  // Enfileiramento
+  async enqueue(input: EnqueueCommandInput): Promise<{ record: ProductionOrderCommand; created: boolean }>
+
+  // Dequeuing atômico (FOR UPDATE SKIP LOCKED)
+  async dequeue(batchSize?: number): Promise<ProductionOrderCommand[]>
+
+  // Transições de status
+  async markProcessing(externalRequestId: string): Promise<void>
+  async markConfirmed(externalRequestId: string): Promise<void>
+  async markFailed(externalRequestId: string, error: unknown): Promise<void>
+
+  // Consultas
+  async countByStatusAll(): Promise<StatusCounts>
+  async listRecent(limit?: number): Promise<ProductionOrderCommand[]>
+  async listFailures(limit?: number): Promise<ProductionOrderCommand[]>
+  async findProcessingStalled(ageMs: number): Promise<ProductionOrderCommand[]>
+}
+```
+
+**Enums do Schema Prisma**:
+```prisma
+enum ProductionOrderCommandType {
+  SYNC_GLOBAL
+  CREATE_OP
+  UPDATE_OP
+  SYNC_OP
+}
+
+enum ProductionOrderCommandStatus {
+  PENDING
+  PROCESSING
+  ACCEPTED
+  CONFIRMED
+  FAILED
+}
+
+enum ProductionOrderCommandSource {
+  API2
+  JOB
+  ADMIN
+}
+```
+
 ---
 
 ## 6. ORGANIZAÇÃO DE ROTAS HTTP
@@ -311,7 +432,12 @@ presentation/http/routes/
 │   ├── submit-product-structure.route.ts
 │   └── sync-product-structure.route.ts
 └── read/              # Consultas (GET) - não alteram estado
-    └── get-production-readiness.route.ts
+    ├── get-production-readiness.route.ts
+    ├── list-{entidades}.route.ts              # Lista paginada do espelho
+    ├── get-{entidade}.route.ts                # Detalhe + itens
+    ├── get-{entidade}-stats.route.ts          # Estatísticas
+    ├── get-queue-status.route.ts              # Status da fila de comandos
+    └── get-queue-failures.route.ts            # Falhas da fila
 ```
 
 ### 6.2 Padrão de Nomeação de Rotas

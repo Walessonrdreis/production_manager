@@ -5,6 +5,7 @@ import { brDateToISO, isSim } from './omie.utils'
 export interface OmieProductionOrder {
   omieCode: string
   internalCode?: string | null
+  orderNumber?: string | null
   productCode?: string | null
   productIntegrationCode?: string | null
   quantity: string
@@ -37,7 +38,7 @@ export interface OmieProductionOrderItem {
 export function filterByCompletionStatus(order: any, completed: boolean): boolean {
   const outrasInf = order?.outrasInf ?? {}
   const cConcluida = String(outrasInf.cConcluida ?? '').trim()
-  
+
   if (completed) {
     return cConcluida === 'S'
   } else {
@@ -51,15 +52,15 @@ export function filterByCompletionStatus(order: any, completed: boolean): boolea
 export function filterByCompletionDate(order: any, startDate?: string, endDate?: string): boolean {
   const outrasInf = order?.outrasInf ?? {}
   const completionDate = outrasInf.dConclusao
-  
+
   if (!completionDate) return false
-  
+
   const date = brDateToISO(completionDate)
   if (!date) return false
-  
+
   if (startDate && date < new Date(startDate)) return false
   if (endDate && date > new Date(endDate)) return false
-  
+
   return true
 }
 
@@ -73,13 +74,15 @@ export function mapProductionOrder(order: any): {
   const identificacao = order?.identificacao ?? {}
   const infAdicionais = order?.infAdicionais ?? {}
   const outrasInf = order?.outrasInf ?? {}
-  
+
   const omieCode = String(identificacao.nCodOP ?? '')
   const internalCode = identificacao.cCodIntOP ? String(identificacao.cCodIntOP) : null
-  
+  const orderNumber = outrasInf.cNumOP ? String(outrasInf.cNumOP) : null
+
   const mappedOrder: OmieProductionOrder = {
     omieCode,
     internalCode,
+    orderNumber,
     productCode: identificacao.nCodProduto ? String(identificacao.nCodProduto) : null,
     productIntegrationCode: identificacao.cCodIntProd ? String(identificacao.cCodIntProd) : null,
     quantity: String(identificacao.nQtde ?? 0),
@@ -92,14 +95,14 @@ export function mapProductionOrder(order: any): {
     rawPayload: order,
     lastSyncAt: new Date(),
   }
-  
+
   const items: OmieProductionOrderItem[] = []
-  
+
   // Processar itens principais
   const mainItems = order?.itens ?? []
   mainItems.forEach((item: any) => {
     const omieItemCode = `main_${item.nIdProdutoMalha ?? Date.now()}`
-    
+
     items.push({
       omieItemCode,
       omieProductionOrderId: omieCode,
@@ -109,12 +112,12 @@ export function mapProductionOrder(order: any): {
       lastSyncAt: new Date(),
     })
   })
-  
+
   // Processar itens detalhados (se disponíveis)
   const detailedItems = order?.itensDetalhes ?? []
   detailedItems.forEach((item: any, index: number) => {
     const omieItemCode = `detail_${item.nIdProdutoMalha ?? index}`
-    
+
     items.push({
       omieItemCode,
       omieProductionOrderId: omieCode,
@@ -127,7 +130,7 @@ export function mapProductionOrder(order: any): {
       lastSyncAt: new Date(),
     })
   })
-  
+
   return { order: mappedOrder, items }
 }
 
@@ -138,10 +141,11 @@ export function extractProductionOrderSummary(order: any) {
   const identificacao = order?.identificacao ?? {}
   const infAdicionais = order?.infAdicionais ?? {}
   const outrasInf = order?.outrasInf ?? {}
-  
+
   return {
     omieCode: String(identificacao.nCodOP ?? ''),
     internalCode: identificacao.cCodIntOP ? String(identificacao.cCodIntOP) : null,
+    orderNumber: outrasInf.cNumOP ? String(outrasInf.cNumOP) : null,
     productCode: identificacao.nCodProduto ? String(identificacao.nCodProduto) : null,
     quantity: String(identificacao.nQtde ?? 0),
     forecastDate: brDateToISO(identificacao.dDtPrevisao),
