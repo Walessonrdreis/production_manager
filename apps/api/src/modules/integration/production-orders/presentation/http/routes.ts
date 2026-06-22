@@ -4,6 +4,7 @@ import { createProductionOrderController } from "./controllers/create-production
 import { getProductionOrderStatusController } from "./controllers/get-production-order-status.controller";
 import { confirmProductionOrderController } from "./controllers/confirm-production-order.controller";
 import { failProductionOrderController } from "./controllers/fail-production-order.controller";
+import { syncAllProductionOrdersController } from "./controllers/sync-all-production-orders.controller";
 
 export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
   const schema = { tags: ["integration"] };
@@ -30,5 +31,11 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
   app.post("/v1/integration/production-order/:externalRequestId/fail", {
     schema: { ...schema, description: "FAKE – fail production order" },
     handler: failProductionOrderController,
+  });
+
+  // SYNC — GLOBAL
+  app.post("/v1/integration/production-order/sync-global", {
+    schema: { ...schema, description: "Sync all production orders from Omie" },
+    handler: syncAllProductionOrdersController,
   });
 }

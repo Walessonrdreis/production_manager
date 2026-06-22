@@ -563,6 +563,66 @@ model ProductionOrderIntegration {
   @@schema("integration")
 }
 
+// ---------------------------------------------------------------------------
+// Production Order Command + Sync State (sync-global)
+// ---------------------------------------------------------------------------
+
+enum ProductionOrderCommandType {
+  SYNC_GLOBAL
+
+  @@schema("integration")
+}
+
+enum ProductionOrderCommandStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+
+  @@schema("integration")
+}
+
+enum ProductionOrderCommandSource {
+  API2
+  JOB
+  ADMIN
+
+  @@schema("integration")
+}
+
+model ProductionOrderCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @map("external_request_id")
+
+  commandType ProductionOrderCommandType @map("command_type")
+  status      ProductionOrderCommandStatus @default(ACCEPTED)
+
+  source    ProductionOrderCommandSource @default(API2)
+  lastError Json? @map("last_error")
+
+  executedAt  DateTime? @map("executed_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([commandType])
+  @@map("production_order_command")
+  @@schema("integration")
+}
+
+model ProductionOrderSyncState {
+  id         String   @id
+  lastSyncAt DateTime @map("last_sync_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("production_order_sync_state")
+  @@schema("integration")
+}
+
+// ---------------------------------------------------------------------------
+
 model ProductCatalogProductionReadyReadModel {
   id String @id @default(cuid())
 
