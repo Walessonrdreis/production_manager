@@ -1,41 +1,22 @@
+// ---------------------------------------------------------------------------
+// Routes — Production Orders Integration
+// ---------------------------------------------------------------------------
+// Commands  → routes/commands/
+// Read-only → routes/read/
+// ---------------------------------------------------------------------------
+
 import type { FastifyInstance } from "fastify";
 
-import { createProductionOrderController } from "./controllers/create-production-order.controller";
-import { getProductionOrderStatusController } from "./controllers/get-production-order-status.controller";
-import { confirmProductionOrderController } from "./controllers/confirm-production-order.controller";
-import { failProductionOrderController } from "./controllers/fail-production-order.controller";
-import { syncAllProductionOrdersController } from "./controllers/sync-all-production-orders.controller";
+import { registerCreateProductionOrderRoute } from "./routes/commands/create-production-order.route";
+import { registerConfirmProductionOrderRoute } from "./routes/commands/confirm-production-order.route";
+import { registerFailProductionOrderRoute } from "./routes/commands/fail-production-order.route";
+import { registerSyncAllProductionOrdersRoute } from "./routes/commands/sync-all-production-orders.route";
+import { registerGetProductionOrderStatusRoute } from "./routes/read/get-production-order-status.route";
 
 export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
-  const schema = { tags: ["integration"] };
-
-  // CREATE
-  app.post("/v1/integration/production-order", {
-    schema: { ...schema, description: "Create production order (integration)" },
-    handler: createProductionOrderController,
-  });
-
-  // STATUS
-  app.get("/v1/integration/production-order/:externalRequestId", {
-    schema: { ...schema, description: "Get production order integration status" },
-    handler: getProductionOrderStatusController,
-  });
-
-  // FAKE — CONFIRM
-  app.post("/v1/integration/production-order/:externalRequestId/confirm", {
-    schema: { ...schema, description: "FAKE – confirm production order" },
-    handler: confirmProductionOrderController,
-  });
-
-  // FAKE — FAIL
-  app.post("/v1/integration/production-order/:externalRequestId/fail", {
-    schema: { ...schema, description: "FAKE – fail production order" },
-    handler: failProductionOrderController,
-  });
-
-  // SYNC — GLOBAL
-  app.post("/v1/integration/production-order/sync-global", {
-    schema: { ...schema, description: "Sync all production orders from Omie" },
-    handler: syncAllProductionOrdersController,
-  });
+  await registerCreateProductionOrderRoute(app);
+  await registerGetProductionOrderStatusRoute(app);
+  await registerConfirmProductionOrderRoute(app);
+  await registerFailProductionOrderRoute(app);
+  await registerSyncAllProductionOrdersRoute(app);
 }
