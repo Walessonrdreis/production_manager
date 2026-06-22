@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import { env } from "@/config";
 import { getLogger } from "@/shared/logger";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 import { ReconcileProductStructuresJob } from "./reconcile-product-structures.job";
@@ -6,12 +7,12 @@ import { ReconcileProductStructuresJob } from "./reconcile-product-structures.jo
 export function registerProductStructureJobs(omieClient: OmieHttpClientPort) {
   const logger = getLogger("product-structure:cron");
 
-  if (process.env.ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB !== "true") {
+  if (!env.ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB) {
     logger.info("Product Structure sync job is disabled");
     return;
   }
 
-  const schedule = process.env.OMIE_PRODUCT_STRUCTURE_SYNC_CRON ?? "0 */12 * * *";
+  const schedule = env.OMIE_PRODUCT_STRUCTURE_SYNC_CRON ?? "0 */12 * * *";
 
   logger.info("Registering Product Structure sync job", { schedule });
 

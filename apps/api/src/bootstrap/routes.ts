@@ -27,7 +27,7 @@ import { registerTrelloIntegrationModule } from "@/modules/legacy/trello-integra
 import { registerProductSectorsModule } from "@/modules/legacy/product-sectors";
 
 import { registerProductionOrdersIntegrationModule } from "@/modules/integration/production-orders";
-import { registerProductStructureIntegrationModule } from "@/modules/integration/product-structure";
+import { createProductStructureIntegration } from "@/modules/integration/product-structure";
 import { createProductCatalogIntegration } from "@/modules/integration/product-catalog";
 import { createSalesOrderSyncIntegration } from "@/modules/integration/sales-order-sync";
 import { createCustomerSyncIntegration } from "@/modules/integration/customer-sync";
@@ -58,7 +58,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await createProductStockFetchIntegration().register(app);
   await registerOrdersModule(app);
   await registerProductionOrdersIntegrationModule(app);
-  await registerProductStructureIntegrationModule(app);
+  await createProductStructureIntegration().register(app);
 
   // ✅ NOVO módulo product-catalog
   await createProductCatalogIntegration().register(app);

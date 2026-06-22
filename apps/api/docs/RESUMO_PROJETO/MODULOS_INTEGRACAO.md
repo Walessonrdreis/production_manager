@@ -7,14 +7,19 @@
 
 ## 📋 Sumário
 
-| Módulo | Rotas | Comandos | Read-Models | Sync Global | Gateway |
-|--------|-------|----------|-------------|-------------|---------|
-| [customer-sync](#1️⃣-customer-sync) | 9 | 2 | 7 | ✅ | Fake/Real |
-| [product-catalog](#2️⃣-product-catalog) | 14 | 3 | 11 | ✅ | Fake/Real |
-| [product-stock-fetch](#3️⃣-product-stock-fetch) | 3 | 2 | 1 | ✅ | Fake/Real |
-| [product-structure](#4️⃣-product-structure) | 8 | 5 | 3 | ✅ | Fake/Real |
-| [production-orders](#5️⃣-production-orders) | 4 | 2 (1 fake-only) | 1 | ❌ | Fake/Real |
-| [sales-order-sync](#6️⃣-sales-order-sync) | 7 | 1 | 6 | ✅ | Fake/Real |
+| Módulo | Tipo | Rotas | Comandos | Read-Models | Sync Global | Gateway |
+|--------|------|-------|----------|-------------|-------------|---------|
+| [customer-sync](#1️⃣-customer-sync) | 🔄 Sync-Only | 9 | 2 | 7 | ✅ | Fake/Real |
+| [product-catalog](#2️⃣-product-catalog) | 🔄 Sync-Only | 14 | 3 | 11 | ✅ | Fake/Real |
+| [product-stock-fetch](#3️⃣-product-stock-fetch) | 🔄 Sync-Only | 3 | 2 | 1 | ✅ | Fake/Real |
+| [product-structure](#4️⃣-product-structure) | ⚙️ Command-Cycle | 8 | 5 | 3 | ✅ | Fake/Real |
+| [production-orders](#5️⃣-production-orders) | ⚙️ Command-Cycle | 4 | 2 (1 fake-only) | 1 | ❌ | Fake/Real |
+| [sales-order-sync](#6️⃣-sales-order-sync) | 🔄 Sync-Only | 7 | 1 | 6 | ✅ | Fake/Real |
+
+---
+
+> **Legenda:** 🔄 Sync-Only = apenas leitura do Omie (modelo: `customer-sync`) · ⚙️ Command-Cycle = leitura + escrita no Omie (modelo: `product-structure`)
+> Templates canônicos: [`docs/TEMPLATE_SYNC_ONLY.md`](../../../../docs/TEMPLATE_SYNC_ONLY.md) · [`docs/TEMPLATE_COMMAND_CYCLE.md`](../../../../docs/TEMPLATE_COMMAND_CYCLE.md)
 
 ---
 
@@ -75,6 +80,8 @@ modulo/
 
 ## 1️⃣ customer-sync
 
+**🧩 Arquétipo:** 🔄 Sync-Only (modelo canônico)
+
 **Propósito:** Sincronização de clientes entre Omie ERP e o banco local (`omie_customer`).
 
 **Gateway:** `CUSTOMER_SYNC_GATEWAY=fake|real`
@@ -104,6 +111,8 @@ modulo/
 ---
 
 ## 2️⃣ product-catalog
+
+**🧩 Arquétipo:** 🔄 Sync-Only
 
 **Propósito:** Manter o espelho local do catálogo de produtos do Omie (`omie_product`), estoque (`product_stock`), consolidar dados com estrutura de produtos, OPs e pedidos aprovados, e expor **read-model `production-ready`** para API 2.
 
@@ -154,6 +163,8 @@ Cada produto pode ter um destes status:
 
 ## 3️⃣ product-stock-fetch
 
+**🧩 Arquétipo:** 🔄 Sync-Only
+
 **Propósito:** Consultar posição de estoque de produtos no Omie e persistir localmente.
 
 **Gateway:** `PRODUCT_STOCK_FETCH_GATEWAY=fake|real`
@@ -180,6 +191,8 @@ Cada produto pode ter um destes status:
 ---
 
 ## 4️⃣ product-structure
+
+**🧩 Arquétipo:** ⚙️ Command-Cycle (modelo canônico)
 
 **Propósito:** Capacidade externa de **Estrutura de Produto (BOM/Malha)**, cuja fonte de verdade é o Omie. **Módulo canônico de referência** para novos módulos.
 
@@ -213,6 +226,8 @@ Cada produto pode ter um destes status:
 
 ## 5️⃣ production-orders
 
+**🧩 Arquétipo:** ⚙️ Command-Cycle
+
 **Propósito:** Gerenciar integração de **ordens de produção** com Omie. Segue Clean Architecture.
 
 **Gateway:** `PRODUCTION_ORDER_GATEWAY=fake|real`
@@ -243,6 +258,8 @@ ACCEPTED → CONFIRMED | FAILED
 ---
 
 ## 6️⃣ sales-order-sync
+
+**🧩 Arquétipo:** 🔄 Sync-Only
 
 **Propósito:** Sincronizar pedidos de venda do Omie (`sales_order` / `sales_order_item`), traduzir payload externo, expor read-models de resumo, transições e itens em aberto.
 
@@ -312,7 +329,9 @@ production-ready (product-catalog) depende de:
 - [`apps/api/ROUTES.md`](../../ROUTES.md) — Contrato canônico de todas as rotas da API 1
 - [`apps/api/src/modules/integration/product-structure/README.md`](../src/modules/integration/product-structure/README.md) — Módulo canônico de referência
 - [`apps/api/src/modules/integration/product-structure/CONTRATO_DE_USO.MD`](../src/modules/integration/product-structure/CONTRATO_DE_USO.MD) — Contrato de uso
-- [`docs/MODULE_TEMPLATE.md`](../../../../docs/MODULE_TEMPLATE.md) — Template para novos módulos
+- [`docs/TEMPLATE_SYNC_ONLY.md`](../../../../docs/TEMPLATE_SYNC_ONLY.md) — Template canônico para módulos Sync-Only (basado em `customer-sync`)
+- [`docs/TEMPLATE_COMMAND_CYCLE.md`](../../../../docs/TEMPLATE_COMMAND_CYCLE.md) — Template canônico para módulos Command-Cycle (basado em `product-structure`)
+- [`docs/MODULE_TEMPLATE.md`](../../../../docs/MODULE_TEMPLATE.md) — Template geral para novos módulos
 - [`docs/PROJECT_MANUAL.md`](../../../../docs/PROJECT_MANUAL.md) — Manual completo do projeto
 - [`docs/DOMAIN_NAMING_GUIDE.md`](../../../../docs/DOMAIN_NAMING_GUIDE.md) — Guia de nomenclatura
 - [`docs/ARCHITECTURE_GUIDE.md`](../../../../docs/ARCHITECTURE_GUIDE.md) — Guia de arquitetura
