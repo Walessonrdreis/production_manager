@@ -137,82 +137,82 @@ export class SyncAllProductStockUseCase {
             pageSize,
           }
         );
-      });
 
-      processedPages += 1;
+        processedPages += 1;
 
-      if (pageResult.items.length > 0) {
-        totalItems += pageResult.items.length;
+        if (pageResult.items.length > 0) {
+          totalItems += pageResult.items.length;
 
-        for (const item of pageResult.items) {
-          await this.integrationStore.upsert(item.productId, {
-            stockQuantity: item.stockQuantity,
-            minimumStock: item.minimumStock,
+          for (const item of pageResult.items) {
+            await this.integrationStore.upsert(item.productId, {
+              stockQuantity: item.stockQuantity,
+              minimumStock: item.minimumStock,
+            });
+          }
+        }
+
+        this.logger.info("Product stock page processed", {
+          externalRequestId: command.externalRequestId,
+          page,
+          items: pageResult.items.length,
+          processedPages,
+          totalItems,
+        });
+
+        if (processedPages % 10 === 0) {
+          this.logger.info("Product stock sync checkpoint", {
+            externalRequestId: command.externalRequestId,
+            processedPages,
+            totalItems,
           });
         }
+
+        if (!pageResult.hasNext || pageResult.items.length === 0) {
+          this.logger.info("Product stock sync finished: last page reached", {
+            externalRequestId: command.externalRequestId,
+            currentPage: page,
+            processedPages,
+            totalItems,
+          });
+          break;
+        }
+
+        page += 1;
+        await sleep(700);
       }
 
-      this.logger.info("Product stock page processed", {
+      await this.commandStore.markConfirmed(command.externalRequestId);
+      await this.syncStateStore.updateLastSync(new Date());
+
+      this.logger.info("Product stock sync completed", {
         externalRequestId: command.externalRequestId,
-        page,
-        items: pageResult.items.length,
         processedPages,
         totalItems,
       });
 
-      if (processedPages % 10 === 0) {
-        this.logger.info("Product stock sync checkpoint", {
+      // ✅ Cascade: após atualizar estoque, refresh do production-ready read model
+      if (this.refreshProductCatalogUseCase) {
+        this.logger.info("Triggering production-ready read-model refresh after stock sync", {
           externalRequestId: command.externalRequestId,
-          processedPages,
-          totalItems,
         });
+        await this.refreshProductCatalogUseCase.execute();
       }
 
-      if (!pageResult.hasNext || pageResult.items.length === 0) {
-        this.logger.info("Product stock sync finished: last page reached", {
-          externalRequestId: command.externalRequestId,
-          currentPage: page,
-          processedPages,
-          totalItems,
-        });
-        break;
-      }
-
-      page += 1;
-      await sleep(700);
-    }
-
-      await this.commandStore.markConfirmed(command.externalRequestId);
-    await this.syncStateStore.updateLastSync(new Date());
-
-    this.logger.info("Product stock sync completed", {
-      externalRequestId: command.externalRequestId,
-      processedPages,
-      totalItems,
-    });
-
-    // ✅ Cascade: após atualizar estoque, refresh do production-ready read model
-    if (this.refreshProductCatalogUseCase) {
-      this.logger.info("Triggering production-ready read-model refresh after stock sync", {
+      return {
+        status: "ACCEPTED" as const,
         externalRequestId: command.externalRequestId,
+        resourceId: "__GLOBAL__" as const,
+      };
+    } catch (error) {
+      await this.commandStore.markFailed(command.externalRequestId, error);
+
+      this.logger.error("Product stock sync failed", {
+        externalRequestId: command.externalRequestId,
+        error,
       });
-      await this.refreshProductCatalogUseCase.execute();
+
+      throw error;
     }
-
-    return {
-      status: "ACCEPTED" as const,
-      externalRequestId: command.externalRequestId,
-      resourceId: "__GLOBAL__" as const,
-    };
-  } catch(error) {
-    await this.commandStore.markFailed(command.externalRequestId, error);
-
-    this.logger.error("Product stock sync failed", {
-      externalRequestId: command.externalRequestId,
-      error,
-    });
-
-    throw error;
   }
 }
-}
+

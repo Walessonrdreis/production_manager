@@ -67,7 +67,7 @@ export class GetProductsProductionReadModelUseCase {
     const existsStructure = Prisma.sql`
       EXISTS (
         SELECT 1
-        FROM product_structure ps
+        FROM "integration"."product_structure" ps
         WHERE ps.cod_produto = p.omie_code
           AND ps.has_structure = true
       )
