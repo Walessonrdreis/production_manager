@@ -223,6 +223,14 @@ curl -s -X POST http://localhost:3333/v1/integration/production-order \
 curl -s -X POST "http://localhost:3333/v1/integration/production-order/SEU_EXTERNAL_REQUEST_ID/fail" \
   -H "Content-Type: application/json" \
   -d '{"code":"ESTOQUE_INSUFICIENTE","message":"Sem estoque disponível"}'
+
+# Sync global (espelhar OPs do Omie)
+curl -s -X POST http://localhost:3333/v1/integration/production-order/sync-global
+
+# Sync global com parâmetros
+curl -s -X POST http://localhost:3333/v1/integration/production-order/sync-global \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId":"op-sync-$(date +%s)","pageSize":50,"maxPages":10}'
 ```
 
 ### Read-Models
@@ -230,6 +238,11 @@ curl -s -X POST "http://localhost:3333/v1/integration/production-order/SEU_EXTER
 ```bash
 # Status de integração da OP
 curl -s "http://localhost:3333/v1/integration/production-order/SEU_EXTERNAL_REQUEST_ID"
+
+# 🔴 Confirmar OP (Fake Only)
+curl -s -X POST "http://localhost:3333/v1/integration/production-order/SEU_EXTERNAL_REQUEST_ID/confirm" \
+  -H "Content-Type: application/json" \
+  -d '{}'
 ```
 
 ---

@@ -11,6 +11,7 @@ import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-cl
 import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 
 import { ProductionOrderCommandStore } from "@/modules/integration/production-orders/infrastructure/db/production-order-command.store";
+import { ProductionOrderSyncStore } from "@/modules/integration/production-orders/infrastructure/db/production-order-sync.store";
 import { SyncAllProductionOrdersUseCase } from "@/modules/integration/production-orders/application/use-cases/sync-all-production-orders.usecase";
 import { FakeProductionOrderSyncPageGateway } from "@/modules/integration/production-orders/infrastructure/gateways/sync-page/fake-production-order-sync-page.gateway";
 import { RealProductionOrderSyncPageGateway } from "@/modules/integration/production-orders/infrastructure/gateways/sync-page/real-production-order-sync-page.gateway";
@@ -37,8 +38,7 @@ export class SyncAllProductionOrdersJob {
 
         const useCase = new SyncAllProductionOrdersUseCase(
             fetchPageGateway,
-            new ProductionOrderCommandStore(prisma),
-            syncStateStore,
+      new ProductionOrderSyncStore(prisma),
             { noWrite: isFake }
         );
 

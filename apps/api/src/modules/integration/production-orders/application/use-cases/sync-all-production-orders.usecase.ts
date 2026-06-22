@@ -9,6 +9,7 @@
 import { getLogger } from "@/shared/logger";
 import type { ProductionOrderSyncPageGateway } from "../ports/production-order-sync-page.gateway";
 import { ProductionOrderCommandStore } from "../../infrastructure/db/production-order-command.store";
+import { ProductionOrderSyncStore } from "../../infrastructure/db/production-order-sync.store";
 import { fetchPageWithRetry } from "@/shared/integration/strategies/retry.strategy";
 import type { SyncStateStoreContract } from "@/shared/integration/strategies/types";
 
@@ -23,8 +24,7 @@ export class SyncAllProductionOrdersUseCase {
     private readonly logger = getLogger("SyncAllProductionOrdersUseCase");
 
     constructor(
-        private readonly fetchPageGateway: ProductionOrderSyncPageGateway,
-        private readonly commandStore: ProductionOrderCommandStore,
+        private readonly fetchPageGateway: ProductionOrderSyncPageGateway,        private readonly syncStore: ProductionOrderSyncStore,        private readonly commandStore: ProductionOrderCommandStore,
         private readonly syncStateStore: SyncStateStoreContract,
         private readonly options: { noWrite?: boolean } = {}
     ) { }
@@ -134,6 +134,11 @@ export class SyncAllProductionOrdersUseCase {
 
                 processedPages += 1;
                 processedItems += pageResult.items.length;
+
+                // Persiste cada item no espelho local
+                for (const item of pageResult.items) {
+                    await this.syncStore.save(item);
+                }
 
                 this.logger.info("Page processed", {
                     externalRequestId: command.externalRequestId,
