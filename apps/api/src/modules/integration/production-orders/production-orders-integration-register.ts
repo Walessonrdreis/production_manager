@@ -1,8 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { productionOrdersIntegrationRoutes } from "./presentation/http/routes";
 
-export async function registerProductionOrdersIntegrationModule(
-  app: FastifyInstance
-) {
-  await app.register(productionOrdersIntegrationRoutes);
+export function createProductionOrderIntegration() {
+  return {
+    name: "production-order-integration",
+    register: async (app: FastifyInstance) => {
+      await productionOrdersIntegrationRoutes(app);
+    },
+  };
 }

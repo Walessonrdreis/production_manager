@@ -12,13 +12,14 @@
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| POST | `/v1/integration/product-stock/refresh` | Atualiza estoque de um produto (202 Accepted) |
+| POST | `/v1/integration/product-stock-fetch/refresh` | Atualiza estoque de um produto (202 Accepted) |
+| POST | `/v1/integration/product-stock-fetch/sync-global` | Sync completo de todos os estoques (202 Accepted) |
 
 ### Read
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| GET | `/v1/integration/product-stock/position?productId=...` | Consulta posição de estoque no Omie |
+| GET | `/v1/integration/product-stock-fetch/position?productId=...` | Consulta posição de estoque no Omie |
 
 ---
 
@@ -27,7 +28,7 @@
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
 | `PRODUCT_STOCK_FETCH_GATEWAY` | `fake` | `fake` ou `real` |
-| `ENABLE_PRODUCT_STOCK_FETCH_REFRESH_JOB` | `false` | Habilita job automático |
+| `ENABLE_OMIE_PRODUCT_STOCK_FETCH_REFRESH_JOB` | `false` | Habilita job automático |
 | `PRODUCT_STOCK_FETCH_REFRESH_CRON` | `*/30 * * * *` | Cron do job de refresh |
 
 ---

@@ -57,7 +57,7 @@ function buildUseCase(omieClient: OmieHttpClientPort) {
 export function registerProductStockFetchJobs(omieClient: OmieHttpClientPort) {
   const logger = getLogger("product-stock-fetch:cron");
 
-  if (env.ENABLE_PRODUCT_STOCK_FETCH_REFRESH_JOB) {
+  if (env.ENABLE_OMIE_PRODUCT_STOCK_FETCH_REFRESH_JOB) {
     const cronExpr = env.PRODUCT_STOCK_FETCH_REFRESH_CRON ?? "*/30 * * * *";
 
     cron.schedule(cronExpr, async () => {

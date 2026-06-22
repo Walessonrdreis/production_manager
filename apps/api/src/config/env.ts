@@ -43,7 +43,7 @@ const envSchema = z.object({
   // Jobs
 
   // ✅ módulo product-stock-fetch
-  ENABLE_PRODUCT_STOCK_FETCH_REFRESH_JOB: envBoolean.default(false),
+  ENABLE_OMIE_PRODUCT_STOCK_FETCH_REFRESH_JOB: envBoolean.default(false),
   PRODUCT_STOCK_FETCH_REFRESH_CRON: z.string().default("*/30 * * * *"),
 
   ENABLE_OMIE_PRODUCT_SYNC_JOB: envBoolean.default(false),

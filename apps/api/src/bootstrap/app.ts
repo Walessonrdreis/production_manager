@@ -19,9 +19,7 @@ import { startStockRefreshJob } from "@/modules/legacy/products/infrastructure/j
 import { startOmieProductSyncJob } from "@/modules/legacy/products/infrastructure/jobs/omie-product-sync.job";
 import { startOmieOrdersStage20SyncJob } from "@/modules/legacy/omie-sales-orders/infrastructure/jobs/omie-orders-stage20.job";
 import { startOmieProductionOrdersSyncJob } from "@/modules/legacy/omie-production-orders/infrastructure/jobs/omie-production-orders-sync.job";
-import { startOmieClientSyncJob } from "@/modules/legacy/client/infrastructure/jobs/sync-omie-clients.job"; 
-
-
+import { startOmieClientSyncJob } from "@/modules/legacy/client/infrastructure/jobs/sync-omie-clients.job";
 
 import { ListOrdersViewUseCase } from "@/modules/legacy/orders-view/application/list-orders-view.usecase";
 import type { ListClientsUseCase } from "@/modules/legacy/client/application/use-cases/list-clients.usecase";
@@ -84,19 +82,19 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ---------------------------------------------------------------------------
   // ✅ OMIE CLIENT (OBRIGATÓRIO) - precisa existir antes das rotas/módulos
   // ---------------------------------------------------------------------------
- app.decorate("omieClient", createOmieClientWithCircuitBreaker({
-  baseUrl: env.OMIE_BASE_URL,
-  appKey: env.OMIE_APP_KEY,
-  appSecret: env.OMIE_APP_SECRET,
-  timeoutMs: 10000, // Reduzido para 10 segundos
-  retry: { attempts: 2, baseDelayMs: 1000, maxDelayMs: 3000 }, // Menos tentativas
-  debug: process.env.NODE_ENV !== "production",
-  circuitBreaker: {
-    failureThreshold: 3, // Abre circuito após 3 falhas consecutivas
-    resetTimeoutMs: 30000, // 30 segundos em estado aberto
-    successThreshold: 2, // 2 sucessos para fechar circuito
-  },
-}));
+  app.decorate("omieClient", createOmieClientWithCircuitBreaker({
+    baseUrl: env.OMIE_BASE_URL,
+    appKey: env.OMIE_APP_KEY,
+    appSecret: env.OMIE_APP_SECRET,
+    timeoutMs: 10000, // Reduzido para 10 segundos
+    retry: { attempts: 2, baseDelayMs: 1000, maxDelayMs: 3000 }, // Menos tentativas
+    debug: process.env.NODE_ENV !== "production",
+    circuitBreaker: {
+      failureThreshold: 3, // Abre circuito após 3 falhas consecutivas
+      resetTimeoutMs: 30000, // 30 segundos em estado aberto
+      successThreshold: 2, // 2 sucessos para fechar circuito
+    },
+  }));
 
   const omieStockCache = createOmieStockCache(app.omieClient, { logger: app.log });
   app.decorate("omieStockCache", omieStockCache);
@@ -170,45 +168,45 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerRoutes(app);
 
   /// ---------------------------------------------------------------------------
-// Jobs (✅ UMA VEZ, ✅ DEPOIS DAS ROTAS)
-// ---------------------------------------------------------------------------
-if (env.ENABLE_STOCK_REFRESH_JOB) {
-  startStockRefreshJob(app);
-}
+  // Jobs (✅ UMA VEZ, ✅ DEPOIS DAS ROTAS)
+  // ---------------------------------------------------------------------------
+  if (env.ENABLE_STOCK_REFRESH_JOB) {
+    startStockRefreshJob(app);
+  }
 
-if (env.ENABLE_OMIE_PRODUCT_SYNC_JOB) {
-  startOmieProductSyncJob(app);
-}
+  if (env.ENABLE_OMIE_PRODUCT_SYNC_JOB) {
+    startOmieProductSyncJob(app);
+  }
 
-if (env.OMIE_ORDERS_STAGE_SYNC) {
-  startOmieOrdersStage20SyncJob(app);
-}
+  if (env.OMIE_ORDERS_STAGE_SYNC) {
+    startOmieOrdersStage20SyncJob(app);
+  }
 
-if (env.OMIE_PRODUCTION_ORDERS_SYNC) {
-  startOmieProductionOrdersSyncJob(app);
-}
+  if (env.OMIE_PRODUCTION_ORDERS_SYNC) {
+    startOmieProductionOrdersSyncJob(app);
+  }
 
-if (env.ENABLE_OMIE_CLIENT_SYNC_JOB) {
-  startOmieClientSyncJob(app);
-}
-// ✅ opcional: sync on startup (sem depender de use cases no bootstrap)
-if (process.env.OMIE_ORDERS_STAGE_SYNC_ON_STARTUP === "true") {
-  setImmediate(async () => {
-    try {
-      const res = await app.inject({
-        method: "POST",
-        url: "/v1/admin/omie/orders/stage20/sync",
-      });
+  if (env.ENABLE_OMIE_CLIENT_SYNC_JOB) {
+    startOmieClientSyncJob(app);
+  }
+  // ✅ opcional: sync on startup (sem depender de use cases no bootstrap)
+  if (process.env.OMIE_ORDERS_STAGE_SYNC_ON_STARTUP === "true") {
+    setImmediate(async () => {
+      try {
+        const res = await app.inject({
+          method: "POST",
+          url: "/v1/admin/omie/orders/stage20/sync",
+        });
 
-      app.log.info(
-        { statusCode: res.statusCode, body: res.body },
-        "[Startup] Stage20 orders sync triggered"
-      );
-    } catch (err) {
-      app.log.error({ err }, "[Startup] Stage20 orders sync failed");
-    }
-  });
-}
+        app.log.info(
+          { statusCode: res.statusCode, body: res.body },
+          "[Startup] Stage20 orders sync triggered"
+        );
+      } catch (err) {
+        app.log.error({ err }, "[Startup] Stage20 orders sync failed");
+      }
+    });
+  }
 
   return app;
 }

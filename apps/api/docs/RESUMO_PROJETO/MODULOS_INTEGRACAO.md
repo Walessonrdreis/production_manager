@@ -177,14 +177,14 @@ Cada produto pode ter um destes status:
 
 | Rota | Descrição | Body |
 |------|-----------|------|
-| `POST /v1/integration/product-stock/refresh` | Atualiza estoque de 1 produto | `{ externalRequestId, productId }` |
+| `POST /v1/integration/product-stock-fetch/refresh` | Atualiza estoque de 1 produto | `{ externalRequestId, productId }` |
 | `POST /v1/integration/product-stock-fetch/sync-global` | Sync global de estoque (incremental) | `{ externalRequestId?, pageSize?, maxPages? }` |
 
 ### Read-Models (GET)
 
 | Rota | Descrição | Query |
 |------|-----------|-------|
-| `GET /v1/integration/product-stock/position?productId=...` | ⚠️ **Chama Omie diretamente** (exceção) | `productId` (obrigatório) |
+| `GET /v1/integration/product-stock-fetch/position?productId=...` | ⚠️ **Chama Omie diretamente** (exceção) | `productId` (obrigatório) |
 
 > ⚠️ **Exceção arquitetural:** Esta rota GET consulta o Omie em tempo real. Não é um read-model tradicional — é um endpoint de integração que expõe consulta externa.
 

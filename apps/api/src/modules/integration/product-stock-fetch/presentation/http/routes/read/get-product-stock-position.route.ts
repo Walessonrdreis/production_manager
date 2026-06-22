@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Read Route: GetProductStockPositionRoute
-// GET /v1/integration/product-stock/position?productId=...
+// GET /v1/integration/product-stock-fetch/position?productId=...
 // Retorna a posição de estoque consultada no Omie.
 // ---------------------------------------------------------------------------
 
@@ -18,7 +18,7 @@ const GetStockPositionQuerySchema = z.object({
 });
 
 export async function registerGetProductStockPositionRoute(app: FastifyInstance) {
-    app.get("/v1/integration/product-stock/position", async (request, reply) => {
+    app.get("/v1/integration/product-stock-fetch/position", async (request, reply) => {
         const parsed = GetStockPositionQuerySchema.safeParse(request.query);
         if (!parsed.success) {
             return reply.code(400).send({
