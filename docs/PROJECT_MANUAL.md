@@ -5,8 +5,8 @@ Este documento é a **fonte de verdade principal** do projeto Production Manager
 Os demais arquivos de documentação detalham aspectos específicos e **não devem contradizê‑lo**.
 Para qualquer dúvida sobre padrões, arquitetura ou decisões de design, **comece aqui**.
 
-**Versão**: 1.0.0  
-**Data**: 2026-06-10  
+**Versão**: 1.1.0  
+**Data**: 2026-06-22  
 **Foco**: API principal (`apps/api/`) e módulos de integração (`integration/`)
 
 **📌 CONVENÇÃO DE IDIOMA**:
@@ -26,6 +26,8 @@ Para qualquer dúvida sobre padrões, arquitetura ou decisões de design, **come
 6. [📦 Template de Módulo](#-template-de-módulo)
 7. [📄 Arquivos Obrigatórios para Atualização](#-arquivos-obrigatórios-para-atualização)
 8. [🗄️ Padrão Canônico do Banco de Dados](#️-padrão-canônico-do-banco-de-dados)
+9. [🔄 Padrão de Sincronização Paginada com Retry](#-padrão-de-sincronização-paginada-com-retry)
+10. [📦 Shared Library de Integração](#-shared-library-de-integração)
 
 ---
 
@@ -1371,6 +1373,7 @@ Toda tabela **DEVE** se enquadrar em um dos tipos canônicos:
 | **Read‑model** | `_read_model` suffix | API 1 | Cache materializado para consultas |
 | **Domínio Interno** | Sem prefixo | API 2 | Decisões humanas e estado interno |
 | **Lock/Controle** | `_lock` suffix | API 1 | Coordenação de execução concorrente |
+| **Sync State** | `_sync_state` suffix | API 1 | Checkpoint de sincronização incremental |
 
 ### Documento de Referência Obrigatório
 
@@ -1378,6 +1381,208 @@ Toda tabela **DEVE** se enquadrar em um dos tipos canônicos:
 → **[DB_SCHEMA_GUIDE.md](DB_SCHEMA_GUIDE.md)** - Guia canônico completo de schema
 
 > **IMPORTANTE**: O Prisma schema **não define o padrão** — ele **implementa** o padrão descrito no `DB_SCHEMA_GUIDE.md`.
+
+---
+
+## 🔄 PADRÃO DE SINCRONIZAÇÃO PAGINADA COM RETRY
+
+### 1. PROBLEMA
+
+Módulos que consomem APIs paginadas do Omie (ex: `ListarEstruturas`, `ListarPedidosVenda`) enfrentam:
+- **Falhas intermitentes**: Omie pode retornar erro "consumo redundante" ou timeout
+- **Grande volume**: Alguns endpoints têm centenas de páginas (ex: 566 páginas de estruturas)
+- **Sem checkpoint**: Se o sync falha na página 300, recomeça do zero
+- **Custo desnecessário**: Sempre busca TODAS as páginas, mesmo quando só mudaram poucos registros
+
+### 2. SOLUÇÃO CANÔNICA: `fetchPageWithRetry` + `SyncStateStore`
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    Use Case (sync-all-x)                  │
+│                                                          │
+│  1. getOrCreateAccepted(externalRequestId)               │
+│  2. getState().lastSyncAt → incremental window           │
+│  3. page = 1                                             │
+│  4. while page < maxPages:                               │
+│       result = fetchPageWithRetry({ page, updatedSince }) │
+│       for each item: save()                              │
+│       if !hasNextPage: break                             │
+│       page++                                             │
+│  5. updateLastSync(now)                                  │
+│  6. markConfirmed()                                      │
+│  7. refresh read-models (se configurado)                 │
+└──────────────────────────────────────────────────────────┘
+```
+
+### 3. MECANISMOS OBRIGATÓRIOS
+
+#### a. `SyncStateStore` — Sincronização Incremental
+
+Persiste `lastSyncAt` para que cada execução busque **apenas dados alterados desde a última execução**.
+
+```typescript
+// infrastructure/db/x-sync-state.store.ts
+export class XSyncStateStore {
+  async getState() {
+    return prisma.xSyncState.upsert({
+      where: { id: "GLOBAL" },
+      update: {},
+      create: { id: "GLOBAL", lastSyncAt: new Date("2000-01-01") },
+    });
+  }
+  async updateLastSync(date: Date) {
+    return prisma.xSyncState.update({
+      where: { id: "GLOBAL" },
+      data: { lastSyncAt: date },
+    });
+  }
+}
+```
+
+**Prisma Model:**
+```prisma
+model XSyncState {
+  id         String   @id
+  lastSyncAt DateTime @map("last_sync_at")
+  updatedAt  DateTime @updatedAt
+
+  @@map("x_sync_state")
+  @@schema("integration")
+}
+```
+
+#### b. `fetchPageWithRetry()` — Resiliência a Falhas
+
+```typescript
+private async fetchPageWithRetry<T>(
+  fetchFn: () => Promise<T>,
+  options: {
+    label: string;              // Nome do módulo (ex: "product-structure")
+    externalRequestId: string;
+    page: number;
+    pageSize: number;
+    maxAttempts?: number;       // default: 3
+    maxRedundantWaits?: number; // default: 5
+  }
+): Promise<T>
+```
+
+**Comportamento:**
+- **Tentativa 1**: Chama a API normalmente
+- **Erro "consumo redundante"**: Extrai tempo de espera da mensagem (`/aguarde\s+(\d+)\s+segundos/i`), espera +2s, retenta (mesmo attempt)
+- **Máximo de waits redundantes**: 5 — depois disso, propaga erro
+- **Demais erros**: Backoff exponencial (1s, 2s, 3s) por até `maxAttempts` tentativas
+- **Logging**: Cada retry é logado com `externalRequestId`, página, tentativa
+
+#### c. Porta com Input Object e Metadados
+
+A porta `fetch-page` DEVE usar **input object** (não parâmetros soltos) e retornar metadados de progresso:
+
+```typescript
+// ✅ CORRETO - Input object + metadados
+export type XFetchPageInput = {
+  page: number;
+  pageSize: number;
+  updatedSince?: Date;    // Para sync incremental
+};
+
+export type XFetchPageResult = {
+  items: XItem[];
+  hasNextPage: boolean;
+  totalPages: number | null;  // ✅ Metadado de progresso
+  currentPage: number;         // ✅ Metadado de progresso
+};
+
+export interface XFetchPageGateway {
+  fetchPage(input: XFetchPageInput): Promise<XFetchPageResult>;
+}
+
+// ❌ ERRADO - Parâmetros soltos, sem metadados
+// fetchPage(page: number, pageSize: number): Promise<{ items, hasNextPage }>
+```
+
+#### d. Pós-sync Refresh
+
+Ao finalizar o sync, **DEVE** disparar refresh dos read-models impactados:
+- `summary` (estatísticas de espelhamento)
+- `production-readiness` (se aplicável)
+
+### 4. MÓDULOS QUE IMPLEMENTAM (REFERÊNCIA)
+
+| Módulo | `fetchPageWithRetry` | `SyncStateStore` | `totalPages` | Pós-sync refresh |
+|--------|:---:|:---:|:---:|:---:|
+| **`sales-order-sync`** | ✅ Completo | ✅ | ✅ | ✅ summary |
+| **`customer-sync`** | ✅ Completo | ✅ | ✅ | ❌ |
+| **`product-stock-fetch`** | ✅ Parcial | ✅ | ✅ | ❌ |
+| **`product-structure`** | ⏳ Em evolução | ⏳ Em evolução | ⏳ Em evolução | ⏳ |
+| **`product-catalog`** | ❌ Pendente | ❌ Pendente | ❌ | ⚠️ Parcial |
+
+> 💡 **Módulo de referência para paginação**: `sales-order-sync` — implementação mais completa com retry, incremental, redundant handling e pós-sync refresh.
+
+### 5. EVOLUÇÃO FUTURA: SHARED LIBRARY
+
+O padrão `fetchPageWithRetry` + `extractRedundantWaitSeconds` + `sleep` está **duplicado** em 3 módulos. A evolução planejada é extrair para `apps/api/src/shared/integration/strategies/`:
+
+```
+shared/integration/strategies/
+├── retry.strategy.ts       # fetchPageWithRetry() genérico
+├── sync-state.store.ts     # SyncStateStore interface + Prisma impl
+└── types.ts                # PaginatedSyncInput, PaginatedSyncMeta
+```
+
+**Benefícios:**
+- Zero duplicação de código
+- Testes unitários uma única vez
+- Consistência entre módulos
+- Um ponto para ajustar timeouts e políticas de retry
+
+---
+
+## 📦 SHARED LIBRARY DE INTEGRAÇÃO
+
+### 1. PROPÓSITO
+
+Centralizar padrões reutilizáveis de integração que hoje estão duplicados entre módulos:
+
+| Padrão | Onde está hoje | Destino |
+|--------|---------------|---------|
+| `fetchPageWithRetry()` | 3 módulos (copiado) | `shared/integration/strategies/retry.strategy.ts` |
+| `SyncStateStore` | 3 módulos (similar) | `shared/integration/strategies/sync-state.store.ts` |
+| `extractRedundantWaitSeconds()` | 3 módulos (copiado) | `shared/integration/strategies/retry.strategy.ts` |
+
+### 2. ESTRUTURA PREVISTA
+
+```
+apps/api/src/shared/integration/
+├── strategies/
+│   ├── retry.strategy.ts        # fetchPageWithRetry() genérico
+│   ├── sync-state.store.ts      # Interface + PrismaSyncStateStore
+│   └── types.ts                 # Tipos compartilhados
+└── README.md                    # Documentação
+```
+
+### 3. USO (QUANDO IMPLEMENTADO)
+
+```typescript
+// Antes (cada módulo copia o padrão)
+private async fetchPageWithRetry(input: ...) { /* 50 linhas */ }
+
+// Depois (usa shared)
+import { fetchPageWithRetry } from "@/shared/integration/strategies/retry.strategy";
+
+const result = await fetchPageWithRetry(
+  () => gateway.fetchPage({ page, pageSize, updatedSince }),
+  { label: "product-structure", externalRequestId, page, pageSize }
+);
+```
+
+### 4. PRIORIDADE DE IMPLEMENTAÇÃO
+
+1. **`product-structure`** — Alvo imediato (já tem Fases 1-4 completas)
+2. **Criar shared library** — Extrair dos módulos existentes
+3. **`product-catalog`** — Retrofit com o padrão
+4. **`production-orders`** — Análise (pode não usar paginação Omie)
+5. **Retrofit** — `customer-sync`, `product-stock-fetch` usarem a shared
 
 ---
 
@@ -1434,9 +1639,11 @@ Toda tabela **DEVE** se enquadrar em um dos tipos canônicos:
 ### 4. PRÓXIMOS PASSOS SUGERIDOS
 
 #### Imediato:
-1. **Atualizar módulos existentes** em `integration/` para seguir padrão canônico
-2. **Configurar CI/CD** com validação de padrões
-3. **Criar testes de integração** para módulos críticos
+1. **Criar shared library** de estratégias de integração (`retry.strategy.ts`, `sync-state.store.ts`)
+2. **Evoluir `product-structure`** com `fetchPageWithRetry` + `SyncStateStore` + sync incremental
+3. **Retrofit `product-catalog`** com o padrão de paginação robusta
+4. **Configurar CI/CD** com validação de padrões
+5. **Criar testes de integração** para módulos críticos
 
 #### Médio Prazo:
 1. **Implementar novos módulos** seguindo templates
@@ -1492,15 +1699,18 @@ Toda tabela **DEVE** se enquadrar em um dos tipos canônicos:
 
 ## 🔗 REFERÊNCIA CANÔNICA
 
-### **Módulo `product-structure` - Implementação Viva do Padrão**
+### `product-structure` — Estrutura Canônica do Módulo
+
 Veja `apps/api/src/modules/integration/product-structure/` como a **implementação de referência** que segue exatamente todos os padrões descritos neste manual. Use este módulo como modelo para qualquer novo desenvolvimento.
 
 **O que encontrar**:
 - ✅ Estrutura canônica completa
-- ✅ Gateways por capacidade (apply/fetch)
+- ✅ Gateways por capacidade (apply/fetch/delete)
 - ✅ CommandStore com idempotência
+- ✅ OpenAPI documentado
 - ✅ Jobs agendados configuráveis
 - ✅ Rotas HTTP organizadas (commands/read)
+- ✅ DTOs e mappers
 - ✅ Registro correto no bootstrap
 
 **Como usar**:
@@ -1510,7 +1720,26 @@ Veja `apps/api/src/modules/integration/product-structure/` como a **implementaç
 
 ---
 
-**Última atualização**: 2026-06-10  
+### `sales-order-sync` — Padrão de Paginação Robusta
+
+Veja `apps/api/src/modules/integration/sales-order-sync/` como referência para sincronização paginada com retry, detecção de consumo redundante, sincronização incremental e pós-sync refresh.
+
+**O que encontrar**:
+- ✅ `fetchPageWithRetry()` com 3 tentativas e backoff exponencial
+- ✅ Detecção de erro "consumo redundante" da API Omie
+- ✅ `SyncStateStore` para sincronização incremental (apenas dados alterados)
+- ✅ `totalPages` e `currentPage` como metadados de progresso
+- ✅ Pós-sync refresh de read-models (summary)
+- ✅ Porta com input object (`SalesOrderFetchPageInput`)
+
+**Diferença crítica para `product-structure`**:
+`product-structure` é o template de **estrutura do módulo** (pastas, nomenclatura, arquivos).
+`sales-order-sync` é o template de **comportamento de sincronização** (retry, incremental, resiliência).
+Novos módulos devem combinar **ambos**: a estrutura de `product-structure` com o comportamento de `sales-order-sync`.
+
+---
+
+**Última atualização**: 2026-06-22  
 **Responsável**: Equipe de Desenvolvimento  
 **Status**: Ativo e em evolução contínua
 

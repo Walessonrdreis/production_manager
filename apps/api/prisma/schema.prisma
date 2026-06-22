@@ -711,6 +711,15 @@ model ProductStructureCommand {
   @@schema("integration")
 }
 
+model ProductStructureSyncState {
+  id         String   @id
+  lastSyncAt DateTime @map("last_sync_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("product_structure_sync_state")
+  @@schema("integration")
+}
+
 enum ProductCatalogCommandType {
   SYNC
 

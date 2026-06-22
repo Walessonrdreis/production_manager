@@ -2,6 +2,8 @@ import { getLogger } from "@/shared/logger";
 import type { ProductStructureFetchPageGateway } from "../ports/product-structure-fetch-page.gateway";
 import { ProductStructureIntegrationStore } from "../../infrastructure/db/product-structure-integration.store";
 import { ProductStructureCommandStore } from "../../infrastructure/db/product-structure-command.store";
+import { fetchPageWithRetry } from "@/shared/integration/strategies/retry.strategy";
+import type { SyncStateStoreContract } from "@/shared/integration/strategies/types";
 
 export type SyncAllProductStructuresCommand = {
     externalRequestId: string;
@@ -17,6 +19,7 @@ export class SyncAllProductStructuresUseCase {
         private readonly fetchPageGateway: ProductStructureFetchPageGateway,
         private readonly integrationStore: ProductStructureIntegrationStore,
         private readonly commandStore: ProductStructureCommandStore,
+        private readonly syncStateStore: SyncStateStoreContract,
         private readonly options: { noWrite?: boolean } = {}
     ) { }
 
@@ -38,7 +41,7 @@ export class SyncAllProductStructuresUseCase {
             let processedItems = 0;
 
             while (processedPages < maxPages) {
-                const pageResult = await this.fetchPageGateway.fetchPage(page, pageSize);
+                const pageResult = await this.fetchPageGateway.fetchPage({ page, pageSize });
 
                 processedPages += 1;
                 processedItems += pageResult.items.length;
@@ -84,12 +87,28 @@ export class SyncAllProductStructuresUseCase {
         }
 
         try {
+            const state = await this.syncStateStore.getState();
+            const lastSyncAt = state.lastSyncAt;
+
+            this.logger.info("Product-structure incremental sync window", {
+                externalRequestId: command.externalRequestId,
+                lastSyncAt,
+            });
+
             let page = 1;
             let processedPages = 0;
             let processedItems = 0;
 
             while (processedPages < maxPages) {
-                const pageResult = await this.fetchPageGateway.fetchPage(page, pageSize);
+                const pageResult = await fetchPageWithRetry(
+                    () => this.fetchPageGateway.fetchPage({ page, pageSize, updatedSince: lastSyncAt }),
+                    {
+                        label: "product-structure",
+                        externalRequestId: command.externalRequestId,
+                        page,
+                        pageSize,
+                    }
+                );
 
                 for (const item of pageResult.items) {
                     await this.integrationStore.save({
@@ -125,6 +144,8 @@ export class SyncAllProductStructuresUseCase {
                     externalRequestId: command.externalRequestId,
                     page,
                     items: pageResult.items.length,
+                    totalPages: pageResult.totalPages,
+                    currentPage: pageResult.currentPage,
                     processedPages,
                     processedItems,
                     hasNextPage: pageResult.hasNextPage,
@@ -135,6 +156,7 @@ export class SyncAllProductStructuresUseCase {
                 page += 1;
             }
 
+            await this.syncStateStore.updateLastSync(new Date());
             await this.commandStore.markConfirmed(command.externalRequestId);
 
             this.logger.info("Global sync completed", {

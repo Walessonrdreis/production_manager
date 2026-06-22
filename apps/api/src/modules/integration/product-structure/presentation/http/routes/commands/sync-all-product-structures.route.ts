@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { env } from "@/config";
 import { getLogger } from "@/shared/logger";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
+import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 
 import type {
     SyncAllProductStructureRequestDTO,
@@ -25,7 +26,7 @@ export function registerSyncAllProductStructuresRoute(app: FastifyInstance) {
                 tags: ["product-structure"],
                 summary: "Sincronizar todas as estruturas (BOM) via Omie",
                 description:
-                    "Comando de integração: percorre todas as páginas de ListarEstruturas e atualiza o espelho local. Idempotente por externalRequestId.",
+                    "Comando de integração: percorre todas as páginas de ListarEstruturas e atualiza o espelho local. Idempotente por externalRequestId. Sincronização incremental com retry adaptativo.",
                 body: {
                     type: "object",
                     properties: {
@@ -44,15 +45,22 @@ export function registerSyncAllProductStructuresRoute(app: FastifyInstance) {
 
             const omieClient = (app as any).omieClient as OmieHttpClientPort;
             const isFake = env.PRODUCT_STRUCTURE_GATEWAY === "fake";
+            const prisma = (app as any).prisma;
 
             const fetchPageGateway = isFake
                 ? new FakeProductStructureFetchPageGateway()
                 : new RealProductStructureFetchPageGateway(omieClient);
 
+            const syncStateStore = new PrismaSyncStateStore(
+                prisma.productStructureSyncState,
+                "GLOBAL"
+            );
+
             const useCase = new SyncAllProductStructuresUseCase(
                 fetchPageGateway,
-                new ProductStructureIntegrationStore((app as any).prisma),
-                new ProductStructureCommandStore((app as any).prisma),
+                new ProductStructureIntegrationStore(prisma),
+                new ProductStructureCommandStore(prisma),
+                syncStateStore,
                 { noWrite: isFake }
             );
 

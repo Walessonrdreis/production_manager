@@ -23,11 +23,19 @@ export type ProductStructurePageItem = {
     }>;
 };
 
+export type ProductStructureFetchPageInput = {
+    page: number;
+    pageSize: number;
+    updatedSince?: Date;
+};
+
 export type ProductStructureFetchPageResult = {
     items: ProductStructurePageItem[];
     hasNextPage: boolean;
+    totalPages: number | null;
+    currentPage: number;
 };
 
 export interface ProductStructureFetchPageGateway {
-    fetchPage(page: number, pageSize: number): Promise<ProductStructureFetchPageResult>;
+    fetchPage(input: ProductStructureFetchPageInput): Promise<ProductStructureFetchPageResult>;
 }

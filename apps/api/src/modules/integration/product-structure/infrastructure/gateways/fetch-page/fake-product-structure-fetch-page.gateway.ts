@@ -1,13 +1,16 @@
 import type {
     ProductStructureFetchPageGateway,
+    ProductStructureFetchPageInput,
     ProductStructureFetchPageResult,
 } from "../../../application/ports/product-structure-fetch-page.gateway";
 
 export class FakeProductStructureFetchPageGateway
     implements ProductStructureFetchPageGateway {
-    async fetchPage(page: number, pageSize: number): Promise<ProductStructureFetchPageResult> {
+    async fetchPage(input: ProductStructureFetchPageInput): Promise<ProductStructureFetchPageResult> {
+        const { page, pageSize } = input;
+
         if (page > 1) {
-            return { items: [], hasNextPage: false };
+            return { items: [], hasNextPage: false, totalPages: 1, currentPage: page };
         }
 
         const items = Array.from({ length: Math.min(pageSize, 3) }).map((_, index) => ({
@@ -49,6 +52,6 @@ export class FakeProductStructureFetchPageGateway
             ],
         }));
 
-        return { items, hasNextPage: false };
+        return { items, hasNextPage: false, totalPages: 1, currentPage: page };
     }
 }

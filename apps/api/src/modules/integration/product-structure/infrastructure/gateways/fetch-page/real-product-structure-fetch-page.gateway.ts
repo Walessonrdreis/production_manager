@@ -2,6 +2,7 @@ import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-cl
 
 import type {
     ProductStructureFetchPageGateway,
+    ProductStructureFetchPageInput,
     ProductStructureFetchPageResult,
     ProductStructurePageItem,
 } from "../../../application/ports/product-structure-fetch-page.gateway";
@@ -26,9 +27,10 @@ export class RealProductStructureFetchPageGateway
     constructor(private readonly omieClient: OmieHttpClientPort) { }
 
     async fetchPage(
-        page: number,
-        pageSize: number
+        input: ProductStructureFetchPageInput
     ): Promise<ProductStructureFetchPageResult> {
+        const { page, pageSize } = input;
+
         const response = await this.omieClient.post<any>("geral/malha/", {
             call: "ListarEstruturas",
             param: [
@@ -79,6 +81,8 @@ export class RealProductStructureFetchPageGateway
         return {
             items,
             hasNextPage: totalPages != null ? page < totalPages : items.length > 0,
+            totalPages,
+            currentPage: page,
         };
     }
 }

@@ -2,6 +2,7 @@ import { getLogger } from "@/shared/logger";
 import { prisma } from "@/shared/db/prisma";
 import { env } from "@/config";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
+import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 
 import { ProductStructureCommandStore } from "@/modules/integration/product-structure/infrastructure/db/product-structure-command.store";
 import { ProductStructureIntegrationStore } from "@/modules/integration/product-structure/infrastructure/db/product-structure-integration.store";
@@ -24,10 +25,16 @@ export class ReconcileProductStructuresJob {
       ? new FakeProductStructureFetchPageGateway()
       : new RealProductStructureFetchPageGateway(omieClient);
 
+    const syncStateStore = new PrismaSyncStateStore(
+      prisma.productStructureSyncState,
+      "GLOBAL"
+    );
+
     const useCase = new SyncAllProductStructuresUseCase(
       fetchPageGateway,
       new ProductStructureIntegrationStore(prisma),
       new ProductStructureCommandStore(prisma),
+      syncStateStore,
       { noWrite: isFake }
     );
 
