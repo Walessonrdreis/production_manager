@@ -233,9 +233,10 @@ Quando existir `{modulo}-register.ts`:
 
 ## ✅ ADR-008 — Command Queue Pattern para Rate-Limit e Concorrência
 
-**Status:** ✅ Aceita  
+**Status:** ✅ Aceita → 🔄 **SUPERSEDED by [ADR-009](#-adr-009--job-queue-centralizada-com-pgboss)**  
 **Data:** 2026-06  
-**Categoria:** Confiabilidade / Concorrência
+**Categoria:** Confiabilidade / Concorrência  
+**Substituído em:** 2026-06-23
 
 ### Contexto
 O Omie impõe rate-limit de aproximadamente 1 chamada/segundo por endpoint. Sem controle de concorrência:
@@ -286,6 +287,89 @@ Adotar **Command Queue Pattern** com fila no PostgreSQL (próprio banco de integ
 ❌ **Locks distribuídos** (Redis) — dependência externa, complexidade operacional  
 ❌ **Filas externas** (Redis/SQS/RabbitMQ) — infraestrutura extra, latência de rede  
 ❌ **JobLock simples sem fila** — sem visibilidade, sem retry granular, sem fila
+
+---
+
+## ✅ ADR-009 — Job Queue Centralizada com PgBoss
+
+**Status:** ✅ Aceita  
+**Data:** 2026-06-23  
+**Categoria:** Infraestrutura / Filas  
+**Substitui:** [ADR-008](#-adr-008--command-queue-pattern-para-rate-limit-e-concorrência) (Command Queue Pattern com SKIP LOCKED)
+
+### Contexto
+
+O ADR-008 implementou fila por módulo usando PostgreSQL (`FOR UPDATE SKIP LOCKED`)
+com polling agressivo (`* * * * * *`). Com o crescimento do número de módulos de
+integração, surgiram problemas:
+
+- **Poluição de logs**: cada módulo executa polling a cada 1s, gerando "Queue empty"
+  continuamente — N módulos × 1 log/s = ruído insustentável
+- **N crons por módulo**: cada novo módulo adiciona um cron, um job, uma tabela `*_command`,
+  um `_QUEUE_JOB`, um `_QUEUE_CRON` — complexidade N x N
+- **Sem backoff nativo**: retry e stalled detection são manuais (findProcessingStalled)
+- **Rate-limit por módulo**: cada fila tem seu próprio sleep de 1s, sem coordenação global
+
+### Decisão
+
+Adotar **PgBoss** como fila centralizada de jobs de integração:
+
+**Arquitetura:**
+```
+API2 → API1 (UseCase) → enqueue(job)
+                              ↓
+                     integration-job queue (PgBoss)
+                              ↓
+                    integration.worker.ts (worker ÚNICO)
+                              ↓
+                       switch(job.data.type)
+                              ↓
+                         chama use-case
+                              ↓
+                      gateway (Omie / Fake)
+                              ↓
+                    command_record (idempotência + audit)
+```
+
+**Padrão de uso:**
+```
+COMMAND:
+  → Chama Omie (rede)       → FILA (PgBoss)
+  → Pode falhar + retry     → FILA (backoff nativo)
+  → Pode esperar            → FILA (consistência eventual)
+  → Caso contrário          → SÍNCRONO (imediato)
+
+GET: nunca fila (síncrono)
+```
+
+### Fluxo do Worker
+1. PgBoss entrega job via **evento** (sem polling agressivo)
+2. Worker verifica `type` e roteia para o use-case correto
+3. Rate-limit global de 1 chamada Omie/s (aplicado no worker)
+4. Use-case executa e persiste no `*_command` (idempotência + audit)
+5. PgBoss marca como `completed` ou `failed` com retry configurável
+
+### Garantias
+- **Event-driven**: zero ruído de log quando fila está vazia
+- **Worker único**: controla concorrência global (`concurrency: 3`)
+- **Retry nativo**: `retryBackoff: true`, `retryLimit: 5`, exponential backoff
+- **Rate-limit global**: 1 chamada Omie/s independente de quantos módulos
+- **Idempotência no use-case**: `externalRequestId` continua obrigatório (fila NÃO
+  garante exactly-once)
+
+### Consequências
+✅ Sem polling — fila vazia = zero logs  
+✅ Worker único — concorrência controlada globalmente  
+✅ Retry com backoff nativo do PgBoss  
+✅ Sem `SKIP LOCKED`, sem `findProcessingStalled`, sem `JobLock` manual  
+✅ Cada módulo enfileira com 1 linha de código  
+⚠️ Dependência adicional: `pgboss` npm package  
+⚠️ Migração gradual: módulos migram um por um  
+
+### Alternativas Consideradas
+❌ **BullMQ (Redis)**: Redis = mais um serviço para gerenciar, maior latência  
+❌ **Manter ADR-008 (SKIP LOCKED)**: polling agressivo não escala com N módulos  
+❌ **RabbitMQ/SQS**: infraestrutura externa desnecessária para o volume atual
 
 ---
 

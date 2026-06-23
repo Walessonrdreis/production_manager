@@ -14,7 +14,7 @@ nome-do-modulo/                          # kebab-case (ex: sales-order-sync)
 ├── infrastructure/
 │   ├── db/
 │   │   ├── nome-do-modulo-[tipo].store.ts
-│   │   ├── nome-do-modulo-command.store.ts
+│   │   ├── nome-do-modulo-command.store.ts  ⚠️ OPCIONAL — apenas para audit trail (legado); módulos sem command usam PgBoss
 │   │   └── nome-do-modulo-sync-state.store.ts
 │   ├── gateways/
 │   │   ├── [ação]/
@@ -335,11 +335,15 @@ export class NomeDoModuloComandoStore {
   }
 }
 
-### 2.3b CommandStore com Command Queue (Fila Assíncrona)
+### 2.3b CommandStore com Command Queue — ⚠️ LEGADO (substituído por PgBoss)
 
-Para operações que exigem **rate-limit** contra o Omie, use a variante com `enqueue`/`dequeue`.
+> **⚠️ Este padrão foi substituído pela fila centralizada com PgBoss ([ADR-009](./DECISIONS.md)).**
+> Apenas módulos não migrados ainda usam `enqueue`/`dequeue` com SKIP LOCKED.
+> Módulos novos devem usar `getJobQueue().enqueue()` (ver seção 2.15).
 
-> 📌 **Decisão arquitetural**: Consulte **[ADR-008](./DECISIONS.md)** para o racional completo deste padrão.
+Para operações que exigiam **rate-limit** contra o Omie, a variante com `enqueue`/`dequeue`.
+
+> 📌 **Decisão arquitetural (legado)**: Consulte **[ADR-008](./DECISIONS.md)** para o racional completo deste padrão.
 
 ```typescript
 // apps/api/src/modules/integration/nome-do-modulo/infrastructure/db/nome-do-modulo-command.store.ts
@@ -793,9 +797,13 @@ export class SyncAllNomeDoModuloJob {
 - Usa `PrismaSyncStateStore` compartilhado de `@/shared/integration/strategies/sync-state.store`
 - `noWrite = isFake`: em modo fake apenas valida sem persistir
 
-### 2.6b Queue Processor Job (Command Queue) - `infrastructure/jobs/`
+### 2.6b Queue Processor Job — ⚠️ LEGADO (substituído por PgBoss)
 
-Para jobs que processam uma **fila de comandos** com rate-limit contra o Omie:
+> **⚠️ Este padrão foi substituído pelo worker centralizado com PgBoss ([ADR-009](./DECISIONS.md)).**
+> Apenas módulos não migrados ainda precisam deste job.
+> Módulos novos usam o `integration.worker.ts` único.
+
+Para jobs que processavam uma **fila de comandos** com rate-limit contra o Omie (legado):
 
 ```typescript
 // apps/api/src/modules/integration/nome-do-modulo/infrastructure/jobs/process-nome-do-modulo-queue.job.ts
@@ -851,12 +859,14 @@ export class ProcessNomeDoModuloQueueJob {
 }
 ```
 
-**Regras:**
+**Regras (legado):**
 - Usa `createJobLock` para garantir singleton entre workers
 - `dequeue(1)` usa `FOR UPDATE SKIP LOCKED` — atômico e sem lock em tabela
 - `sleep(1000)` entre comandos respeita rate-limit do Omie
 - Lock renovado a cada 30s (TTL = 60s)
 - Registrado via cron `* * * * * *` (a cada 1 segundo)
+
+> ⚠️ **Módulos migrados para PgBoss removem este job e o cron `* * * * * *` correspondente.**
 
 ### 2.7 Job Register - `infrastructure/jobs/`
 
@@ -1444,6 +1454,49 @@ export { criarIntegracaoNomeDoModulo } from "./nome-do-modulo-integration-regist
 **⚠️ IMPORTANTE: Por que index.ts só exporta o register?**
 O arquivo `index.ts` do módulo exporta **apenas** a função de registro (`criarIntegracaoNomeDoModulo`) para evitar **double registration** de rotas ao usar barrel imports. Isso garante que cada módulo seja registrado exatamente uma vez no bootstrap, prevenindo erros de rotas duplicadas e garantindo a inicialização correta da aplicação.
 
+### 2.15 Enfileirando Jobs via PgBoss (NOVO PADRÃO)
+
+> 📌 **Decisão arquitetural**: Consulte **[ADR-009](./DECISIONS.md#-adr-009--job-queue-centralizada-com-pgboss)**.
+
+Para módulos **novos** (ou migrados), substitua o CommandStore + Queue Processor por:
+
+```typescript
+// No use-case ou na rota de comando:
+import { getJobQueue } from "@/shared/infra/job-queue";
+
+await getJobQueue().enqueue("nome-do-modulo.sync", {
+  type: "nome-do-modulo.sync",
+  payload: { externalRequestId, /* ... */ },
+  options: { retryLimit: 5, retryBackoff: true },
+});
+```
+
+**Regras:**
+- Apenas **COMMANDs** (não GETs) passam pela fila
+- O `externalRequestId` continua obrigatório para idempotência
+- Retry com backoff exponencial é nativo do PgBoss (sem `findProcessingStalled`)
+- O worker centralizado `integration.worker.ts` roteia por `type` e executa o handler
+- NÃO criar job `*_QUEUE_JOB` nem cron `*_QUEUE_CRON` — o PgBoss é event-driven
+
+**Handlers registrados no integration.worker.ts:**
+```typescript
+// apps/api/src/modules/integration/jobs/integration.worker.ts
+
+worker.register("nome-do-modulo.sync", async (job) => {
+  const useCase = container.resolve(SyncNomeDoModuloUseCase);
+  await useCase.execute(job.data.payload);
+});
+
+worker.register("outro-modulo.action", async (job) => {
+  // ...
+});
+```
+
+**Quando NÃO usar PgBoss:**
+- **GET** — consultas são sempre síncronas
+- **Comandos que não chamam Omie** — execução síncrona imediata
+- **Callbacks** (`/callbacks/:id/confirm`) — são respostas imediatas, não passam por fila
+
 ## 3. Configuração do Ambiente
 
 ### 3.1 Variáveis de Ambiente (`.env`)
@@ -1459,9 +1512,15 @@ ENABLE_OMIE_NOME_DO_MODULO_ACAO_JOB=false
 OMIE_NOME_DO_MODULO_ACAO_CRON=0 */5 * * * *
 EXECUTE_OMIE_NOME_DO_MODULO_ACAO_JOB_ON_START=false
 
-# Queue Processor (Command Queue Pattern - ADR-008)
+# Queue Processor (Command Queue Pattern - ADR-008) ⚠️ LEGADO
+# Apenas para módulos não migrados. Módulos novos usam PgBoss (não precisam destas vars).
 ENABLE_OMIE_NOME_DO_MODULO_QUEUE_JOB=true
 OMIE_NOME_DO_MODULO_QUEUE_CRON=* * * * * *
+
+# PgBoss (Job Queue Centralizada - ADR-009)
+# Geralmente configurado globalmente, não por módulo.
+# PG_BOSS_CONNECTION_STRING=postgresql://...
+# PG_BOSS_CONCURRENCY=3
 ```
 
 ### 3.2 Schema do Prisma

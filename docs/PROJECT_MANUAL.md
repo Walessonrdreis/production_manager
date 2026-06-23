@@ -121,7 +121,7 @@ OMIE_PRODUCT_STRUCTURE_SYNC_CRON=0 */12 * * * *
 ENABLE_OMIE_PRODUCT_MANAGEMENT_SYNC_JOB=false
 OMIE_PRODUCT_MANAGEMENT_SYNC_CRON=0 */6 * * * *
 
-# Queue Processor (fila de comandos assíncrona)
+# ⚠️ LEGADO — Queue Processor (fila de comandos assíncrona) — Módulos migrados para PgBoss não precisam mais destas vars
 ENABLE_OMIE_PRODUCTION_ORDER_QUEUE_JOB=true
 OMIE_PRODUCTION_ORDER_QUEUE_CRON=* * * * * *
 
@@ -169,7 +169,8 @@ Cada gateway no projeto representa uma **capacidade específica** de comunicaç�
 | **ADR‑005** | Idempotência Obrigatória em Comandos de Integração | ✅ Aceita | Garantia de execução única |
 | **ADR‑006** | `index.ts` só exporta `register` em módulos com registro explícito | ✅ Aceita | Evita double registration |
 | **ADR‑007** | Frontend chamando Omie diretamente (rejeitada) | ❌ Rejeitada | Mantém anti-corruption layer intacta |
-| **ADR‑008** | Command Queue Pattern para Rate-Limit e Concorrência | ✅ Aceita | Fila assíncrona com FOR UPDATE SKIP LOCKED |
+| **ADR‑008** | Command Queue Pattern para Rate-Limit e Concorrência | 🔄 Substituído por ADR‑009 | Fila assíncrona com FOR UPDATE SKIP LOCKED |
+| **ADR‑009** | Job Queue Centralizada com PgBoss | ✅ Aceita | Worker único event-driven, retry nativo, sem polling |
 
 > **📌 NOTA**: Para detalhes completos, racional, consequências e alternativas, consulte o documento completo: **[DECISIONS.md](./DECISIONS.md)**
 
@@ -190,12 +191,12 @@ OMIE_PRODUCT_STRUCTURE_SYNC_CRON=0 */12 * * * *
 - **Sincronização**: Traz dados do Omie para o espelho local
 - **Reconciliação**: Detecta e corrige divergências
 - **Processamento em lote**: Executa operações em massa
-- **Queue Processor**: Consome fila de comandos (`PENDING → PROCESSING → CONFIRMED/FAILED`) com rate-limit entre chamadas Omie
+- **Queue Processor**: ⚠️ **LEGADO** — Consome fila de comandos (`PENDING → PROCESSING → CONFIRMED/FAILED`) com rate-limit entre chamadas Omie. Módulos migrados usam a fila centralizada PgBoss.
 
-#### Convenção de Nomenclatura para Queue Processor:
+#### Convenção de Nomenclatura para Queue Processor (⚠️ LEGADO):
 ```env
-ENABLE_OMIE_{MODULO}_QUEUE_JOB=true
-OMIE_{MODULO}_QUEUE_CRON="* * * * * *"  # A cada 1 segundo
+ENABLE_OMIE_{MODULO}_QUEUE_JOB=true          # ⚠️ LEGADO — apenas para módulos não migrados
+OMIE_{MODULO}_QUEUE_CRON="* * * * * *"       # ⚠️ LEGADO — a cada 1 segundo (apenas módulos não migrados)
 ```
 
 ### 5. PADRÃO CANÔNICO: COMMAND + CALLBACK + READ + JOB
@@ -369,13 +370,17 @@ const { record, created } = await commandStore.enqueue({
 return reply.code(202).send({ status: "PENDING", externalRequestId });
 ```
 
-#### 4. Command Queue Pattern (Processamento Assíncrono)
+#### 4. Command Queue Pattern (⚠️ LEGADO)
 
-**Propósito**: Evitar chamadas simultâneas ao Omie, garantindo rate-limit de 1 chamada/segundo via fila.
+> **⚠️ Este padrão foi substituído pelo [ADR-009](./DECISIONS.md#-adr-009--job-queue-centralizada-com-pgboss).**
+> Módulos novos devem usar a fila centralizada com PgBoss (seção 4b abaixo).
+> A documentação abaixo é mantida apenas para módulos ainda não migrados.
+
+**Propósito (legado)**: Evitar chamadas simultâneas ao Omie, garantindo rate-limit de 1 chamada/segundo via fila.
 
 > 📌 **Decisão arquitetural**: Consulte **[ADR-008](./DECISIONS.md)** para racional completo, alternativas e consequências deste padrão.
 
-**Fluxo**:
+**Fluxo (legado)**:
 ```
 Rota POST → enqueue(PENDING)
                 ↓
@@ -396,11 +401,77 @@ Queue Processor job (a cada 1s)
 - `CONFIRMED` — Executado com sucesso
 - `FAILED` — Falha na execução
 
-**Garantias**:
+**Garantias (legado)**:
 - **Atômico**: `dequeue()` usa `SELECT ... FOR UPDATE SKIP LOCKED` — sem concorrência entre workers
 - **Rate-limit**: 1 segundo entre chamadas Omie (via `sleep(1000)` no processor)
 - **Idempotência**: `enqueue()` retorna registro existente se `externalRequestId` duplicado
 - **Recuperação**: Jobs travados por >60s são detectados como stalled e podem ser retomados
+
+#### 4b. Job Queue Centralizada com PgBoss (NOVO PADRÃO)
+
+> 📌 **Decisão arquitetural**: Consulte **[ADR-009](./DECISIONS.md#-adr-009--job-queue-centralizada-com-pgboss)** para racional completo.
+
+**Propósito**: Substituir filas por módulo (SKIP LOCKED + polling 1s) por uma **fila centralizada**
+event-driven, com worker único e retry nativo.
+
+**Arquitetura:**
+```
+UseCase
+  ↓ enqueue(job)
+PgBoss Queue
+  ↓ entrega via EVENTO
+integration.worker.ts (worker ÚNICO)
+  ↓ switch(data.type)
+use-case correspondente
+  ↓ gateway
+Omie / Fake
+  ↓ command_record
+idempotência + audit
+```
+
+**Worker único (`integration.worker.ts`):**
+- Registrado em `apps/api/src/modules/integration/jobs/`
+- Roteia por `job.data.type` para o handler correto
+- Aplica rate-limit global de 1 chamada Omie/s
+- Usa retry com backoff exponencial nativo do PgBoss
+
+**Como enfileirar:**
+```typescript
+import { getJobQueue } from '@/shared/infra/job-queue'
+
+await getJobQueue().enqueue('product-catalog.sync', {
+  type: 'product-catalog.sync',
+  payload: { productId: '123' },
+  options: { retryLimit: 5, retryBackoff: true }
+})
+```
+
+**Variáveis de Ambiente (PgBoss):**
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `PG_BOSS_CONNECTION_STRING` | (mesma DB) | Connection string para o PgBoss |
+| `PG_BOSS_CONCURRENCY` | `3` | Concorrência máxima do worker |
+| `PG_BOSS_SCHEDULE_INTERVAL` | `1000` | Intervalo de polling interno do PgBoss (ms) |
+
+**Regra de uso:**
+```
+COMMAND:
+  → Chama Omie (rede)       → FILA (PgBoss)
+  → Pode falhar + retry     → FILA (backoff nativo)
+  → Pode esperar            → FILA (consistência eventual)
+  → Caso contrário          → SÍNCRONO (imediato)
+
+GET: nunca fila (síncrono)
+```
+
+**Migração de Módulos:**
+
+A migração do padrão SKIP LOCKED para PgBoss é incremental. Módulos migrados:
+1. Removem seu `*_QUEUE_JOB` e `*_QUEUE_CRON` do bootstrap
+2. Removem o job `process-{modulo}-queue.job.ts`
+3. Passam a usar `getJobQueue().enqueue()` no use-case
+4. O worker centralizado `integration.worker.ts` assume o processamento
 
 #### 5. Anti-corruption Layer
 - API 1 traduz payloads do Omie
