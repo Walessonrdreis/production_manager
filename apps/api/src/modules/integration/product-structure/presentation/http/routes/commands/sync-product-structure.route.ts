@@ -11,28 +11,25 @@ import { RealProductStructureFetchGateway } from "../../../../infrastructure/gat
 
 export function registerSyncProductStructureRoute(app: FastifyInstance) {
   app.post(
-    "/v1/integration/product-structure/:productCode/sync",
+    "/v1/integration/product-structure/commands/sync",
     {
       schema: {
         tags: ["product-structure"],
         summary: "Sincronizar estrutura do produto (BOM) via Omie",
         description:
           "Comando de integração. Fake no-write. Real é idempotente por externalRequestId.",
-        params: {
-          type: "object",
-          required: ["productCode"],
-          properties: { productCode: { type: "string" } },
-        },
         body: {
           type: "object",
-          required: ["externalRequestId"],
-          properties: { externalRequestId: { type: "string" } },
+          required: ["externalRequestId", "productCode"],
+          properties: {
+            externalRequestId: { type: "string" },
+            productCode: { type: "string" },
+          },
         },
       },
     },
     async (request, reply) => {
-      const { productCode } = request.params as any;
-      const { externalRequestId } = (request.body as any) ?? {};
+      const { productCode, externalRequestId } = (request.body as any) ?? {};
 
       const ext = String(externalRequestId ?? "").trim();
       if (!ext) {

@@ -140,12 +140,21 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Error handler
   // ---------------------------------------------------------------------------
   app.setErrorHandler((error, request, reply) => {
-    // erro de validação 
+    // erro de validação Fastify (schema da rota)
     if (error.validation) {
       return reply.status(400).send({
         success: false,
         error: "VALIDATION_ERROR",
         message: "Invalid request payload"
+      });
+    }
+
+    // erro de validação Zod (parse manual)
+    if (error instanceof ZodError) {
+      return reply.status(422).send({
+        success: false,
+        error: "VALIDATION_ERROR",
+        message: JSON.stringify(error.errors)
       });
     }
 

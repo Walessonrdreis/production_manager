@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 
 export function registerSubmitProductStructureRoute(app: FastifyInstance) {
   app.post(
-    "/v1/integration/product-structure/:productCode/submit",
+    "/v1/integration/product-structure/commands/submit",
     {
       schema: {
         tags: ["product-structure"],

@@ -3,31 +3,57 @@ import { env } from "@/config";
 import { getLogger } from "@/shared/logger";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 import { ReconcileProductStructuresJob } from "./reconcile-product-structures.job";
+import { ProcessProductStructureQueueJob } from "./process-product-structure-queue.job";
 
 export function registerProductStructureJobs(omieClient: OmieHttpClientPort) {
   const logger = getLogger("product-structure:cron");
 
+  // ─── Sync Job (espelho global via cron) ───────────────────────────────
+
   if (!env.ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB) {
     logger.info("Product Structure sync job is disabled");
-    return;
+  } else {
+    const schedule = env.OMIE_PRODUCT_STRUCTURE_SYNC_CRON ?? "0 */12 * * *";
+
+    logger.info("Registering Product Structure sync job", { schedule });
+
+    cron.schedule(schedule, async () => {
+      const runLogger = getLogger("product-structure:cron:run");
+      runLogger.info("Starting Product Structure sync job");
+
+      try {
+        await ReconcileProductStructuresJob.execute({
+          source: "JOB",
+          omieClient,
+        });
+        runLogger.info("Finished Product Structure sync job");
+      } catch (error) {
+        runLogger.error("Product Structure sync job failed", error);
+      }
+    });
   }
 
-  const schedule = env.OMIE_PRODUCT_STRUCTURE_SYNC_CRON ?? "0 */12 * * *";
+  // ─── Queue Processor Job (fila de comandos) ──────────────────────────
 
-  logger.info("Registering Product Structure sync job", { schedule });
+  if (!env.ENABLE_OMIE_PRODUCT_STRUCTURE_QUEUE_JOB) {
+    logger.info("Product Structure queue processor job is disabled");
+  } else {
+    const queueSchedule = env.OMIE_PRODUCT_STRUCTURE_QUEUE_CRON ?? "* * * * * *";
 
-  cron.schedule(schedule, async () => {
-    const runLogger = getLogger("product-structure:cron:run");
-    runLogger.info("Starting Product Structure sync job");
+    logger.info("Registering Product Structure queue processor job", {
+      schedule: queueSchedule,
+    });
 
-    try {
-      await ReconcileProductStructuresJob.execute({
-        source: "JOB",
-        omieClient,
-      });
-      runLogger.info("Finished Product Structure sync job");
-    } catch (error) {
-      runLogger.error("Product Structure sync job failed", error);
-    }
-  });
+    cron.schedule(queueSchedule, async () => {
+      const runLogger = getLogger("product-structure:queue-processor:run");
+      runLogger.info("Starting Product Structure queue processor");
+
+      try {
+        await ProcessProductStructureQueueJob.execute();
+        runLogger.info("Finished Product Structure queue processor");
+      } catch (error) {
+        runLogger.error("Product Structure queue processor failed", error);
+      }
+    });
+  }
 }

@@ -20,7 +20,7 @@ const logger = getLogger("sync-all-product-structures.route");
 
 export function registerSyncAllProductStructuresRoute(app: FastifyInstance) {
     app.post(
-        "/v1/integration/product-structure/sync-global",
+        "/v1/integration/product-structure/commands/sync-global",
         async (request, reply) => {
             const body = (request.body as SyncAllProductStructureRequestDTO | undefined) ?? {};
 

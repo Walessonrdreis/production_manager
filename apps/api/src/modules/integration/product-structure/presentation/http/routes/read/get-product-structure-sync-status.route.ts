@@ -4,7 +4,7 @@ import { ProductStructureCommandStore } from "../../../../infrastructure/db/prod
 
 export function registerGetProductStructureSyncStatusRoute(app: FastifyInstance) {
     app.get(
-        "/v1/integration/product-structure/sync-status/:externalRequestId",
+        "/v1/integration/product-structure/commands/:externalRequestId",
         {
             schema: {
                 tags: ["product-structure"],

@@ -5,7 +5,7 @@ import { mapProductStructureToSummary } from "../../../../application/mappers/ma
 
 export function registerGetProductStructureSummaryRoute(app: FastifyInstance) {
     app.get(
-        "/v1/integration/product-structure/summary",
+        "/v1/integration/product-structure/read/summary",
         {
             schema: {
                 tags: ["product-structure"],

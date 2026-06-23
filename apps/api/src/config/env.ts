@@ -61,6 +61,10 @@ const envSchema = z.object({
   ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB: envBoolean.default(false),
   OMIE_PRODUCT_STRUCTURE_SYNC_CRON: z.string().default("*/20 * * * *"),
 
+  // ✅ módulo product-structure (queue processor)
+  ENABLE_OMIE_PRODUCT_STRUCTURE_QUEUE_JOB: envBoolean.default(false),
+  OMIE_PRODUCT_STRUCTURE_QUEUE_CRON: z.string().default("* * * * * *"),
+
   ENABLE_OMIE_PRODUCT_CATALOG_SYNC_JOB: envBoolean.default(false),
   OMIE_PRODUCT_CATALOG_SYNC_CRON: z.string().default("0 */6 * * *"),
 

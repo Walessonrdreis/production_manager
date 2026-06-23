@@ -734,6 +734,7 @@ model SalesOrderStageTransition {
 
 enum ProductStructureCommandType {
   SYNC
+  SYNC_GLOBAL
   APPLY
   DELETE
 
@@ -741,6 +742,8 @@ enum ProductStructureCommandType {
 }
 
 enum ProductStructureCommandStatus {
+  PENDING
+  PROCESSING
   ACCEPTED
   CONFIRMED
   FAILED
@@ -763,10 +766,12 @@ model ProductStructureCommand {
   productCode       String @db.VarChar(64) @map("product_code")
 
   commandType ProductStructureCommandType @map("command_type")
-  status      ProductStructureCommandStatus @default(ACCEPTED)
+  status      ProductStructureCommandStatus @default(PENDING)
 
-  source   ProductStructureCommandSource @default(API2)
-  lastError Json? @map("last_error")
+  source      ProductStructureCommandSource @default(API2)
+  lastError   Json? @map("last_error")
+  payload     Json? @map("payload")
+  retryCount  Int    @default(0) @map("retry_count")
 
   executedAt  DateTime? @map("executed_at")
   completedAt DateTime? @map("completed_at")

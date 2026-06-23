@@ -40,27 +40,52 @@ Critérios atendidos:
 modules/integration/product-structure/
 ├─ application
 │  ├─ ports
-│  │  └─ product-structure-fetch.gateway.ts
+│  │  ├─ product-structure-fetch.gateway.ts
+│  │  ├─ product-structure-fetch-page.gateway.ts
+│  │  ├─ product-structure-apply.gateway.ts
+│  │  ├─ product-structure-delete.gateway.ts
+│  │  └─ product-structure-consult.gateway.ts
 │  │
-│  └─ use-cases
-│     ├─ sync-product-structure.usecase.ts
-│     └─ get-products-production-read-model.usecase.ts
+│  ├─ use-cases
+│  │  ├─ sync-product-structure.usecase.ts
+│  │  ├─ sync-all-product-structures.usecase.ts
+│  │  ├─ apply-product-structure.usecase.ts
+│  │  ├─ delete-product-structure.usecase.ts
+│  │  └─ get-products-production-read-model.usecase.ts
+│  │
+│  └─ dto
+│     ├─ sync-product-structure.dto.ts
+│     ├─ sync-all-product-structure.dto.ts
+│     ├─ apply-product-structure.dto.ts
+│     └─ delete-product-structure.dto.ts
 │
 ├─ infrastructure
 │  ├─ gateways
-│  │  └─ fetch
-│  │     ├─ product-structure-fetch.gateway.ts
-│  │     ├─ fake-product-structure-fetch.gateway.ts
-│  │     └─ real-product-structure-fetch.gateway.ts
+│  │  ├─ fetch / fetch-page / apply / delete
+│  │  ├─ consult
+│  │  │  ├─ product-structure-consult.gateway.ts
+│  │  │  ├─ real-product-structure-consult.gateway.ts
+│  │  │  └─ fake-product-structure-consult.gateway.ts
+│  │  └─ lifecycle
+│  │     ├─ product-structure-lifecycle.gateway.ts
+│  │     └─ fake-product-structure-lifecycle.gateway.ts
 │  │
-│  └─ db
-│     ├─ product-structure.prisma.ts
-│     └─ product-structure-integration.store.ts
+│  ├─ db
+│  │  ├─ product-structure-command.store.ts
+│  │  └─ product-structure-integration.store.ts
+│  │
+│  └─ jobs
+│     ├─ reconcile-product-structures.job.ts
+│     └─ product-structure-jobs.register.ts
 │
 ├─ presentation
 │  └─ http
-│     ├─ controllers
-│     └─ routes.ts
+│     ├─ schemas.ts
+│     ├─ routes.ts
+│     └─ routes/
+│        ├─ commands/          (sync, sync-all, apply, delete, submit)
+│        ├─ callbacks/         (confirm, fail)
+│        └─ read/              (summary, sync-status, production-readiness, refresh)
 │
 ├─ product-structure-integration-register.ts
 ├─ index.ts
@@ -75,9 +100,13 @@ modules/integration/product-structure/
 ## 🔁 Padrão Real / Fake (OBRIGATÓRIO)
 
 ### ✅ Gateway representa **uma capacidade externa**
-Neste módulo, a capacidade é:
+Neste módulo, as capacidades são:
 
-- **Fetch / Sync de Estrutura de Produto**
+- **Fetch / Sync de Estrutura de Produto** (consulta paginada + individual)
+- **Consult** (consulta ao vivo com Circuit Breaker — usado pelo refresh)
+- **Apply** (criação/atualização de estrutura)
+- **Delete** (exclusão de estrutura)
+- **Lifecycle** (confirm/fail de comandos via callback)
 
 Cada capacidade externa:
 - possui **1 interface**
@@ -156,12 +185,29 @@ const gateway =
 
 ***
 
-## 📊 Read-Models
+## 📊 Read-Models + Rotas
 
-Este módulo expõe **read-models agregados**, por exemplo:
+Este módulo expõe **read-models agregados** e **comandos de integração**:
 
 ```
-GET /v1/admin/read/products/production
+# Commands
+POST /v1/integration/product-structure/:productCode/sync
+POST /v1/integration/product-structure/sync-global
+POST /v1/integration/product-structure/apply
+POST /v1/integration/product-structure/delete
+POST /v1/integration/product-structure/submit          (501 - não implementado)
+
+# Callbacks
+POST /v1/integration/product-structure/callbacks/:id/confirm
+POST /v1/integration/product-structure/callbacks/:id/fail
+
+# Read-Models (espelho local)
+GET  /v1/integration/product-structure/read/summary
+GET  /v1/integration/product-structure/read/sync-status
+GET  /v1/integration/product-structure/read/production-readiness
+
+# Refresh (consulta Omie + atualiza espelho)
+GET  /v1/integration/product-structure/read/:productCode/refresh
 ```
 
 Read-models:
@@ -193,12 +239,17 @@ Um PR neste módulo **SÓ pode ser aprovado se TODAS forem verdadeiras**:
 ✅ Gateway com interface  
 ✅ Gateway Real  
 ✅ Gateway Fake  
+✅ Consult Gateway (com Circuit Breaker)  
+✅ Lifecycle Gateway (confirm/fail)  
+✅ Refresh Route (consulta Omie + atualiza espelho)  
 ✅ UseCase único  
 ✅ Fake não chama Omie  
 ✅ Fake simula mundo externo  
 ✅ Store de integração próprio  
+✅ Command Store (idempotência + tracking)  
 ✅ Seleção Real/Fake centralizada  
 ✅ Controller não conhece Omie  
+✅ Schemas Zod centralizados  
 ✅ API 2 não acessa tabela direta
 
 Se **1 item falhar**, o PR está incorreto.

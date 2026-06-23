@@ -13,28 +13,26 @@ import { RealProductStructureDeleteGateway } from "../../../../infrastructure/ga
 
 export function registerDeleteProductStructureRoute(app: FastifyInstance) {
   app.post(
-    "/v1/integration/product-structure/:productCode/delete",
+    "/v1/integration/product-structure/commands/delete",
     {
       schema: {
         tags: ["product-structure"],
         summary: "Excluir estrutura (BOM) no Omie",
         description:
           "Comando de integração: exclui estrutura no Omie e sincroniza espelho. Real é idempotente.",
-        params: {
-          type: "object",
-          required: ["productCode"],
-          properties: { productCode: { type: "string" } },
-        },
         body: {
           type: "object",
-          required: ["externalRequestId"],
-          properties: { externalRequestId: { type: "string" } },
+          required: ["externalRequestId", "productCode"],
+          properties: {
+            externalRequestId: { type: "string" },
+            productCode: { type: "string" },
+          },
         },
       },
     },
     async (request, reply) => {
-      const { productCode } = request.params as any;
       const body = (request.body as any) ?? {};
+      const productCode = String(body.productCode ?? "").trim();
       const externalRequestId = String(body.externalRequestId ?? "").trim();
 
       if (!externalRequestId) {

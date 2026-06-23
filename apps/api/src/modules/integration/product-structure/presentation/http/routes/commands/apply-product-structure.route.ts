@@ -13,23 +13,19 @@ import { RealProductStructureApplyGateway } from "../../../../infrastructure/gat
 
 export function registerApplyProductStructureRoute(app: FastifyInstance) {
   app.post(
-    "/v1/integration/product-structure/:productCode/apply",
+    "/v1/integration/product-structure/commands/apply",
     {
       schema: {
         tags: ["product-structure"],
         summary: "Aplicar estrutura (BOM) no Omie",
         description:
           "Comando de integração: aplica estrutura no Omie (Incluir/Alterar) e sincroniza espelho. Real é idempotente.",
-        params: {
-          type: "object",
-          required: ["productCode"],
-          properties: { productCode: { type: "string" } },
-        },
         body: {
           type: "object",
-          required: ["externalRequestId", "structure"],
+          required: ["externalRequestId", "productCode", "structure"],
           properties: {
             externalRequestId: { type: "string" },
+            productCode: { type: "string" },
             structure: {
               type: "object",
               required: ["items"],
@@ -54,8 +50,8 @@ export function registerApplyProductStructureRoute(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { productCode } = request.params as any;
       const body = (request.body as any) ?? {};
+      const productCode = String(body.productCode ?? "").trim();
       const externalRequestId = String(body.externalRequestId ?? "").trim();
       const items = body?.structure?.items ?? [];
 
