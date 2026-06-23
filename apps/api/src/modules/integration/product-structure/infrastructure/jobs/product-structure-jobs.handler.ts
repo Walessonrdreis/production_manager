@@ -18,6 +18,9 @@ import { env } from "@/config";
 import { prisma } from "@/shared/db/prisma";
 import { getLogger } from "@/shared/logger";
 import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
+import { SyncHooksRunner } from "@/shared/integration/strategies/sync-hooks";
+import { RefreshProductCatalogProductionReadyUseCase } from "@/modules/integration/product-catalog/application/use-cases/refresh-product-catalog-production-ready.usecase";
+import { ProductCatalogProductionReadyReadModelStore } from "@/modules/integration/product-catalog/infrastructure/db/product-catalog-production-ready-read-model.store";
 import { registerJobHandler } from "@/shared/infra/job-queue";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 
@@ -177,6 +180,21 @@ export function registerProductStructureJobHandlers(omieClient: OmieHttpClientPo
                     "GLOBAL"
                 );
 
+                // ── Hooks pós-sync ──────────────────────────────────
+                const hooks = new SyncHooksRunner();
+
+                if (env.FORCE_PRODUCTION_READY_REFRESH_ON_SYNC) {
+                    hooks.add({
+                        name: "refresh-production-ready",
+                        execute: async () => {
+                            const useCase = new RefreshProductCatalogProductionReadyUseCase(
+                                new ProductCatalogProductionReadyReadModelStore()
+                            );
+                            await useCase.execute();
+                        },
+                    });
+                }
+
                 await executeSyncAllProductStructures(
                     fetchPageGateway,
                     integrationStore,
@@ -187,7 +205,8 @@ export function registerProductStructureJobHandlers(omieClient: OmieHttpClientPo
                         pageSize: pageSize ?? 100,
                         maxPages: maxPages ?? 1000,
                         source: "JOB",
-                    }
+                    },
+                    hooks
                 );
             } else {
                 // Modo fake: apenas marca como confirmado

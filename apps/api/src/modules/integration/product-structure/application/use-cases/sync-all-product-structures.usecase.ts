@@ -3,8 +3,9 @@ import { getLogger } from "@/shared/logger";
 import type { ProductStructureFetchPageGateway } from "../ports/product-structure-fetch-page.gateway";
 import { ProductStructureIntegrationStore } from "../../infrastructure/db/product-structure-integration.store";
 import { ProductStructureCommandStore } from "../../infrastructure/db/product-structure-command.store";
-import { fetchPageWithRetry } from "@/shared/integration/strategies/retry.strategy";
+import { fetchPageWithRetry, sleep } from "@/shared/integration/strategies/retry.strategy";
 import type { SyncStateStoreContract } from "@/shared/integration/strategies/types";
+import type { SyncHooksRunner } from "@/shared/integration/strategies/sync-hooks";
 
 export type SyncAllProductStructuresCommand = {
     externalRequestId: string;
@@ -127,7 +128,8 @@ export async function executeSyncAllProductStructures(
     integrationStore: ProductStructureIntegrationStore,
     commandStore: ProductStructureCommandStore,
     syncStateStore: SyncStateStoreContract,
-    command: SyncAllProductStructuresCommand
+    command: SyncAllProductStructuresCommand,
+    hooks?: SyncHooksRunner
 ): Promise<void> {
     const logger = getLogger("SyncAllProductStructuresExecutor");
     const pageSize = Math.max(1, Math.min(Number(command.pageSize || 100), 500));
@@ -189,12 +191,32 @@ export async function executeSyncAllProductStructures(
             hasNextPage: pageResult.hasNextPage,
         });
 
+        if (processedPages % 10 === 0) {
+            logger.info("Product-structure sync checkpoint", {
+                externalRequestId,
+                progress:
+                    pageResult.totalPages != null
+                        ? `${page}/${pageResult.totalPages}`
+                        : `${page}/?`,
+                processedPages,
+                processedItems,
+            });
+        }
+
         if (!pageResult.hasNextPage || pageResult.items.length === 0) break;
         page += 1;
+
+        await sleep(700);
     }
 
     await syncStateStore.updateLastSync(new Date());
     await commandStore.markConfirmed(externalRequestId);
+
+    // ─── Side-effect chaining (hooks opcionais pós-sync) ────────────
+    if (hooks && !hooks.empty) {
+        logger.info("Running post-sync hooks", { externalRequestId });
+        await hooks.runAll({ externalRequestId });
+    }
 
     logger.info("Global sync completed", { externalRequestId, processedPages, processedItems });
 }

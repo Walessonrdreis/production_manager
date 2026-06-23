@@ -39,3 +39,17 @@ export type PaginationMeta = {
     totalPages: number | null;
     currentPage: number;
 };
+
+/**
+ * Contrato para hooks executados após um sync global bem-sucedido.
+ *
+ * Permite side-effect chaining entre módulos sem acoplamento direto —
+ * cada módulo cria seus próprios hooks e o SyncHooksRunner os executa.
+ *
+ * @property name    — Identificador do hook (ex: "refresh-production-ready")
+ * @property execute — Função que executa o side-effect
+ */
+export interface AfterSyncHook {
+    readonly name: string;
+    execute(context: { externalRequestId: string }): Promise<void>;
+}

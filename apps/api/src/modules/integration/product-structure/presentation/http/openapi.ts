@@ -1,6 +1,6 @@
 export const productStructureOpenApi = {
     paths: {
-        "/v1/integration/product-structure/sync-global": {
+        "/v1/integration/product-structure/commands/sync-global": {
             post: {
                 tags: ["Product Structure"],
                 summary: "Sync global de estruturas (BOM)",
@@ -47,27 +47,22 @@ export const productStructureOpenApi = {
             },
         },
 
-        "/v1/integration/product-structure/{productCode}/sync": {
+        "/v1/integration/product-structure/commands/sync": {
             post: {
                 tags: ["Product Structure"],
                 summary: "Sincronizar estrutura de um produto",
                 description: "Busca estrutura (BOM) de um produto no Omie e atualiza o espelho local.",
-                parameters: [
-                    {
-                        name: "productCode",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string" },
-                    },
-                ],
                 requestBody: {
                     required: true,
                     content: {
                         "application/json": {
                             schema: {
                                 type: "object",
-                                required: ["externalRequestId"],
-                                properties: { externalRequestId: { type: "string" } },
+                                required: ["externalRequestId", "productCode"],
+                                properties: {
+                                    externalRequestId: { type: "string" },
+                                    productCode: { type: "string" },
+                                },
                             },
                         },
                     },
@@ -78,29 +73,22 @@ export const productStructureOpenApi = {
             },
         },
 
-        "/v1/integration/product-structure/{productCode}/apply": {
+        "/v1/integration/product-structure/commands/apply": {
             post: {
                 tags: ["Product Structure"],
                 summary: "Aplicar estrutura (Incluir/Alterar BOM)",
                 description:
                     "Cria ou altera a estrutura de um produto no Omie e atualiza o espelho local. Decide automaticamente entre IncluirEstrutura e AlterarEstrutura.",
-                parameters: [
-                    {
-                        name: "productCode",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string" },
-                    },
-                ],
                 requestBody: {
                     required: true,
                     content: {
                         "application/json": {
                             schema: {
                                 type: "object",
-                                required: ["externalRequestId", "structure"],
+                                required: ["externalRequestId", "productCode", "structure"],
                                 properties: {
                                     externalRequestId: { type: "string" },
+                                    productCode: { type: "string" },
                                     structure: {
                                         type: "object",
                                         required: ["items"],
@@ -131,27 +119,22 @@ export const productStructureOpenApi = {
             },
         },
 
-        "/v1/integration/product-structure/{productCode}/delete": {
+        "/v1/integration/product-structure/commands/delete": {
             post: {
                 tags: ["Product Structure"],
                 summary: "Excluir estrutura (BOM)",
                 description: "Exclui a estrutura de um produto no Omie e atualiza o espelho local.",
-                parameters: [
-                    {
-                        name: "productCode",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string" },
-                    },
-                ],
                 requestBody: {
                     required: true,
                     content: {
                         "application/json": {
                             schema: {
                                 type: "object",
-                                required: ["externalRequestId"],
-                                properties: { externalRequestId: { type: "string" } },
+                                required: ["externalRequestId", "productCode"],
+                                properties: {
+                                    externalRequestId: { type: "string" },
+                                    productCode: { type: "string" },
+                                },
                             },
                         },
                     },
@@ -162,7 +145,7 @@ export const productStructureOpenApi = {
             },
         },
 
-        "/v1/integration/product-structure/sync-status/{externalRequestId}": {
+        "/v1/integration/product-structure/commands/{externalRequestId}": {
             get: {
                 tags: ["Product Structure"],
                 summary: "Consultar status de comando",
@@ -208,7 +191,7 @@ export const productStructureOpenApi = {
             },
         },
 
-        "/v1/integration/product-structure/summary": {
+        "/v1/integration/product-structure/read/summary": {
             get: {
                 tags: ["Product Structure"],
                 summary: "Sumário de estruturas",
@@ -300,6 +283,99 @@ export const productStructureOpenApi = {
                 ],
                 responses: {
                     200: { description: "Lista de readiness" },
+                },
+            },
+        },
+
+        "/v1/integration/product-structure/read/:productCode/refresh": {
+            get: {
+                tags: ["Product Structure"],
+                summary: "Refresh de estrutura (live do Omie)",
+                description:
+                    "Busca estrutura diretamente do Omie (ConsultarEstrutura), atualiza o espelho local e retorna os dados frescos. Síncrona — sem fila.",
+                parameters: [
+                    {
+                        name: "productCode",
+                        in: "path",
+                        required: true,
+                        schema: { type: "string" },
+                    },
+                ],
+                responses: {
+                    200: { description: "Dados da estrutura atualizados" },
+                    404: { description: "Estrutura não encontrada no Omie" },
+                    500: { description: "Erro interno" },
+                },
+            },
+        },
+
+        "/v1/integration/product-structure/commands/submit": {
+            post: {
+                tags: ["Product Structure"],
+                summary: "Submeter estrutura (workflow) — NÃO IMPLEMENTADO",
+                description:
+                    "Placeholder para workflow de rascunhos/aprovação. No MVP, usar /apply. Retorna 501.",
+                responses: {
+                    501: { description: "Não implementado — use /apply" },
+                },
+            },
+        },
+
+        "/v1/integration/product-structure/callbacks/:externalRequestId/confirm": {
+            post: {
+                tags: ["Product Structure"],
+                summary: "Callback — confirmar comando (fake-only)",
+                description:
+                    "Callback fake para marcar um comando como CONFIRMED. Disponível apenas quando PRODUCT_STRUCTURE_GATEWAY=fake.",
+                parameters: [
+                    {
+                        name: "externalRequestId",
+                        in: "path",
+                        required: true,
+                        schema: { type: "string" },
+                    },
+                ],
+                responses: {
+                    200: { description: "Comando confirmado" },
+                    404: { description: "Comando não encontrado" },
+                    405: { description: "Não disponível em modo real" },
+                },
+            },
+        },
+
+        "/v1/integration/product-structure/callbacks/:externalRequestId/fail": {
+            post: {
+                tags: ["Product Structure"],
+                summary: "Callback — falhar comando (fake-only)",
+                description:
+                    "Callback fake para marcar um comando como FAILED. Disponível apenas quando PRODUCT_STRUCTURE_GATEWAY=fake.",
+                parameters: [
+                    {
+                        name: "externalRequestId",
+                        in: "path",
+                        required: true,
+                        schema: { type: "string" },
+                    },
+                ],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["code", "message"],
+                                properties: {
+                                    code: { type: "string" },
+                                    message: { type: "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    200: { description: "Comando marcado como FAILED" },
+                    404: { description: "Comando não encontrado" },
+                    405: { description: "Não disponível em modo real" },
                 },
             },
         },

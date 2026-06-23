@@ -10,5 +10,6 @@
 
 export { fetchPageWithRetry, extractRedundantWaitSeconds, sleep } from "./retry.strategy";
 export { PrismaSyncStateStore } from "./sync-state.store";
+export { SyncHooksRunner } from "./sync-hooks";
 export type { PrismaSyncDelegate } from "./sync-state.store";
-export type { SyncStateStoreContract, RetryOptions, PaginationMeta } from "./types";
+export type { SyncStateStoreContract, RetryOptions, PaginationMeta, AfterSyncHook } from "./types";

@@ -1,5 +1,10 @@
 # Template de Módulo - Production Manager
 
+> ⚡ **Módulo Canônico de Referência**: `product-structure`  
+> Todo novo módulo de integração DEVE seguir a estrutura, padrões e convenções do
+> módulo `product-structure`, que é o padrão mais completo e revisado do projeto.
+> Consulte `apps/api/src/modules/integration/product-structure/` como referência viva.
+
 Este template define a estrutura canônica obrigatória para todos os novos módulos de integração. Use este template como ponto de partida e referência ao criar qualquer novo módulo.
 
 ## 1. Estrutura Completa do Módulo
@@ -259,6 +264,109 @@ export class SyncAllNomeDoModuloUseCase {
 - **`updatedSince`**: Usa `lastSyncAt` do checkpoint para sincronia incremental
 - **`fetchPageWithRetry`**: Resiliência a falhas com backoff exponencial
 - **Pós-sync**: Atualiza checkpoint + confirma comando
+
+### 2.2c Sync All Use Case com Hooks (SyncHooksRunner)
+
+Para encadear **side-effects pós-sync** sem acoplar o use case a módulos específicos:
+
+```typescript
+// apps/api/src/modules/integration/nome-do-modulo/application/use-cases/sync-all-nome-do-modulo.usecase.ts
+// Adicione no construtor e no execute:
+
+import { SyncHooksRunner } from "@/shared/integration/strategies/sync-hooks";
+
+export class SyncAllNomeDoModuloUseCase {
+  constructor(
+    /* ... existing args ... */
+  ) {}
+
+  async execute(
+    command: SyncAllNomeDoModuloCommand,
+    hooks?: SyncHooksRunner  // ← Opcional!
+  ) {
+    // ... existing sync logic ...
+
+    // Executa hooks após marcar como confirmado
+    await this.commandStore.markConfirmed(command.externalRequestId);
+
+    if (hooks && hooks.any) {
+      await hooks.runAll({ externalRequestId: command.externalRequestId });
+    }
+  }
+}
+```
+
+**Uso no handler do job PgBoss:**
+
+```typescript
+const hooks = new SyncHooksRunner();
+
+if (env.FORCE_SOME_REFRESH_ON_SYNC) {
+  hooks.add({
+    name: "refresh-some-read-model",
+    execute: async () => {
+      const useCase = new RefreshSomeReadModelUseCase(...);
+      await useCase.execute();
+    },
+  });
+}
+
+await useCase.execute({ externalRequestId }, hooks);
+```
+
+**Regras:**
+- `SyncHooksRunner` vem de `@/shared/integration/strategies/sync-hooks`
+- Hooks são **opcionais** — o use case funciona sem eles
+- Cada hook tem `name` (string) e `execute(context)` (async)
+- Falha em um hook **não quebra** os demais (try/catch interno)
+- Hooks rodam **após** o comando ser marcado como CONFIRMED
+
+### 2.2d Lifecycle Gateway (confirm/fail)
+
+Para comandos assíncronos que precisam de callback de confirmação/falha:
+
+**Port** `application/ports/nome-do-modulo-lifecycle.gateway.ts`:
+
+```typescript
+export type NomeDoModuloLifecycleGateway = {
+  confirm(externalRequestId: string): Promise<any | null>;
+  fail(externalRequestId: string, err: { code: string; message: string }): Promise<any | null>;
+};
+```
+
+**Fake** `infrastructure/gateways/lifecycle/fake-nome-do-modulo-lifecycle.gateway.ts`:
+```typescript
+export class FakeNomeDoModuloLifecycleGateway implements NomeDoModuloLifecycleGateway {
+  async confirm(externalRequestId: string) {
+    const store = new NomeDoModuloCommandStore(prisma);
+    return store.markConfirmed(externalRequestId);
+  }
+  async fail(externalRequestId: string, err: { code: string; message: string }) {
+    const store = new NomeDoModuloCommandStore(prisma);
+    return store.markFailed(externalRequestId, err);
+  }
+}
+```
+
+**Real** `infrastructure/gateways/lifecycle/real-nome-do-modulo-lifecycle.gateway.ts`:
+```typescript
+export class RealNomeDoModuloLifecycleGateway implements NomeDoModuloLifecycleGateway {
+  async confirm(externalRequestId: string) {
+    const store = new NomeDoModuloCommandStore(prisma);
+    return store.markConfirmed(externalRequestId);
+  }
+  async fail(externalRequestId: string, err: { code: string; message: string }) {
+    const store = new NomeDoModuloCommandStore(prisma);
+    return store.markFailed(externalRequestId, err);
+  }
+}
+```
+
+**Regras:**
+- Callbacks HTTP (`/callbacks/:id/confirm`, `/fail`) são **fake-only** (retornam 405 em real)
+- Em produção, o ERP gerencia o estado assincronamente
+- O gateway real existe para uso interno (jobs/workers)
+- Ambos (fake e real) delegam ao CommandStore — a diferença é logging
 
 ### 2.3 Store (DB) - `infrastructure/db/`
 
@@ -1580,21 +1688,25 @@ const integrations = [
 
 - [ ] Estrutura de pastas canônica criada
 - [ ] Todos os arquivos template implementados
-- [ ] Ports (interfaces) definidas (ação, consult, sync-page)
+- [ ] Ports (interfaces) definidas (ação, consult, sync-page, lifecycle)
 - [ ] Use cases implementados (ação + sync-all incremental)
-- [ ] Stores (command, sync, query, sync-state) criadas
+- [ ] SyncHooksRunner opcional para side-effects pós-sync
+- [ ] Lifecycle Gateway (port + fake + real) para confirm/fail
+- [ ] Stores (command, integration, query, sync-state) criadas
 - [ ] SyncStateStore (checkpoint incremental) configurado
 - [ ] fetchPageWithRetry implementado
 - [ ] SyncPageGateway (port + real/fake) para paginação
 - [ ] ConsultGateway (port + real/fake) para consulta ao vivo
 - [ ] Consult + Refresh route (consulta ao vivo + atualiza espelho)
-- [ ] Jobs agendados configurados (sync-all + queue processor)
+- [ ] PgBoss handlers registrados (sync, sync-all, apply, delete)
+- [ ] Jobs agendados configurados (sync-all + reconciliação)
 - [ ] Rotas HTTP registradas (commands, callbacks, read, refresh)
-- [ ] Schema do Prisma atualizado (comandos, integração, sync_state)
+- [ ] OpenAPI documentado (todas as rotas)
+- [ ] Schema do Prisma atualizado (integration, command, sync_state)
 - [ ] Variáveis de ambiente adicionadas
 - [ ] Módulo registrado no bootstrap
 - [ ] Testes unitários escritos
-- [ ] Documentação atualizada
+- [ ] README.md do módulo atualizado
 
 ## 6. Exemplo Completo: Módulo `product-catalog`
 
