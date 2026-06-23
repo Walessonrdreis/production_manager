@@ -1,3 +1,4 @@
+import { enqueueJob } from "@/shared/infra/job-queue";
 import { getLogger } from "@/shared/logger";
 import type { ProductStructureFetchPageGateway } from "../ports/product-structure-fetch-page.gateway";
 import { ProductStructureIntegrationStore } from "../../infrastructure/db/product-structure-integration.store";
@@ -99,6 +100,17 @@ export class SyncAllProductStructuresUseCase {
         }
 
         this.logger.info("Global sync enqueued", { externalRequestId });
+
+        // Enfileira no PgBoss para processamento assíncrono
+        await enqueueJob("product-structure.sync-global", {
+            externalRequestId,
+            pageSize: command.pageSize,
+            maxPages: command.maxPages,
+        }, {
+            retryLimit: 2,
+            retryBackoff: true,
+            singletonKey: "product-structure-sync-global",
+        });
 
         return {
             status: "ACCEPTED" as const,

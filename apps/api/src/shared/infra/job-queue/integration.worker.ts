@@ -66,6 +66,9 @@ export async function startWorker(boss: PgBoss): Promise<void> {
     for (const entry of handlers) {
         const localConcurrency = entry.options?.concurrency ?? env.PG_BOSS_CONCURRENCY;
 
+        // Cria a fila explicitamente antes de se inscrever (PgBoss v12+)
+        await boss.createQueue(entry.type);
+
         await boss.work(entry.type, {
             localConcurrency,
             pollingIntervalSeconds: env.PG_BOSS_SCHEDULE_INTERVAL,

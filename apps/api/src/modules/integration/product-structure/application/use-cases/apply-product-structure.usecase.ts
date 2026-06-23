@@ -1,3 +1,4 @@
+import { enqueueJob } from "@/shared/infra/job-queue";
 import type { ProductStructureApplyGateway, ApplyProductStructureItem } from "../ports/product-structure-apply.gateway";
 import type { ProductStructureFetchGateway } from "../ports/product-structure-fetch.gateway";
 import type { ProductStructureIntegrationStore } from "../../infrastructure/db/product-structure-integration.store";
@@ -50,6 +51,17 @@ export class ApplyProductStructureUseCase {
     if (!created) {
       return { status: record.status as any, externalRequestId: record.externalRequestId };
     }
+
+    // Enfileira no PgBoss para processamento assíncrono
+    await enqueueJob("product-structure.apply", {
+      externalRequestId: command.externalRequestId,
+      productCode: command.productCode,
+      items: command.items,
+    }, {
+      retryLimit: 5,
+      retryBackoff: true,
+      singletonKey: `product-structure-apply-${command.productCode}`,
+    });
 
     return { status: "ACCEPTED" as const, externalRequestId: command.externalRequestId };
   }

@@ -3,12 +3,16 @@ import { env } from "@/config";
 import { getLogger } from "@/shared/logger";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 import { ReconcileProductStructuresJob } from "./reconcile-product-structures.job";
-import { ProcessProductStructureQueueJob } from "./process-product-structure-queue.job";
+import { registerProductStructureJobHandlers } from "./product-structure-jobs.handler";
 
 export function registerProductStructureJobs(omieClient: OmieHttpClientPort) {
   const logger = getLogger("product-structure:cron");
 
-  // ─── Sync Job (espelho global via cron) ───────────────────────────────
+  // ─── Registra handlers PgBoss para processamento assíncrono ───────
+  // Substitui o queue processor legado (process-product-structure-queue.job.ts)
+  registerProductStructureJobHandlers(omieClient);
+
+  // ─── Sync Job (espelho global via cron) ───────────────────────────
 
   if (!env.ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB) {
     logger.info("Product Structure sync job is disabled");
@@ -29,30 +33,6 @@ export function registerProductStructureJobs(omieClient: OmieHttpClientPort) {
         runLogger.info("Finished Product Structure sync job");
       } catch (error) {
         runLogger.error("Product Structure sync job failed", error);
-      }
-    });
-  }
-
-  // ─── Queue Processor Job (fila de comandos) ──────────────────────────
-
-  if (!env.ENABLE_OMIE_PRODUCT_STRUCTURE_QUEUE_JOB) {
-    logger.info("Product Structure queue processor job is disabled");
-  } else {
-    const queueSchedule = env.OMIE_PRODUCT_STRUCTURE_QUEUE_CRON ?? "* * * * * *";
-
-    logger.info("Registering Product Structure queue processor job", {
-      schedule: queueSchedule,
-    });
-
-    cron.schedule(queueSchedule, async () => {
-      const runLogger = getLogger("product-structure:queue-processor:run");
-      runLogger.info("Starting Product Structure queue processor");
-
-      try {
-        await ProcessProductStructureQueueJob.execute();
-        runLogger.info("Finished Product Structure queue processor");
-      } catch (error) {
-        runLogger.error("Product Structure queue processor failed", error);
       }
     });
   }

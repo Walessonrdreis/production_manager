@@ -14,6 +14,9 @@ import { prisma } from "@/infra/db";
 import { createOmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
 import { createOmieStockCache } from "@/shared/integrations/omie/omie-stock-cache";
 
+// PgBoss (job queue centralizada — ADR-009)
+import { startJobQueue, startWorker } from "@/shared/infra/job-queue";
+
 // jobs (nova arquitetura)
 import { startStockRefreshJob } from "@/modules/legacy/products/infrastructure/jobs/stock-refresh.job";
 import { startOmieProductSyncJob } from "@/modules/legacy/products/infrastructure/jobs/omie-product-sync.job";
@@ -175,6 +178,15 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Rotas
   // ---------------------------------------------------------------------------
   await registerRoutes(app);
+
+  /// ---------------------------------------------------------------------------
+  // ✅ PgBoss — Job Queue Centralizada (DEPOIS das rotas, ANTES dos jobs legados)
+  // ---------------------------------------------------------------------------
+  // Os handlers dos módulos (product-structure, etc.) foram registrados durante
+  // registerRoutes() → registerProductStructureJobs() → registerProductStructureJobHandlers().
+  // Agora iniciamos o PgBoss e o worker para começar a processar.
+  const boss = await startJobQueue();
+  await startWorker(boss);
 
   /// ---------------------------------------------------------------------------
   // Jobs (✅ UMA VEZ, ✅ DEPOIS DAS ROTAS)

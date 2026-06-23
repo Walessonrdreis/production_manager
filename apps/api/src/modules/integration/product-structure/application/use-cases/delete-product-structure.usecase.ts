@@ -1,3 +1,4 @@
+import { enqueueJob } from "@/shared/infra/job-queue";
 import type { ProductStructureDeleteGateway } from "../ports/product-structure-delete.gateway";
 import type { ProductStructureFetchGateway } from "../ports/product-structure-fetch.gateway";
 import type { ProductStructureIntegrationStore } from "../../infrastructure/db/product-structure-integration.store";
@@ -46,6 +47,16 @@ export class DeleteProductStructureUseCase {
     if (!created) {
       return { status: record.status as any, externalRequestId: record.externalRequestId };
     }
+
+    // Enfileira no PgBoss para processamento assíncrono
+    await enqueueJob("product-structure.delete", {
+      externalRequestId: command.externalRequestId,
+      productCode: command.productCode,
+    }, {
+      retryLimit: 5,
+      retryBackoff: true,
+      singletonKey: `product-structure-delete-${command.productCode}`,
+    });
 
     return { status: "ACCEPTED" as const, externalRequestId: command.externalRequestId };
   }

@@ -74,13 +74,16 @@ export async function enqueueJob<T = Record<string, unknown>>(
     options?: EnqueueOptions
 ): Promise<string | null> {
     const boss = await getJobQueue();
-    const jobId = await boss.send(type, data as object | null, {
-        retryLimit: options?.retryLimit ?? 5,
-        retryBackoff: options?.retryBackoff ?? true,
-        priority: options?.priority,
-        startAfter: options?.startAfter,
-        singletonKey: options?.singletonKey,
-    });
+
+    // Monta opções apenas com propriedades definidas (PgBoss v12 rejeita undefined)
+    const sendOptions: Record<string, unknown> = {};
+    if (options?.retryLimit !== undefined) sendOptions.retryLimit = options.retryLimit;
+    if (options?.retryBackoff !== undefined) sendOptions.retryBackoff = options.retryBackoff;
+    if (options?.priority !== undefined) sendOptions.priority = options.priority;
+    if (options?.startAfter !== undefined) sendOptions.startAfter = options.startAfter;
+    if (options?.singletonKey !== undefined) sendOptions.singletonKey = options.singletonKey;
+
+    const jobId = await boss.send(type, data as object | null, sendOptions);
     logger.debug({ msg: "Job enqueued", type, jobId });
     return jobId;
 }
