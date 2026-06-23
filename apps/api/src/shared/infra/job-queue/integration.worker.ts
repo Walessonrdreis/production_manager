@@ -45,7 +45,7 @@ export function registerJobHandler<T = unknown>(
         );
     }
     handlers.push({ type, handler: handler as JobHandler, options });
-    logger.debug({ msg: "Job handler registered", type });
+    logger.info({ msg: "Job handler registered", type });
 }
 
 /**
@@ -76,10 +76,14 @@ export async function startWorker(boss: PgBoss): Promise<void> {
         }, async (jobs) => {
             for (const job of jobs) {
                 const startTime = Date.now();
-                logger.debug({
-                    msg: "Processing job",
-                    type: entry.type,
+                const externalRequestId =
+                    (job.data as any)?.externalRequestId ?? "unknown";
+
+                logger.info({
+                    msg: "job.start",
                     jobId: job.id,
+                    type: entry.type,
+                    externalRequestId,
                 });
 
                 try {
@@ -87,20 +91,25 @@ export async function startWorker(boss: PgBoss): Promise<void> {
                         id: job.id,
                         data: job.data,
                     });
-                    logger.debug({
-                        msg: "Job completed",
-                        type: entry.type,
+
+                    logger.info({
+                        msg: "job.success",
                         jobId: job.id,
+                        type: entry.type,
+                        externalRequestId,
                         durationMs: Date.now() - startTime,
                     });
                 } catch (error) {
-                    logger.error({
-                        msg: "Job failed (will retry if retryLimit > 0)",
-                        type: entry.type,
+                    logger.warn({
+                        msg: "job.fail",
                         jobId: job.id,
+                        type: entry.type,
+                        externalRequestId,
                         error: error instanceof Error ? error.message : String(error),
+                        durationMs: Date.now() - startTime,
                     });
-                    // Re-lança para o PgBoss lidar com retry
+
+                    // 🔥 OBRIGATÓRIO — PgBoss só faz retry se o handler lançar erro
                     throw error;
                 }
             }

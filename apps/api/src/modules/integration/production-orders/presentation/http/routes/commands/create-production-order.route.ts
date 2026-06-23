@@ -9,34 +9,30 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { CreateProductionOrderRequestSchema } from "../../schemas";
-
-import { prisma } from "@/shared/db/prisma";
-import { ProductionOrderCommandStore } from "../../../../infrastructure/db/production-order-command.store";
+import { enqueueJob } from "@/shared/infra/job-queue";
 
 export async function registerCreateProductionOrderRoute(app: FastifyInstance) {
     app.post("/v1/integration/production-orders/commands/create", async (request, reply) => {
         try {
             const validatedData = CreateProductionOrderRequestSchema.parse(request.body);
 
-            const commandStore = new ProductionOrderCommandStore(prisma);
-
-            const { record, created } = await commandStore.enqueue({
+            await enqueueJob("production-order.create-op", {
                 externalRequestId: validatedData.externalRequestId,
-                commandType: "CREATE_OP",
-                source: "API2",
-                payload: {
-                    productId: validatedData.productId,
-                    quantity: validatedData.quantity,
-                    scheduledDate: validatedData.scheduledDate,
-                    notes: validatedData.notes,
-                },
+                productId: validatedData.productId,
+                quantity: validatedData.quantity,
+                scheduledDate: validatedData.scheduledDate,
+                notes: validatedData.notes,
+            }, {
+                retryLimit: 5,
+                retryBackoff: true,
+                singletonKey: `production-order-create-${validatedData.externalRequestId}`,
             });
 
             return reply.code(202).send({
                 success: true,
                 data: {
-                    externalRequestId: record.externalRequestId,
-                    status: created ? "PENDING" : record.status,
+                    externalRequestId: validatedData.externalRequestId,
+                    status: "PENDING",
                 },
             });
         } catch (error) {

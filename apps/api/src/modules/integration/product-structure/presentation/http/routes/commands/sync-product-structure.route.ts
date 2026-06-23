@@ -2,7 +2,6 @@ import type { FastifyInstance } from "fastify";
 import { env } from "@/config";
 
 import { ProductStructureIntegrationStore } from "../../../../infrastructure/db/product-structure-integration.store";
-import { ProductStructureCommandStore } from "../../../../infrastructure/db/product-structure-command.store";
 
 import { SyncProductStructureUseCase } from "../../../../application/use-cases/sync-product-structure.usecase";
 
@@ -47,19 +46,16 @@ export function registerSyncProductStructureRoute(app: FastifyInstance) {
         : new RealProductStructureFetchGateway((app as any).omieClient);
 
       const integrationStore = new ProductStructureIntegrationStore((app as any).prisma);
-      const commandStore = new ProductStructureCommandStore((app as any).prisma);
 
       const useCase = new SyncProductStructureUseCase(
         fetchGateway,
         integrationStore,
-        commandStore,
         { noWrite: isFake }
       );
 
       const result = await useCase.execute({
         externalRequestId: ext,
         productCode: String(productCode),
-        source: "API2",
       });
 
       // Padrão: sempre ACK 202

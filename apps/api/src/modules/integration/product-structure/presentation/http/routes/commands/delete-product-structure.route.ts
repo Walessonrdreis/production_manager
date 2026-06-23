@@ -2,7 +2,6 @@ import type { FastifyInstance } from "fastify";
 import { env } from "@/config";
 
 import { ProductStructureIntegrationStore } from "../../../../infrastructure/db/product-structure-integration.store";
-import { ProductStructureCommandStore } from "../../../../infrastructure/db/product-structure-command.store";
 
 import { RealProductStructureFetchGateway } from "../../../../infrastructure/gateways/fetch/real-product-structure-fetch.gateway";
 import { FakeProductStructureFetchGateway } from "../../../../infrastructure/gateways/fetch/fake-product-structure-fetch.gateway";
@@ -54,20 +53,17 @@ export function registerDeleteProductStructureRoute(app: FastifyInstance) {
         : new RealProductStructureFetchGateway((app as any).omieClient);
 
       const integrationStore = new ProductStructureIntegrationStore((app as any).prisma);
-      const commandStore = new ProductStructureCommandStore((app as any).prisma);
 
       const useCase = new DeleteProductStructureUseCase(
         deleteGateway,
         fetchGateway,
         integrationStore,
-        commandStore,
         { noWrite: isFake }
       );
 
       const result = await useCase.execute({
         externalRequestId,
         productCode: String(productCode),
-        source: "API2",
       });
 
       return reply.status(202).send({

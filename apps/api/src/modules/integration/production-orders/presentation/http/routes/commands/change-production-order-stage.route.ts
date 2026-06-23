@@ -9,32 +9,28 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { ChangeProductionOrderStageRequestSchema } from "../../schemas";
-
-import { prisma } from "@/shared/db/prisma";
-import { ProductionOrderCommandStore } from "../../../../infrastructure/db/production-order-command.store";
+import { enqueueJob } from "@/shared/infra/job-queue";
 
 export async function registerChangeProductionOrderStageRoute(app: FastifyInstance) {
     app.post("/v1/integration/production-orders/commands/change-stage", async (request, reply) => {
         try {
             const validatedData = ChangeProductionOrderStageRequestSchema.parse(request.body);
 
-            const commandStore = new ProductionOrderCommandStore(prisma);
-
-            const { record, created } = await commandStore.enqueue({
+            await enqueueJob("production-order.change-stage", {
                 externalRequestId: validatedData.externalRequestId,
-                commandType: "CHANGE_STAGE",
-                source: "API2",
-                payload: {
-                    omieCode: validatedData.omieCode,
-                    stage: validatedData.stage,
-                },
+                omieCode: validatedData.omieCode,
+                stage: validatedData.stage,
+            }, {
+                retryLimit: 5,
+                retryBackoff: true,
+                singletonKey: `production-order-change-stage-${validatedData.externalRequestId}`,
             });
 
             return reply.code(202).send({
                 success: true,
                 data: {
-                    externalRequestId: record.externalRequestId,
-                    status: created ? "PENDING" : record.status,
+                    externalRequestId: validatedData.externalRequestId,
+                    status: "PENDING",
                 },
             });
         } catch (error) {

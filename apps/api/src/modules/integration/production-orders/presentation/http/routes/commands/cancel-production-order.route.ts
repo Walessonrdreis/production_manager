@@ -9,32 +9,28 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { CancelProductionOrderRequestSchema } from "../../schemas";
-
-import { prisma } from "@/shared/db/prisma";
-import { ProductionOrderCommandStore } from "../../../../infrastructure/db/production-order-command.store";
+import { enqueueJob } from "@/shared/infra/job-queue";
 
 export async function registerCancelProductionOrderRoute(app: FastifyInstance) {
     app.post("/v1/integration/production-orders/commands/cancel", async (request, reply) => {
         try {
             const validatedData = CancelProductionOrderRequestSchema.parse(request.body);
 
-            const commandStore = new ProductionOrderCommandStore(prisma);
-
-            const { record, created } = await commandStore.enqueue({
+            await enqueueJob("production-order.cancel-op", {
                 externalRequestId: validatedData.externalRequestId,
-                commandType: "CANCEL_OP",
-                source: "API2",
-                payload: {
-                    omieCode: validatedData.omieCode,
-                    reason: validatedData.reason,
-                },
+                omieCode: validatedData.omieCode,
+                reason: validatedData.reason,
+            }, {
+                retryLimit: 5,
+                retryBackoff: true,
+                singletonKey: `production-order-cancel-${validatedData.externalRequestId}`,
             });
 
             return reply.code(202).send({
                 success: true,
                 data: {
-                    externalRequestId: record.externalRequestId,
-                    status: created ? "PENDING" : record.status,
+                    externalRequestId: validatedData.externalRequestId,
+                    status: "PENDING",
                 },
             });
         } catch (error) {

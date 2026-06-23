@@ -1,16 +1,11 @@
 // ---------------------------------------------------------------------------
 // Product Structure — PgBoss Job Handlers
 // ---------------------------------------------------------------------------
-// Registra handlers para processar comandos de estrutura de produto via PgBoss.
+// BRIDGE: Apenas cria as dependências e delega para os use-cases.
+// Nenhuma lógica de negócio aqui — toda regra está nos use-cases.
 //
 // Substitui o queue processor legado (process-product-structure-queue.job.ts)
 // que usava SKIP LOCKED + polling 1s.
-//
-// Cada handler corresponde a um commandType:
-//   product-structure.sync        → SYNC
-//   product-structure.apply       → APPLY
-//   product-structure.delete      → DELETE
-//   product-structure.sync-global → SYNC_GLOBAL
 //
 // O PgBoss gerencia:
 //   - Concorrência (localConcurrency por tipo)
@@ -25,7 +20,13 @@ import { getLogger } from "@/shared/logger";
 import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 import { registerJobHandler } from "@/shared/infra/job-queue";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
-import type { ApplyProductStructureItem } from "../../application/ports/product-structure-apply.gateway";
+
+// ─── Use Cases ────────────────────────────────────────────────────────
+
+import { ProcessSyncProductStructureUseCase } from "../../application/use-cases/process-sync-product-structure.usecase";
+import { ProcessApplyProductStructureUseCase } from "../../application/use-cases/process-apply-product-structure.usecase";
+import { ProcessDeleteProductStructureUseCase } from "../../application/use-cases/process-delete-product-structure.usecase";
+import { executeSyncAllProductStructures } from "../../application/use-cases/sync-all-product-structures.usecase";
 
 // ─── Stores ───────────────────────────────────────────────────────────
 
@@ -56,10 +57,6 @@ import { FakeProductStructureDeleteGateway } from "../../infrastructure/gateways
 import { RealProductStructureDeleteGateway } from "../../infrastructure/gateways/delete/real-product-structure-delete.gateway";
 import type { ProductStructureDeleteGateway } from "../../application/ports/product-structure-delete.gateway";
 
-// ─── Use Cases (função auxiliar exportada) ────────────────────────────
-
-import { executeSyncAllProductStructures } from "../../application/use-cases/sync-all-product-structures.usecase";
-
 // ─── Types para dados dos jobs ────────────────────────────────────────
 
 type SyncJobData = {
@@ -70,7 +67,7 @@ type SyncJobData = {
 type ApplyJobData = {
     externalRequestId: string;
     productCode: string;
-    items: ApplyProductStructureItem[];
+    items: import("../../application/ports/product-structure-apply.gateway").ApplyProductStructureItem[];
 };
 
 type DeleteJobData = {
@@ -116,6 +113,9 @@ function createGateways(omieClient: OmieHttpClientPort) {
 
 /**
  * Registra todos os handlers PgBoss para o módulo product-structure.
+ * Bridge pura: cria use-cases com gateways injetados e registra handlers
+ * que delegam para os use-cases.
+ *
  * Deve ser chamado durante o bootstrap, ANTES de `startWorker()`.
  */
 export function registerProductStructureJobHandlers(omieClient: OmieHttpClientPort): void {
@@ -123,22 +123,27 @@ export function registerProductStructureJobHandlers(omieClient: OmieHttpClientPo
     const integrationStore = new ProductStructureIntegrationStore(prisma);
     const { isFake, fetchGateway, applyGateway, deleteGateway, fetchPageGateway } = createGateways(omieClient);
 
+    // ── Instancia use-cases de processamento ──────────────────────────
+    // Toda a lógica de negócio (gateway, store, markConfirmed) está dentro
+    // dos use-cases. O handler é apenas uma ponte.
+
+    const syncUseCase = new ProcessSyncProductStructureUseCase(
+        fetchGateway, integrationStore, commandStore, { isFake }
+    );
+
+    const applyUseCase = new ProcessApplyProductStructureUseCase(
+        applyGateway, fetchGateway, integrationStore, commandStore, { isFake }
+    );
+
+    const deleteUseCase = new ProcessDeleteProductStructureUseCase(
+        deleteGateway, fetchGateway, integrationStore, commandStore, { isFake }
+    );
+
     // ── 1. SYNC: Sincronizar estrutura individual ─────────────────────
 
     registerJobHandler<SyncJobData>(
         "product-structure.sync",
-        async (job) => {
-            const { externalRequestId, productCode } = job.data;
-            logger.info("Processing sync", { externalRequestId, productCode });
-
-            if (!isFake) {
-                const result = await fetchGateway.fetchByProductCode(productCode);
-                await integrationStore.save(result);
-            }
-
-            await commandStore.markConfirmed(externalRequestId);
-            logger.info("Sync completed", { externalRequestId, productCode });
-        },
+        (job) => syncUseCase.execute(job.data),
         { concurrency: 3, batchSize: 1 }
     );
 
@@ -146,21 +151,7 @@ export function registerProductStructureJobHandlers(omieClient: OmieHttpClientPo
 
     registerJobHandler<ApplyJobData>(
         "product-structure.apply",
-        async (job) => {
-            const { externalRequestId, productCode, items } = job.data;
-            logger.info("Processing apply", { externalRequestId, productCode, itemsCount: items.length });
-
-            if (!isFake) {
-                await applyGateway.apply(productCode, items);
-
-                // Pós-apply: sincroniza espelho local
-                const result = await fetchGateway.fetchByProductCode(productCode);
-                await integrationStore.save(result);
-            }
-
-            await commandStore.markConfirmed(externalRequestId);
-            logger.info("Apply completed", { externalRequestId, productCode });
-        },
+        (job) => applyUseCase.execute(job.data),
         { concurrency: 1, batchSize: 1 }
     );
 
@@ -168,21 +159,7 @@ export function registerProductStructureJobHandlers(omieClient: OmieHttpClientPo
 
     registerJobHandler<DeleteJobData>(
         "product-structure.delete",
-        async (job) => {
-            const { externalRequestId, productCode } = job.data;
-            logger.info("Processing delete", { externalRequestId, productCode });
-
-            if (!isFake) {
-                await deleteGateway.delete(productCode);
-
-                // Pós-delete: atualiza espelho
-                const result = await fetchGateway.fetchByProductCode(productCode);
-                await integrationStore.save(result);
-            }
-
-            await commandStore.markConfirmed(externalRequestId);
-            logger.info("Delete completed", { externalRequestId, productCode });
-        },
+        (job) => deleteUseCase.execute(job.data),
         { concurrency: 1, batchSize: 1 }
     );
 
