@@ -1,7 +1,6 @@
-
 # Product Structure — Routes
 
-## � Total: 8 rotas (5 Comandos + 3 Read-models)
+## 📊 Total: 11 rotas (5 Comandos + 2 Callbacks + 4 Read-models)
 
 ---
 
@@ -9,11 +8,14 @@
 
 ### 1. Sync individual
 ```
-POST /v1/integration/product-structure/:productCode/sync
+POST /v1/integration/product-structure/commands/sync
 ```
 **Payload (obrigatório):**
 ```json
-{ "externalRequestId": "string" }
+{
+  "externalRequestId": "string",
+  "productCode": "string"
+}
 ```
 **Resposta (202 Accepted):**
 ```json
@@ -26,13 +28,13 @@ POST /v1/integration/product-structure/:productCode/sync
   }
 }
 ```
-**Descrição:** Sincroniza estrutura (BOM) de um único produto via Omie.
+**Descrição:** Sincroniza estrutura (BOM) de um único produto via Omie. `productCode` vai no body, não na URL.
 
 ---
 
 ### 2. Sync global (bulk)
 ```
-POST /v1/integration/product-structure/sync-global
+POST /v1/integration/product-structure/commands/sync-global
 ```
 **Payload (todos opcionais):**
 ```json
@@ -57,7 +59,7 @@ POST /v1/integration/product-structure/sync-global
 
 > ⚠️ **Curl exige body JSON** — mesmo vazio:
 > ```bash
-> curl -s -X POST http://localhost:3333/v1/integration/product-structure/sync-global \
+> curl -s -X POST http://localhost:3333/v1/integration/product-structure/commands/sync-global \
 >   -H "Content-Type: application/json" \
 >   -d '{"externalRequestId":"meu-sync-001"}'
 > ```
@@ -66,12 +68,13 @@ POST /v1/integration/product-structure/sync-global
 
 ### 3. Aplicar estrutura
 ```
-POST /v1/integration/product-structure/:productCode/apply
+POST /v1/integration/product-structure/commands/apply
 ```
 **Payload (obrigatório):**
 ```json
 {
   "externalRequestId": "string",
+  "productCode": "string",
   "structure": {
     "items": [
       {
@@ -95,17 +98,20 @@ POST /v1/integration/product-structure/:productCode/apply
   }
 }
 ```
-**Descrição:** Cria ou altera estrutura no Omie (IncluirEstrutura / AlterarEstrutura) e sincroniza espelho local.
+**Descrição:** Cria ou altera estrutura no Omie (IncluirEstrutura / AlterarEstrutura) e sincroniza espelho local. `productCode` vai no body, não na URL.
 
 ---
 
 ### 4. Excluir estrutura
 ```
-POST /v1/integration/product-structure/:productCode/delete
+POST /v1/integration/product-structure/commands/delete
 ```
 **Payload (obrigatório):**
 ```json
-{ "externalRequestId": "string" }
+{
+  "externalRequestId": "string",
+  "productCode": "string"
+}
 ```
 **Resposta (202 Accepted):**
 ```json
@@ -118,28 +124,56 @@ POST /v1/integration/product-structure/:productCode/delete
   }
 }
 ```
-**Descrição:** Exclui estrutura do produto no Omie e atualiza espelho local.
+**Descrição:** Exclui estrutura do produto no Omie e atualiza espelho local. `productCode` vai no body, não na URL.
 
 ---
 
 ### 5. Submeter (reservado)
 ```
-POST /v1/integration/product-structure/:productCode/submit
+POST /v1/integration/product-structure/commands/submit
 ```
-**⚠️ 501 Not Implemented** — Use `/apply` no MVP.
+**⚠️ 501 Not Implemented** — Use `/commands/apply` no MVP.
 ```json
 {
   "success": false,
   "error": "NOT_IMPLEMENTED",
-  "message": "Use /apply para aplicar a estrutura no MVP. /submit será habilitado quando houver drafts/aprovação."
+  "message": "Use /commands/apply para aplicar a estrutura no MVP. /submit será habilitado quando houver drafts/aprovação."
 }
+```
+
+---
+
+## 🔔 CALLBACKS (POST) — Respostas do worker para o sistema
+
+### 6. Confirmar comando
+```
+POST /v1/integration/product-structure/callbacks/:externalRequestId/confirm
+```
+**Descrição:** Marca um comando como CONFIRMED após processamento bem-sucedido pelo worker PgBoss.
+
+**Resposta (200):**
+```json
+{ "success": true, "data": { "status": "CONFIRMED" } }
+```
+
+---
+
+### 7. Falha de comando
+```
+POST /v1/integration/product-structure/callbacks/:externalRequestId/fail
+```
+**Descrição:** Marca um comando como FAILED após erro no processamento do worker PgBoss.
+
+**Resposta (200):**
+```json
+{ "success": true, "data": { "status": "FAILED" } }
 ```
 
 ---
 
 ## 📘 READ-MODELS (GET) — Sem side effects / Sem Fake-Real
 
-### 6. Production readiness
+### 8. Production readiness
 ```
 GET /v1/admin/read/products/production-readiness
 ```
@@ -190,9 +224,9 @@ GET /v1/admin/read/products/production-readiness
 
 ---
 
-### 7. Sync Status
+### 9. Sync Status
 ```
-GET /v1/integration/product-structure/sync-status/:externalRequestId
+GET /v1/integration/product-structure/commands/:externalRequestId
 ```
 **Descrição:** Retorna o status de um comando de integração (SYNC/APPLY/DELETE) pelo `externalRequestId`.
 
@@ -225,9 +259,9 @@ GET /v1/integration/product-structure/sync-status/:externalRequestId
 
 ---
 
-### 8. Summary
+### 10. Summary
 ```
-GET /v1/integration/product-structure/summary
+GET /v1/integration/product-structure/read/summary
 ```
 **Descrição:** Lista resumida de produtos com estrutura espelhada e estatísticas de comandos. Usa query params para filtrar.
 
@@ -266,28 +300,90 @@ GET /v1/integration/product-structure/summary
 
 ---
 
+### 11. Refresh (consulta Omie ao vivo)
+```
+GET /v1/integration/product-structure/read/:productCode/refresh
+```
+**Descrição:** Consulta a estrutura do produto **diretamente no Omie** (ao vivo) e atualiza o espelho local. Usa o Consult Gateway com Circuit Breaker.
+
+**Resposta (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "productCode": "string",
+    "description": "string",
+    "hasStructure": true,
+    "items": []
+  }
+}
+```
+> ⚠️ Este é o ÚNICO read que chama Omie (consulta ao vivo). Os demais leem apenas o espelho local.
+
+---
+
 ## 🧭 Resumo
 
 | # | Método | Rota | Descrição |
 |---|--------|------|-----------|
-| 1 | POST | `/v1/integration/product-structure/:productCode/sync` | Sync individual |
-| 2 | POST | `/v1/integration/product-structure/sync-global` | Sync em lote |
-| 3 | POST | `/v1/integration/product-structure/:productCode/apply` | Aplicar estrutura |
-| 4 | POST | `/v1/integration/product-structure/:productCode/delete` | Excluir estrutura |
-| 5 | POST | `/v1/integration/product-structure/:productCode/submit` | Submeter (501) |
-| 6 | GET | `/v1/admin/read/products/production-readiness` | Production readiness |
-| 7 | GET | `/v1/integration/product-structure/sync-status/:externalRequestId` | Status de comando |
-| 8 | GET | `/v1/integration/product-structure/summary` | Sumário de estruturas |
+| 1 | POST | `/v1/integration/product-structure/commands/sync` | Sync individual |
+| 2 | POST | `/v1/integration/product-structure/commands/sync-global` | Sync em lote |
+| 3 | POST | `/v1/integration/product-structure/commands/apply` | Aplicar estrutura |
+| 4 | POST | `/v1/integration/product-structure/commands/delete` | Excluir estrutura |
+| 5 | POST | `/v1/integration/product-structure/commands/submit` | Submeter (501) |
+| 6 | POST | `/v1/integration/product-structure/callbacks/:externalRequestId/confirm` | Confirmar comando |
+| 7 | POST | `/v1/integration/product-structure/callbacks/:externalRequestId/fail` | Falha de comando |
+| 8 | GET | `/v1/admin/read/products/production-readiness` | Production readiness |
+| 9 | GET | `/v1/integration/product-structure/commands/:externalRequestId` | Status de comando |
+| 10 | GET | `/v1/integration/product-structure/read/summary` | Sumário de estruturas |
+| 11 | GET | `/v1/integration/product-structure/read/:productCode/refresh` | Refresh ao vivo |
 
 ---
 
 ## ✅ Regras do módulo
 
-* Apenas POST
-* Sempre com efeito colateral
-* Sempre com `externalRequestId`
-* Sempre com Fake/Real
+* Commands: apenas POST
+* Commands: sempre com efeito colateral
+* Commands: sempre com `externalRequestId`
+* Commands: sempre com Fake/Real
+* Read-models: apenas GET (exceto refresh que consulta Omie)
+* Read-models: sem efeitos colaterais (exceto refresh)
 
+---
+
+## 📂 Estrutura de Diretórios
+
+```
+routes/
+├── Routes.md               ← este arquivo
+├── commands/                ← 5 rotas (POST)
+│   ├── sync-product-structure.route.ts
+│   ├── sync-all-product-structures.route.ts
+│   ├── apply-product-structure.route.ts
+│   ├── delete-product-structure.route.ts
+│   └── submit-product-structure.route.ts
+├── callbacks/               ← 2 rotas (POST)
+│   ├── confirm-product-structure.callback.route.ts
+│   └── fail-product-structure.callback.route.ts
+└── read/                    ← 4 rotas (GET)
+    ├── get-production-readiness.route.ts
+    ├── get-product-structure-sync-status.route.ts
+    ├── get-product-structure-summary.route.ts
+    └── get-product-structure-refresh.route.ts
+```
+
+---
+
+## 💡 Comportamento Pós-PgBoss
+
+Após a migração para PgBoss (Steps 3-4):
+
+1. **Commands (POST)** → enfileiram um job no PgBoss e retornam `202 ACCEPTED`
+2. **Worker PgBoss** → processa o job de forma assíncrona e durável
+3. **Callbacks (POST)** → o worker chama os callbacks para marcar o comando como `CONFIRMED` ou `FAILED`
+4. **Read-models (GET)** → consultam o estado atual (command store + integration store)
+
+---
 
 ## 🔗 index.ts (agregador)
 
@@ -335,23 +431,3 @@ O arquivo `presentation/http/routes.ts`:
 📍 **Caminho**
 
 apps/api/ROUTES.md
-
-### ✅ Adicionar
-
-## Product Structure (BOM)
-
-### Read‑Models
-- `GET /v1/admin/read/products/production-readiness` — Readiness de produção
-- `GET /v1/integration/product-structure/summary` — Sumário de estruturas espelhadas
-- `GET /v1/integration/product-structure/sync-status/:externalRequestId` — Status de comando
-
-### Comandos de Integração
-- `POST /v1/integration/product-structure/:productCode/sync` — Sync individual
-- `POST /v1/integration/product-structure/sync-global` — Sync em lote
-- `POST /v1/integration/product-structure/:productCode/apply` — Aplicar estrutura
-- `POST /v1/integration/product-structure/:productCode/delete` — Excluir estrutura
-
-### Jobs
-- Product Structure Sync (cron)
-  - Controlado por `ENABLE_OMIE_PRODUCT_STRUCTURE_SYNC_JOB`
-  - Agenda via `OMIE_PRODUCT_STRUCTURE_SYNC_CRON`

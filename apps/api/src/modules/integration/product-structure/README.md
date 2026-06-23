@@ -190,23 +190,23 @@ const gateway =
 Este módulo expõe **read-models agregados** e **comandos de integração**:
 
 ```
-# Commands
-POST /v1/integration/product-structure/:productCode/sync
-POST /v1/integration/product-structure/sync-global
-POST /v1/integration/product-structure/apply
-POST /v1/integration/product-structure/delete
-POST /v1/integration/product-structure/submit          (501 - não implementado)
+# Commands (POST) — enfileiram job PgBoss, retornam 202
+POST /v1/integration/product-structure/commands/sync
+POST /v1/integration/product-structure/commands/sync-global
+POST /v1/integration/product-structure/commands/apply
+POST /v1/integration/product-structure/commands/delete
+POST /v1/integration/product-structure/commands/submit          (501 - não implementado)
 
-# Callbacks
-POST /v1/integration/product-structure/callbacks/:id/confirm
-POST /v1/integration/product-structure/callbacks/:id/fail
+# Callbacks (POST) — worker marca CONFIRMED/FAILED
+POST /v1/integration/product-structure/callbacks/:externalRequestId/confirm
+POST /v1/integration/product-structure/callbacks/:externalRequestId/fail
 
-# Read-Models (espelho local)
+# Read-Models (GET) — espelho local (sem side effects)
+GET  /v1/admin/read/products/production-readiness
+GET  /v1/integration/product-structure/commands/:externalRequestId
 GET  /v1/integration/product-structure/read/summary
-GET  /v1/integration/product-structure/read/sync-status
-GET  /v1/integration/product-structure/read/production-readiness
 
-# Refresh (consulta Omie + atualiza espelho)
+# Refresh (GET) — consulta Omie ao vivo + atualiza espelho
 GET  /v1/integration/product-structure/read/:productCode/refresh
 ```
 
