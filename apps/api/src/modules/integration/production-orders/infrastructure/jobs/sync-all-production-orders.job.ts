@@ -39,6 +39,8 @@ export class SyncAllProductionOrdersJob {
         const useCase = new SyncAllProductionOrdersUseCase(
             fetchPageGateway,
             new ProductionOrderSyncStore(prisma),
+            new ProductionOrderCommandStore(prisma),
+            syncStateStore,
             { noWrite: isFake }
         );
 

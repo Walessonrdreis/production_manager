@@ -14,7 +14,7 @@ import { prisma } from "@/shared/db/prisma";
 import { ProductionOrderCommandStore } from "../../../../infrastructure/db/production-order-command.store";
 
 export async function registerCancelProductionOrderRoute(app: FastifyInstance) {
-    app.post("/v1/integration/production-order/commands/cancel", async (request, reply) => {
+    app.post("/v1/integration/production-orders/commands/cancel", async (request, reply) => {
         try {
             const validatedData = CancelProductionOrderRequestSchema.parse(request.body);
 

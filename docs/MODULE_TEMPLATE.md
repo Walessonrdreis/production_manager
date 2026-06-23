@@ -13,13 +13,20 @@ nome-do-modulo/                          # kebab-case (ex: sales-order-sync)
 │       └── [ação]-nome-do-modulo.usecase.ts
 ├── infrastructure/
 │   ├── db/
-│   │   └── nome-do-modulo-[tipo].store.ts
+│   │   ├── nome-do-modulo-[tipo].store.ts
+│   │   ├── nome-do-modulo-command.store.ts
+│   │   └── nome-do-modulo-sync-state.store.ts
 │   ├── gateways/
 │   │   ├── [ação]/
 │   │   │   ├── real-nome-do-modulo-[ação].gateway.ts
 │   │   │   └── fake-nome-do-modulo-[ação].gateway.ts
+│   │   └── consult/
+│   │       ├── nome-do-modulo-consult.gateway.ts
+│   │       ├── real-nome-do-modulo-consult.gateway.ts
+│   │       └── fake-nome-do-modulo-consult.gateway.ts
 │   └── jobs/
 │       ├── [ação]-nome-do-modulo.job.ts
+│       ├── sync-all-nome-do-modulo.job.ts
 │       └── nome-do-modulo-jobs.register.ts
 ├── presentation/
 │   └── http/
@@ -124,6 +131,134 @@ export class NomeDoModuloAcaoUseCase {
   }
 }
 ```
+
+### 2.2b Sync All Use Case (Incremental) - `application/use-cases/`
+
+Para módulos que sincronizam **todos os registros** do Omie via paginação incremental com checkpoint:
+
+**Arquivo**: `sync-all-nome-do-modulo.usecase.ts`
+
+```typescript
+// apps/api/src/modules/integration/nome-do-modulo/application/use-cases/sync-all-nome-do-modulo.usecase.ts
+
+import { getLogger } from "@/shared/logger";
+import { fetchPageWithRetry } from "@/shared/integration/strategies/retry.strategy";
+import type { NomeDoModuloSyncPageGateway } from "../ports/nome-do-modulo-sync-page.gateway";
+import type { NomeDoModuloCommandStore } from "../../infrastructure/db/nome-do-modulo-command.store";
+import type { NomeDoModuloStore } from "../../infrastructure/db/nome-do-modulo.store";
+import type { SyncStateStoreContract } from "@/shared/integration/strategies/types";
+
+export type SyncAllNomeDoModuloCommand = {
+  externalRequestId: string;
+  pageSize?: number;
+  maxPages?: number;
+  source?: "API2" | "JOB" | "ADMIN";
+};
+
+export class SyncAllNomeDoModuloUseCase {
+  private readonly logger = getLogger("SyncAllNomeDoModuloUseCase");
+
+  constructor(
+    private readonly fetchPageGateway: NomeDoModuloSyncPageGateway,
+    private readonly syncStore: NomeDoModuloStore,
+    private readonly commandStore: NomeDoModuloCommandStore,
+    private readonly syncStateStore: SyncStateStoreContract,
+    private readonly options: { noWrite?: boolean } = {}
+  ) {}
+
+  async execute(command: SyncAllNomeDoModuloCommand) {
+    const pageSize = Math.max(1, Math.min(Number(command.pageSize || 100), 500));
+    const maxPages = Math.max(1, Math.min(Number(command.maxPages || 1000), 10000));
+
+    this.logger.info("Global sync started", {
+      externalRequestId: command.externalRequestId,
+      pageSize, maxPages,
+      source: command.source ?? "API2",
+      noWrite: this.options.noWrite === true,
+    });
+
+    // ── Mode no-write (apenas validação) ──────────────────────────────
+    if (this.options.noWrite) {
+      let page = 1, processedPages = 0, processedItems = 0;
+      while (processedPages < maxPages) {
+        const pageResult = await this.fetchPageGateway.fetchPage({ page, pageSize });
+        processedPages++; processedItems += pageResult.items.length;
+        this.logger.info("No-write page processed", {
+          externalRequestId: command.externalRequestId,
+          page, items: pageResult.items.length,
+          processedPages, processedItems,
+        });
+        if (!pageResult.hasNextPage || pageResult.items.length === 0) break;
+        page++;
+      }
+      return { status: "ACCEPTED" as const, externalRequestId: command.externalRequestId, resourceId: "__GLOBAL__" as const };
+    }
+
+    // ── Idempotência ─────────────────────────────────────────────────
+    const { record, created } = await this.commandStore.getOrCreateAccepted({
+      externalRequestId: command.externalRequestId,
+      commandType: "SYNC_GLOBAL",
+      source: command.source ?? "API2",
+    });
+    if (!created) {
+      return { status: record.status, externalRequestId: command.externalRequestId, resourceId: "__GLOBAL__" as const };
+    }
+
+    // ── Sync incremental ─────────────────────────────────────────────
+    try {
+      const state = await this.syncStateStore.getState();
+      const lastSyncAt = state.lastSyncAt;
+
+      this.logger.info("Incremental sync window", {
+        externalRequestId: command.externalRequestId, lastSyncAt,
+      });
+
+      let page = 1, processedPages = 0, processedItems = 0;
+      while (processedPages < maxPages) {
+        const pageResult = await fetchPageWithRetry(
+          () => this.fetchPageGateway.fetchPage({ page, pageSize, updatedSince: lastSyncAt }),
+          { label: "nome-do-modulo", externalRequestId: command.externalRequestId, page, pageSize }
+        );
+
+        processedPages++; processedItems += pageResult.items.length;
+
+        for (const item of pageResult.items) {
+          await this.syncStore.save(item);
+        }
+
+        this.logger.info("Page processed", {
+          externalRequestId: command.externalRequestId, page,
+          items: pageResult.items.length, processedPages, processedItems,
+          hasNextPage: pageResult.hasNextPage,
+        });
+
+        if (!pageResult.hasNextPage || pageResult.items.length === 0) break;
+        page++;
+      }
+
+      await this.syncStateStore.updateLastSync(new Date());
+      await this.commandStore.markConfirmed(command.externalRequestId);
+
+      this.logger.info("Global sync completed", {
+        externalRequestId: command.externalRequestId,
+        processedPages, processedItems,
+      });
+
+      return { status: "ACCEPTED" as const, externalRequestId: command.externalRequestId, resourceId: "__GLOBAL__" as const };
+    } catch (err) {
+      await this.commandStore.markFailed(command.externalRequestId, err);
+      throw err;
+    }
+  }
+}
+```
+
+**Regras:**
+- **5 args no construtor**: gateway, syncStore, commandStore, syncStateStore, options
+- **`noWrite`**: Modo fake que apenas percorre páginas sem persistir (validação)
+- **`updatedSince`**: Usa `lastSyncAt` do checkpoint para sincronia incremental
+- **`fetchPageWithRetry`**: Resiliência a falhas com backoff exponencial
+- **Pós-sync**: Atualiza checkpoint + confirma comando
 
 ### 2.3 Store (DB) - `infrastructure/db/`
 
@@ -448,6 +583,93 @@ export class FakeNomeDoModuloAcaoGateway implements NomeDoModuloAcaoGateway {
 }
 ```
 
+### 2.5b Consult Gateway - `infrastructure/gateways/consult/`
+
+Para consultar um **registro individual ao vivo** no Omie. Diferente do gateway de ação, o Consult Gateway:
+- Usa `OmieClientWithCircuitBreaker` (não `OmieHttpClientPort`)
+- É **síncrono** (sem fila)
+- Retorna dados frescos diretamente da API Omie
+
+**Port** `application/ports/nome-do-modulo-consult.gateway.ts`:
+
+```typescript
+// apps/api/src/modules/integration/nome-do-modulo/application/ports/nome-do-modulo-consult.gateway.ts
+
+export type NomeDoModuloConsultResult = {
+  omieCode: string;
+  orderNumber?: string;
+  internalCode?: string;
+  productCode?: number;
+  quantity: number;
+  stage?: string;
+  completed: boolean;
+  forecastDate?: string | null;
+  completionDate?: string | null;
+  startDate?: string | null;
+  rawPayload: any;
+};
+
+export interface NomeDoModuloConsultGateway {
+  consult(codigo: string): Promise<NomeDoModuloConsultResult | null>;
+}
+```
+
+**Real** `infrastructure/gateways/consult/real-nome-do-modulo-consult.gateway.ts`:
+
+```typescript
+// apps/api/src/modules/integration/nome-do-modulo/infrastructure/gateways/consult/real-nome-do-modulo-consult.gateway.ts
+
+import type { OmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
+import type { NomeDoModuloConsultGateway, NomeDoModuloConsultResult } from "../../../application/ports/nome-do-modulo-consult.gateway";
+
+export class RealNomeDoModuloConsultGateway implements NomeDoModuloConsultGateway {
+  constructor(private readonly omieClient: OmieClientWithCircuitBreaker) {}
+
+  async consult(codigo: string): Promise<NomeDoModuloConsultResult | null> {
+    const response = await this.omieClient.post<any>("endpoint/omie/", {
+      call: "ConsultarEndpoint",
+      param: [{ codigo: Number(codigo) }],
+    });
+
+    if (!response?.codigo_status || response.codigo_status !== "0") {
+      return null;
+    }
+
+    return mapNomeDoModulo(response); // mapper específico do módulo
+  }
+}
+```
+
+**Fake** `infrastructure/gateways/consult/fake-nome-do-modulo-consult.gateway.ts`:
+
+```typescript
+// apps/api/src/modules/integration/nome-do-modulo/infrastructure/gateways/consult/fake-nome-do-modulo-consult.gateway.ts
+
+import { prisma } from "@/shared/db/prisma";
+import type { NomeDoModuloConsultGateway, NomeDoModuloConsultResult } from "../../../application/ports/nome-do-modulo-consult.gateway";
+
+export class FakeNomeDoModuloConsultGateway implements NomeDoModuloConsultGateway {
+  async consult(codigo: string): Promise<NomeDoModuloConsultResult | null> {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const record = await prisma.omieEntidade.findUnique({
+      where: { codigo },
+    });
+    if (!record) return null;
+    return {
+      omieCode: codigo,
+      quantity: Number(record.quantidade ?? 0),
+      completed: false,
+      rawPayload: record,
+    };
+  }
+}
+```
+
+**Regras:**
+- Port fica em `application/ports/` (não em `infrastructure/gateways/`)
+- Fake consulta **banco local** (espelho Omie) — não simula em memória
+- Real usa `OmieClientWithCircuitBreaker` com retry e circuit breaker
+
 ### 2.6 Job - `infrastructure/jobs/`
 
 **Arquivo**: `[ação]-nome-do-modulo.job.ts`
@@ -507,6 +729,69 @@ export function criarNomeDoModuloAcaoJob(
   const useCase = new NomeDoModuloAcaoUseCase(gateway, store, commandStore);
   return new NomeDoModuloAcaoJob(useCase);
 }
+
+### 2.6a Sync All Job (Incremental) - `infrastructure/jobs/`
+
+Para jobs que sincronizam **todos os registros** com checkpoint incremental:
+
+**Arquivo**: `sync-all-nome-do-modulo.job.ts`
+
+```typescript
+// apps/api/src/modules/integration/nome-do-modulo/infrastructure/jobs/sync-all-nome-do-modulo.job.ts
+
+import { getLogger } from "@/shared/logger";
+import { prisma } from "@/shared/db/prisma";
+import { env } from "@/config";
+import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
+import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
+
+import { NomeDoModuloCommandStore } from "../db/nome-do-modulo-command.store";
+import { NomeDoModuloStore } from "../db/nome-do-modulo.store";
+import { SyncAllNomeDoModuloUseCase } from "../../application/use-cases/sync-all-nome-do-modulo.usecase";
+import { FakeNomeDoModuloSyncPageGateway } from "../gateways/sync-page/fake-nome-do-modulo-sync-page.gateway";
+import { RealNomeDoModuloSyncPageGateway } from "../gateways/sync-page/real-nome-do-modulo-sync-page.gateway";
+
+type ExecuteInput = {
+  source: "JOB";
+  omieClient: OmieHttpClientPort;
+};
+
+export class SyncAllNomeDoModuloJob {
+  static async execute({ source, omieClient }: ExecuteInput): Promise<void> {
+    const logger = getLogger("nome-do-modulo:sync-job");
+
+    const isFake = env.NOME_DO_MODULO_GATEWAY === "fake";
+
+    const fetchPageGateway = isFake
+      ? new FakeNomeDoModuloSyncPageGateway()
+      : new RealNomeDoModuloSyncPageGateway(omieClient);
+
+    const syncStateStore = new PrismaSyncStateStore(
+      prisma.nomeDoModuloSyncState,
+      "GLOBAL"
+    );
+
+    const useCase = new SyncAllNomeDoModuloUseCase(
+      fetchPageGateway,
+      new NomeDoModuloStore(prisma),
+      new NomeDoModuloCommandStore(prisma),
+      syncStateStore,
+      { noWrite: isFake }
+    );
+
+    const externalRequestId = `nome-do-modulo-sync-${Date.now()}`;
+
+    logger.info("Syncing nome-do-modulo", { source, gatewayMode: isFake ? "fake" : "real" });
+    await useCase.execute({ externalRequestId, source: "JOB" });
+    logger.info("Finished sync job", { externalRequestId });
+  }
+}
+```
+
+**Regras:**
+- **5 args no construtor** do use case: `fetchPageGateway`, `syncStore`, `commandStore`, `syncStateStore`, `options`
+- Usa `PrismaSyncStateStore` compartilhado de `@/shared/integration/strategies/sync-state.store`
+- `noWrite = isFake`: em modo fake apenas valida sem persistir
 
 ### 2.6b Queue Processor Job (Command Queue) - `infrastructure/jobs/`
 
@@ -922,7 +1207,7 @@ export function registerGetModeloReadModelRoute(app: FastifyInstance) {
 }
 ```
 
-### 2.9b Route (Read) com Gateway Pattern - `presentation/http/routes/read/`
+### 2.9d Route (Read) com Gateway Pattern - `presentation/http/routes/read/`
 
 Para consultas que usam o **espelho local** via Gateway Pattern (Real/Fake) e QueryStore:
 
@@ -992,6 +1277,74 @@ export function registerListNomeDoModuloRoute(app: FastifyInstance) {
 }
 ```
 
+### 2.9e Refresh Route (Read + Sync) - `presentation/http/routes/read/`
+
+Para rotas que consultam um registro **ao vivo no Omie** e atualizam o espelho local:
+
+**Arquivo**: `get-nome-do-modulo-refresh.route.ts`
+
+```typescript
+// apps/api/src/modules/integration/nome-do-modulo/presentation/http/routes/read/get-nome-do-modulo-refresh.route.ts
+
+import type { FastifyInstance } from "fastify";
+import { env } from "@/config";
+import { prisma } from "@/shared/db/prisma";
+import { getLogger } from "@/shared/logger";
+import { createOmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
+import { NomeDoModuloStore } from "../../../../infrastructure/db/nome-do-modulo.store";
+import { RealNomeDoModuloConsultGateway } from "../../../../infrastructure/gateways/consult/real-nome-do-modulo-consult.gateway";
+import { FakeNomeDoModuloConsultGateway } from "../../../../infrastructure/gateways/consult/fake-nome-do-modulo-consult.gateway";
+
+const logger = getLogger("get-nome-do-modulo-refresh.route");
+
+export async function registerGetNomeDoModuloRefreshRoute(app: FastifyInstance) {
+  app.get(
+    "/v1/integration/read/nome-do-modulo/:codigo/refresh",
+    async (request, reply) => {
+      const { codigo } = request.params as { codigo: string };
+
+      const isFake = env.NOME_DO_MODULO_GATEWAY === "fake";
+
+      const consultGateway = isFake
+        ? new FakeNomeDoModuloConsultGateway()
+        : new RealNomeDoModuloConsultGateway(
+            createOmieClientWithCircuitBreaker({
+              baseUrl: env.OMIE_BASE_URL,
+              appKey: env.OMIE_APP_KEY,
+              appSecret: env.OMIE_APP_SECRET,
+              timeoutMs: 10000,
+              retry: { attempts: 2, baseDelayMs: 1000, maxDelayMs: 3000 },
+              circuitBreaker: {
+                failureThreshold: 3,
+                resetTimeoutMs: 30000,
+                successThreshold: 2,
+              },
+            })
+          );
+
+      const freshData = await consultGateway.consult(codigo);
+      if (!freshData) {
+        return reply.code(404).send({ success: false, error: "NOT_FOUND" });
+      }
+
+      // Atualiza o espelho local (apenas em modo real)
+      if (!isFake) {
+        const syncStore = new NomeDoModuloStore(prisma);
+        await syncStore.save(freshData);
+      }
+
+      return reply.code(200).send({ success: true, data: freshData });
+    }
+  );
+}
+```
+
+**Regras:**
+- **GET** (não POST) — o usuário quer o dado agora
+- **Síncrona** — sem fila, consulta Omie ao vivo
+- **Em fake**: consulta o banco local e retorna (sem persistir)
+- **Em real**: consulta Omie, atualiza espelho local, retorna dados frescos
+
 ### 2.10 Routes Index - `presentation/http/routes/`
 
 **Arquivo**: `index.ts`
@@ -1011,6 +1364,7 @@ import { registerFailModeloCallbackRoute } from "./callbacks/fail-[modelo].callb
 
 // Importe todas as rotas de leitura
 import { registerGetModeloReadModelRoute } from "./read/get-[modelo]-read-model.route";
+import { registerGetNomeDoModuloRefreshRoute } from "./read/get-nome-do-modulo-refresh.route";
 
 export function registerNomeDoModuloRoutes(app: FastifyInstance) {
   // Registra rotas de comando
@@ -1023,6 +1377,7 @@ export function registerNomeDoModuloRoutes(app: FastifyInstance) {
   
   // Registra rotas de leitura
   registerGetModeloReadModelRoute(app);
+  registerGetNomeDoModuloRefreshRoute(app);
 }
 ```
 
@@ -1136,6 +1491,15 @@ model NomeDoModuloIntegracao {
   
   @@map("nome_do_modulo_integracao")
 }
+
+model NomeDoModuloSyncState {
+  id            String   @id
+  lastSyncAt    DateTime @map("last_sync_at")
+  updatedAt     DateTime @updatedAt
+
+  @@map("nome_do_modulo_sync_state")
+  @@schema("integration")
+}
 ```
 
 ## 4. Registro no Bootstrap
@@ -1157,12 +1521,17 @@ const integrations = [
 
 - [ ] Estrutura de pastas canônica criada
 - [ ] Todos os arquivos template implementados
-- [ ] Ports (interfaces) definidas
-- [ ] Use cases implementados
-- [ ] Stores (real/fake) criadas
-- [ ] Jobs agendados configurados
-- [ ] Rotas HTTP registradas
-- [ ] Schema do Prisma atualizado
+- [ ] Ports (interfaces) definidas (ação, consult, sync-page)
+- [ ] Use cases implementados (ação + sync-all incremental)
+- [ ] Stores (command, sync, query, sync-state) criadas
+- [ ] SyncStateStore (checkpoint incremental) configurado
+- [ ] fetchPageWithRetry implementado
+- [ ] SyncPageGateway (port + real/fake) para paginação
+- [ ] ConsultGateway (port + real/fake) para consulta ao vivo
+- [ ] Consult + Refresh route (consulta ao vivo + atualiza espelho)
+- [ ] Jobs agendados configurados (sync-all + queue processor)
+- [ ] Rotas HTTP registradas (commands, callbacks, read, refresh)
+- [ ] Schema do Prisma atualizado (comandos, integração, sync_state)
 - [ ] Variáveis de ambiente adicionadas
 - [ ] Módulo registrado no bootstrap
 - [ ] Testes unitários escritos

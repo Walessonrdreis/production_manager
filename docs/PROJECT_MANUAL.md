@@ -236,10 +236,10 @@ OMIE_{MODULO}_QUEUE_CRON="* * * * * *"  # A cada 1 segundo
 - **Body obrigatório**: `externalRequestId` (idempotência)
 - **Processamento**: Enfileira (`PENDING`) → Queue Processor executa assincronamente
 - **Exemplos**:
-  - `POST /v1/integration/production-order/commands/create`
-  - `POST /v1/integration/production-order/commands/update`
-  - `POST /v1/integration/production-order/commands/cancel`
-  - `POST /v1/integration/production-order/commands/sync-global`
+  - `POST /v1/integration/production-orders/commands/create`
+  - `POST /v1/integration/production-orders/commands/update`
+  - `POST /v1/integration/production-orders/commands/cancel`
+  - `POST /v1/integration/production-orders/commands/sync-global`
 
 #### 6.2 Callbacks — Resposta que Entra no Sistema
 - **Método**: `POST`
@@ -247,8 +247,8 @@ OMIE_{MODULO}_QUEUE_CRON="* * * * * *"  # A cada 1 segundo
 - **Propósito**: Confirmar ou falhar um comando previamente enfileirado
 - **Preparado para webhooks futuros**: Omie pode chamar callback quando processar
 - **Exemplos**:
-  - `POST /v1/integration/production-order/callbacks/:externalRequestId/confirm`
-  - `POST /v1/integration/production-order/callbacks/:externalRequestId/fail`
+  - `POST /v1/integration/production-orders/callbacks/:externalRequestId/confirm`
+  - `POST /v1/integration/production-orders/callbacks/:externalRequestId/fail`
 
 #### 6.3 Reads — Consulta do Espelho Local
 - **Método**: `GET`
@@ -265,7 +265,7 @@ OMIE_{MODULO}_QUEUE_CRON="* * * * * *"  # A cada 1 segundo
 - **Método**: `GET`
 - **Response**: `200 OK`
 - **Exemplo**:
-  - `GET /v1/integration/production-order/commands/:externalRequestId`
+  - `GET /v1/integration/production-orders/commands/:externalRequestId`
 
 #### 6.5 Estrutura de Pastas (Rotas)
 ```

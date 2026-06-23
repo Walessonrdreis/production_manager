@@ -23,7 +23,7 @@ Módulo de integração de Ordens de Produção (OP) com Omie.
 ### 1.1 Criar Ordem de Produção
 
 ```
-POST /v1/integration/production-order/commands/create
+POST /v1/integration/production-orders/commands/create
 ```
 
 Enfileira uma criação de OP (`CREATE_OP`) no Command Queue.
@@ -63,7 +63,7 @@ Enfileira uma criação de OP (`CREATE_OP`) no Command Queue.
 **Exemplo curl:**
 
 ```bash
-curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/commands/create \
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/commands/create \
   -H "Content-Type: application/json" \
   -d '{
     "externalRequestId": "create-op-001",
@@ -87,7 +87,7 @@ curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/comman
 ### 1.2 Atualizar Ordem de Produção
 
 ```
-POST /v1/integration/production-order/commands/update
+POST /v1/integration/production-orders/commands/update
 ```
 
 Enfileira uma atualização de OP (`UPDATE_OP`) no Command Queue.
@@ -127,7 +127,7 @@ Enfileira uma atualização de OP (`UPDATE_OP`) no Command Queue.
 **Exemplo curl:**
 
 ```bash
-curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/commands/update \
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/commands/update \
   -H "Content-Type: application/json" \
   -d '{
     "externalRequestId": "update-op-001",
@@ -141,7 +141,7 @@ curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/comman
 ### 1.3 Cancelar Ordem de Produção
 
 ```
-POST /v1/integration/production-order/commands/cancel
+POST /v1/integration/production-orders/commands/cancel
 ```
 
 Enfileira um cancelamento de OP (`CANCEL_OP`) no Command Queue.
@@ -177,7 +177,7 @@ Enfileira um cancelamento de OP (`CANCEL_OP`) no Command Queue.
 **Exemplo curl:**
 
 ```bash
-curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/commands/cancel \
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/commands/cancel \
   -H "Content-Type: application/json" \
   -d '{
     "externalRequestId": "cancel-op-001",
@@ -191,7 +191,7 @@ curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/comman
 ### 1.4 Alterar Etapa da Ordem de Produção
 
 ```
-POST /v1/integration/production-order/commands/change-stage
+POST /v1/integration/production-orders/commands/change-stage
 ```
 
 Enfileira uma alteração de etapa (`CHANGE_STAGE`) no Command Queue.
@@ -227,7 +227,7 @@ Enfileira uma alteração de etapa (`CHANGE_STAGE`) no Command Queue.
 **Exemplo curl:**
 
 ```bash
-curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/commands/change-stage \
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/commands/change-stage \
   -H "Content-Type: application/json" \
   -d '{
     "externalRequestId": "stage-op-001",
@@ -241,7 +241,7 @@ curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/comman
 ### 1.5 Sincronizar Todas as Ordens de Produção
 
 ```
-POST /v1/integration/production-order/commands/sync-global
+POST /v1/integration/production-orders/commands/sync-global
 ```
 
 Dispara uma sincronização completa de todas as OPs do Omie para o espelho local.
@@ -278,7 +278,7 @@ Dispara uma sincronização completa de todas as OPs do Omie para o espelho loca
 **Exemplo curl:**
 
 ```bash
-curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/commands/sync-global \
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/commands/sync-global \
   -H "Content-Type: application/json" \
   -d '{"externalRequestId": "sync-manual-001"}'
 ```
@@ -293,7 +293,7 @@ curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/comman
 ### 2.1 Confirmar Ordem de Produção
 
 ```
-POST /v1/integration/production-order/callbacks/:externalRequestId/confirm
+POST /v1/integration/production-orders/callbacks/:externalRequestId/confirm
 ```
 
 Simula a confirmação bem-sucedida de uma OP no ambiente fake.
@@ -320,7 +320,7 @@ Simula a confirmação bem-sucedida de uma OP no ambiente fake.
 **Exemplo curl:**
 
 ```bash
-curl.exe -s -X POST "http://localhost:3333/v1/integration/production-order/callbacks/create-op-001/confirm" \
+curl.exe -s -X POST "http://localhost:3333/v1/integration/production-orders/callbacks/create-op-001/confirm" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -330,7 +330,7 @@ curl.exe -s -X POST "http://localhost:3333/v1/integration/production-order/callb
 ### 2.2 Falhar Ordem de Produção
 
 ```
-POST /v1/integration/production-order/callbacks/:externalRequestId/fail
+POST /v1/integration/production-orders/callbacks/:externalRequestId/fail
 ```
 
 Simula a falha de uma OP no ambiente fake.
@@ -365,7 +365,7 @@ Simula a falha de uma OP no ambiente fake.
 **Exemplo curl:**
 
 ```bash
-curl.exe -s -X POST "http://localhost:3333/v1/integration/production-order/callbacks/create-op-001/fail" \
+curl.exe -s -X POST "http://localhost:3333/v1/integration/production-orders/callbacks/create-op-001/fail" \
   -H "Content-Type: application/json" \
   -d '{"code": "ESTOQUE_INSUFICIENTE", "message": "Sem matéria-prima"}'
 ```
@@ -377,7 +377,7 @@ curl.exe -s -X POST "http://localhost:3333/v1/integration/production-order/callb
 ### 3.1 Status do Comando
 
 ```
-GET /v1/integration/production-order/commands/:externalRequestId
+GET /v1/integration/production-orders/commands/:externalRequestId
 ```
 
 Retorna o status atual de um comando pelo ID de idempotência.
@@ -410,7 +410,7 @@ Retorna o status atual de um comando pelo ID de idempotência.
 **Exemplo curl:**
 
 ```bash
-curl.exe -s "http://localhost:3333/v1/integration/production-order/commands/create-op-001"
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/commands/create-op-001"
 ```
 
 **Response 404 (Not Found):**
@@ -693,15 +693,15 @@ curl.exe -s "http://localhost:3333/v1/integration/read/production-orders/9551864
 
 ```bash
 # 1. Criar uma OP
-curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/commands/create \
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/commands/create \
   -H "Content-Type: application/json" \
   -d '{"externalRequestId":"exemplo-001","productId":"9468673347","quantity":50}'
 
 # 2. Ver status do comando
-curl.exe -s http://localhost:3333/v1/integration/production-order/commands/exemplo-001
+curl.exe -s http://localhost:3333/v1/integration/production-orders/commands/exemplo-001
 
 # 3. (Fake) Simular confirmação
-curl.exe -s -X POST http://localhost:3333/v1/integration/production-order/callbacks/exemplo-001/confirm \
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/callbacks/exemplo-001/confirm \
   -H "Content-Type: application/json" -d '{}'
 
 # 4. Verificar fila

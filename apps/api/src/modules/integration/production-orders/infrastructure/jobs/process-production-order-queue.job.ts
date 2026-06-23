@@ -247,8 +247,13 @@ async function executeCommand(
             return;
         }
 
-        case "SYNC_OP":
-            throw new Error(`Command type ${command.commandType} not yet implemented`);
+        case "SYNC_OP": {
+            const syncLogger = getLogger("production-orders:queue:sync-op");
+            syncLogger.warn("SYNC_OP should use refresh route instead of queue");
+            // SYNC_OP é tratado pela rota síncrona .../refresh
+            // Se chegou aqui, ignora silenciosamente
+            return;
+        }
 
         case "SYNC_GLOBAL":
             throw new Error("SYNC_GLOBAL should not be in the queue; use the sync job instead");

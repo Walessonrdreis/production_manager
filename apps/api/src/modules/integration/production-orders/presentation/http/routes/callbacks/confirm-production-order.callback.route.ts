@@ -9,7 +9,7 @@ import { FakeProductionOrderLifecycleGateway } from "../../../../infrastructure/
 
 export async function registerConfirmProductionOrderCallbackRoute(app: FastifyInstance) {
     app.post(
-        "/v1/integration/production-order/callbacks/:externalRequestId/confirm",
+        "/v1/integration/production-orders/callbacks/:externalRequestId/confirm",
         async (request, reply) => {
             const { externalRequestId } = request.params as {
                 externalRequestId: string;

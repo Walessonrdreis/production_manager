@@ -15,7 +15,7 @@ const FailBodySchema = z.object({
 
 export async function registerFailProductionOrderCallbackRoute(app: FastifyInstance) {
     app.post(
-        "/v1/integration/production-order/callbacks/:externalRequestId/fail",
+        "/v1/integration/production-orders/callbacks/:externalRequestId/fail",
         async (request, reply) => {
             const { externalRequestId } = request.params as {
                 externalRequestId: string;

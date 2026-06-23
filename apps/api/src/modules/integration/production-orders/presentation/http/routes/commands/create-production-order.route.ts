@@ -14,7 +14,7 @@ import { prisma } from "@/shared/db/prisma";
 import { ProductionOrderCommandStore } from "../../../../infrastructure/db/production-order-command.store";
 
 export async function registerCreateProductionOrderRoute(app: FastifyInstance) {
-    app.post("/v1/integration/production-order/commands/create", async (request, reply) => {
+    app.post("/v1/integration/production-orders/commands/create", async (request, reply) => {
         try {
             const validatedData = CreateProductionOrderRequestSchema.parse(request.body);
 

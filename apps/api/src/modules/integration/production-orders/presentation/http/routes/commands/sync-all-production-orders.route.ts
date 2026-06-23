@@ -24,7 +24,7 @@ import { RealProductionOrderSyncPageGateway } from "../../../../infrastructure/g
 const logger = getLogger("sync-all-production-orders.route");
 
 export async function registerSyncAllProductionOrdersRoute(app: FastifyInstance) {
-    app.post("/v1/integration/production-order/commands/sync-global", async (request, reply) => {
+    app.post("/v1/integration/production-orders/commands/sync-global", async (request, reply) => {
         const body = (request.body as SyncAllProductionOrdersRequestDTO | undefined) ?? {};
 
         const externalRequestId =

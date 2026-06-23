@@ -48,7 +48,7 @@ Cria uma nova ordem de produção.
 
 ---
 
-### 2. **GET** `/v1/integration/production-order/:externalRequestId`
+### 2. **GET** `/v1/integration/production-orders/:externalRequestId`
 Consulta o status de uma ordem de produção.
 
 **Path Parameters:**
@@ -87,7 +87,7 @@ Consulta o status de uma ordem de produção.
 
 ---
 
-### 3. **POST** `/v1/integration/production-order/:externalRequestId/confirm`
+### 3. **POST** `/v1/integration/production-orders/:externalRequestId/confirm`
 **FAKE ONLY** - Confirma uma ordem de produção (disponível apenas quando `PRODUCTION_ORDER_GATEWAY=fake`).
 
 **Path Parameters:**
@@ -116,7 +116,7 @@ Consulta o status de uma ordem de produção.
 
 ---
 
-### 4. **POST** `/v1/integration/production-order/:externalRequestId/fail`
+### 4. **POST** `/v1/integration/production-orders/:externalRequestId/fail`
 **FAKE ONLY** - Marca uma ordem de produção como falha (disponível apenas quando `PRODUCTION_ORDER_GATEWAY=fake`).
 
 **Path Parameters:**
@@ -220,8 +220,8 @@ production-orders/
 
 Quando `PRODUCTION_ORDER_GATEWAY=fake`, endpoints adicionais estão disponíveis para simulação:
 
-1. **Confirmar Ordem**: `POST /v1/integration/production-order/:id/confirm`
-2. **Falhar Ordem**: `POST /v1/integration/production-order/:id/fail`
+1. **Confirmar Ordem**: `POST /v1/integration/production-orders/:id/confirm`
+2. **Falhar Ordem**: `POST /v1/integration/production-orders/:id/fail`
 
 Estes endpoints são **bloqueados** quando `PRODUCTION_ORDER_GATEWAY=real`.
 

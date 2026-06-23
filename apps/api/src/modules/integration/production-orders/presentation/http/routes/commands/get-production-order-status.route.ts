@@ -16,7 +16,7 @@ export async function registerGetProductionOrderStatusRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/integration/production-order/commands/:externalRequestId",
+        "/v1/integration/production-orders/commands/:externalRequestId",
         async (request, reply) => {
             try {
                 const { externalRequestId } = request.params as {
