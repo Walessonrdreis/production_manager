@@ -2,21 +2,21 @@ import { productionOrderIntegrationStore } from "../../db/production-order-integ
 import type { ProductionOrderChangeStageGateway, ChangeProductionOrderStageCommand } from "./production-order-change-stage.gateway";
 
 export class FakeProductionOrderChangeStageGateway implements ProductionOrderChangeStageGateway {
-  async changeStage(
-    command: ChangeProductionOrderStageCommand
-  ): Promise<{ externalRequestId: string; status: "ACCEPTED" }> {
-    console.log("[OP][FAKE][CHANGE_STAGE] changeStage", {
-      externalRequestId: command.externalRequestId,
-      omieCode: command.omieCode,
-      stage: command.stage,
-    });
+    async changeStage(
+        command: ChangeProductionOrderStageCommand
+    ): Promise<{ externalRequestId: string; status: "ACCEPTED" }> {
+        console.log("[OP][FAKE][CHANGE_STAGE] changeStage", {
+            externalRequestId: command.externalRequestId,
+            omieCode: command.omieCode,
+            stage: command.stage,
+        });
 
-    await productionOrderIntegrationStore.upsertAccepted({
-      externalRequestId: command.externalRequestId,
-      productId: "",
-      quantity: 0,
-    });
+        await productionOrderIntegrationStore.upsertAccepted({
+            externalRequestId: command.externalRequestId,
+            productId: "",
+            quantity: 0,
+        });
 
-    return { externalRequestId: command.externalRequestId, status: "ACCEPTED" };
-  }
+        return { externalRequestId: command.externalRequestId, status: "ACCEPTED" };
+    }
 }
