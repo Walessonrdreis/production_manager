@@ -68,6 +68,38 @@ export const NotFoundErrorResponseSchema = z.object({
   message: z.string(),
 });
 
+// ─── Update Production Order ────────────────────────────────────────────
+export const UpdateProductionOrderRequestSchema = z.object({
+  externalRequestId: z.string(),
+  omieCode: z.string(),
+  quantity: z.number().positive().optional(),
+  forecastDate: z.string().datetime().optional(),
+  notes: z.string().optional(),
+});
+
+// ─── Cancel Production Order ────────────────────────────────────────────
+export const CancelProductionOrderRequestSchema = z.object({
+  externalRequestId: z.string(),
+  omieCode: z.string(),
+  reason: z.string().optional(),
+});
+
+// ─── Change Stage ───────────────────────────────────────────────────────
+export const ChangeProductionOrderStageRequestSchema = z.object({
+  externalRequestId: z.string(),
+  omieCode: z.string(),
+  stage: z.string(),
+});
+
+// ─── Command Response (genérico para 202) ──────────────────────────────
+export const CommandAcceptedResponseSchema = z.object({
+  success: z.boolean(),
+  data: z.object({
+    externalRequestId: z.string(),
+    status: z.enum(["PENDING", "ACCEPTED"]),
+  }),
+});
+
 export type CreateProductionOrderRequest = z.infer<typeof CreateProductionOrderRequestSchema>;
 export type CreateProductionOrderResponse = z.infer<typeof CreateProductionOrderResponseSchema>;
 export type ValidationErrorResponse = z.infer<typeof ValidationErrorResponseSchema>;
@@ -75,3 +107,8 @@ export type InternalErrorResponse = z.infer<typeof InternalErrorResponseSchema>;
 
 export type GetProductionOrderStatusResponse = z.infer<typeof GetProductionOrderStatusResponseSchema>;
 export type NotFoundErrorResponse = z.infer<typeof NotFoundErrorResponseSchema>;
+
+export type UpdateProductionOrderRequest = z.infer<typeof UpdateProductionOrderRequestSchema>;
+export type CancelProductionOrderRequest = z.infer<typeof CancelProductionOrderRequestSchema>;
+export type ChangeProductionOrderStageRequest = z.infer<typeof ChangeProductionOrderStageRequestSchema>;
+export type CommandAcceptedResponse = z.infer<typeof CommandAcceptedResponseSchema>;

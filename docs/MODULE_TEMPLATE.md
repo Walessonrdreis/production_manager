@@ -26,6 +26,8 @@ nome-do-modulo/                          # kebab-case (ex: sales-order-sync)
 │       ├── routes/
 │       │   ├── commands/
 │       │   │   └── [ação]-nome-do-modulo.route.ts
+│       │   ├── callbacks/
+│       │   │   └── confirm-[modelo].callback.route.ts
 │       │   └── read/
 │       │       └── get-[modelo]-read-model.route.ts
 │       ├── routes.ts
@@ -648,7 +650,7 @@ export function registerNomeDoModuloAcaoRoute(app: FastifyInstance) {
   // O projeto injeta omieClient via bootstrap (app.omieClient), evitando singleton global.
   // NÃO importe omieHttpClient globalmente - use app.omieClient.
   app.post(
-    "/v1/integration/nome-do-modulo/:codigo/[açao]",
+    "/v1/integration/nome-do-modulo/commands/:codigo/[açao]",
     {
       schema: {
         tags: ["nome-do-modulo"],
@@ -742,7 +744,121 @@ export function registerNomeDoModuloAcaoRoute(app: FastifyInstance) {
 }
 ```
 
-### 2.9 Route (Read) - `presentation/http/routes/read/`
+### 2.9 Route (Command) — Path Padrão com `/commands/{comando}`
+
+> ⚠️ A rota de comando deve usar o path canônico `/commands/{comando}`:
+> ```typescript
+> app.post("/v1/integration/nome-do-modulo/commands/:codigo/[açao]", ...)
+> ```
+> **Não use** o padrão antigo `/:codigo/[açao]` (que parece CRUD).
+
+### 2.9b Callback Route - `presentation/http/routes/callbacks/`
+
+**Arquivo**: `confirm-[modelo].callback.route.ts`
+
+Callbacks são **respostas que entram no sistema** — confirmam ou falham
+um comando previamente enfileirado. Diferente de commands, callbacks
+**não enfileiram** e **não geram novo `externalRequestId`**.
+
+```typescript
+// apps/api/src/modules/integration/nome-do-modulo/presentation/http/routes/callbacks/confirm-[modelo].callback.route.ts
+
+import type { FastifyInstance } from "fastify";
+import { NomeDoModuloComandoStore } from "../../../../../infrastructure/db/nome-do-modulo-command.store";
+
+export function registerConfirmModeloCallbackRoute(app: FastifyInstance) {
+  app.post(
+    "/v1/integration/nome-do-modulo/callbacks/:externalRequestId/confirm",
+    {
+      schema: {
+        tags: ["nome-do-modulo"],
+        summary: "Confirmar comando (callback)",
+        description: "Callback para confirmar a execução de um comando previamente enfileirado.",
+        params: {
+          type: "object",
+          required: ["externalRequestId"],
+          properties: { externalRequestId: { type: "string" } },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: { type: "string", enum: ["CONFIRMED"] },
+              externalRequestId: { type: "string" },
+            },
+          },
+          404: {
+            type: "object",
+            properties: { message: { type: "string" } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { externalRequestId } = request.params as { externalRequestId: string };
+      const commandStore = new NomeDoModuloComandoStore(request.server.prisma);
+
+      const command = await commandStore.buscarPorExternalRequestId(externalRequestId);
+      if (!command) {
+        return reply.status(404).send({ message: "Comando não encontrado" });
+      }
+
+      await commandStore.marcarConfirmado(externalRequestId);
+
+      return reply.send({ status: "CONFIRMED" as const, externalRequestId });
+    }
+  );
+}
+```
+
+**Arquivo**: `fail-[modelo].callback.route.ts` (mesmo padrão):
+
+```typescript
+export function registerFailModeloCallbackRoute(app: FastifyInstance) {
+  app.post(
+    "/v1/integration/nome-do-modulo/callbacks/:externalRequestId/fail",
+    {
+      schema: {
+        tags: ["nome-do-modulo"],
+        summary: "Falhar comando (callback)",
+        params: {
+          type: "object",
+          required: ["externalRequestId"],
+          properties: { externalRequestId: { type: "string" } },
+        },
+        body: {
+          type: "object",
+          properties: { error: { type: "string" } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { externalRequestId } = request.params as { externalRequestId: string };
+      const { error } = request.body as { error?: string };
+      const commandStore = new NomeDoModuloComandoStore(request.server.prisma);
+
+      const command = await commandStore.buscarPorExternalRequestId(externalRequestId);
+      if (!command) {
+        return reply.status(404).send({ message: "Comando não encontrado" });
+      }
+
+      await commandStore.marcarFalha(externalRequestId, error ? new Error(error) : undefined);
+
+      return reply.send({ status: "FAILED" as const, externalRequestId, error });
+    }
+  );
+}
+```
+
+**Regras para Callbacks:**
+- **Não** exigem `externalRequestId` no body (vem no path)
+- **Não** enfileiram — atualizam comando existente diretamente
+- Retornam `200 OK` (processamento imediato, sem fila)
+- Prontos para webhooks futuros do Omie
+
+---
+
+### 2.9c Route (Read) - `presentation/http/routes/read/`
 
 **Arquivo**: `get-[modelo]-read-model.route.ts`
 
@@ -759,7 +875,7 @@ import { NomeDoModuloStore } from "../../../../../infrastructure/db/nome-do-modu
 
 export function registerGetModeloReadModelRoute(app: FastifyInstance) {
   app.get(
-    "/v1/integration/nome-do-modulo/:codigo/[modelo]",
+    "/v1/integration/nome-do-modulo/read/:codigo/[modelo]",
     {
       schema: {
         tags: ["nome-do-modulo"],
@@ -840,7 +956,7 @@ const queryGateway: NomeDoModuloQueryGateway =
 
 ```typescript
 export function registerListNomeDoModuloRoute(app: FastifyInstance) {
-  app.get("/v1/integration/nome-do-modulo", {
+  app.get("/v1/integration/nome-do-modulo/read", {
     schema: {
       tags: ["nome-do-modulo"],
       summary: "Listar registros (espelho local)",
@@ -889,6 +1005,10 @@ import type { FastifyInstance } from "fastify";
 import { registerNomeDoModuloAcaoRoute } from "./commands/[açao]-nome-do-modulo.route";
 import { registerNomeDoModuloOutraAcaoRoute } from "./commands/[outra-açao]-nome-do-modulo.route";
 
+// Importe todas as rotas de callback
+import { registerConfirmModeloCallbackRoute } from "./callbacks/confirm-[modelo].callback.route";
+import { registerFailModeloCallbackRoute } from "./callbacks/fail-[modelo].callback.route";
+
 // Importe todas as rotas de leitura
 import { registerGetModeloReadModelRoute } from "./read/get-[modelo]-read-model.route";
 
@@ -896,6 +1016,10 @@ export function registerNomeDoModuloRoutes(app: FastifyInstance) {
   // Registra rotas de comando
   registerNomeDoModuloAcaoRoute(app);
   registerNomeDoModuloOutraAcaoRoute(app);
+  
+  // Registra rotas de callback
+  registerConfirmModeloCallbackRoute(app);
+  registerFailModeloCallbackRoute(app);
   
   // Registra rotas de leitura
   registerGetModeloReadModelRoute(app);

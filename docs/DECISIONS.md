@@ -262,6 +262,11 @@ Adotar **Command Queue Pattern** com fila no PostgreSQL (próprio banco de integ
 - Idempotência via `externalRequestId` (mesmo `enqueue()` sendo seguro)
 - Stale processing detection (comandos `PROCESSING` há mais de N segundos)
 
+> 💡 **Callbacks como interface externa**: O padrão prevê rotas `POST /callbacks/:id/confirm|fail`
+> como **interface HTTP explícita** para transicionar comandos para `CONFIRMED`/`FAILED`.
+> Diferente de commands (que enfileiram), callbacks atualizam o comando diretamente
+> (sem fila) e retornam `200 OK`. Isso prepara o sistema para webhooks futuros do Omie.
+
 ### Justificativa
 - Rate-limit de 1 chamada/segundo exige fila
 - `FOR UPDATE SKIP LOCKED` evita locks em tabela

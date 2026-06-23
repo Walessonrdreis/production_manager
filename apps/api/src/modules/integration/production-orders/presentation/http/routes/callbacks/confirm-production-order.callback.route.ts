@@ -1,19 +1,15 @@
 // ---------------------------------------------------------------------------
-// Route — Fail Production Order (Fake Command)
+// Callback — Confirm Production Order (Fake-only)
 // ---------------------------------------------------------------------------
+// Callbacks são respostas que ENTRAM no sistema.
+// Diferente de commands, não enfileiram — atualizam o comando diretamente.
 
 import type { FastifyInstance } from "fastify";
-import { z } from "zod";
 import { FakeProductionOrderLifecycleGateway } from "../../../../infrastructure/gateways/lifecycle/fake-production-order-lifecycle.gateway";
 
-const FailBodySchema = z.object({
-    code: z.string(),
-    message: z.string(),
-});
-
-export async function registerFailProductionOrderRoute(app: FastifyInstance) {
+export async function registerConfirmProductionOrderCallbackRoute(app: FastifyInstance) {
     app.post(
-        "/v1/integration/production-order/:externalRequestId/fail",
+        "/v1/integration/production-order/callbacks/:externalRequestId/confirm",
         async (request, reply) => {
             const { externalRequestId } = request.params as {
                 externalRequestId: string;
@@ -23,14 +19,12 @@ export async function registerFailProductionOrderRoute(app: FastifyInstance) {
                 return reply.code(405).send({
                     success: false,
                     error: "METHOD_NOT_ALLOWED",
-                    message: "Fail is available only when PRODUCTION_ORDER_GATEWAY=fake",
+                    message: "Confirm is available only when PRODUCTION_ORDER_GATEWAY=fake",
                 });
             }
 
-            const body = FailBodySchema.parse(request.body);
-
             const lifecycle = new FakeProductionOrderLifecycleGateway();
-            const record = await lifecycle.fail(externalRequestId, body);
+            const record = await lifecycle.confirm(externalRequestId);
 
             if (!record) {
                 return reply.code(404).send({

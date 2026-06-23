@@ -1,17 +1,23 @@
 // ---------------------------------------------------------------------------
 // Routes — Production Orders Integration
 // ---------------------------------------------------------------------------
-// Commands  → routes/commands/
-// Read-only → routes/read/
+// Commands  → routes/commands/   (intenções que saem do sistema)
+// Callbacks → routes/callbacks/  (respostas que entram no sistema)
+// Read-only → routes/read/       (consultas do espelho local)
 // ---------------------------------------------------------------------------
 
 import type { FastifyInstance } from "fastify";
 
 import { registerCreateProductionOrderRoute } from "./routes/commands/create-production-order.route";
-import { registerConfirmProductionOrderRoute } from "./routes/commands/confirm-production-order.route";
-import { registerFailProductionOrderRoute } from "./routes/commands/fail-production-order.route";
+import { registerUpdateProductionOrderRoute } from "./routes/commands/update-production-order.route";
+import { registerCancelProductionOrderRoute } from "./routes/commands/cancel-production-order.route";
+import { registerChangeProductionOrderStageRoute } from "./routes/commands/change-production-order-stage.route";
 import { registerSyncAllProductionOrdersRoute } from "./routes/commands/sync-all-production-orders.route";
-import { registerGetProductionOrderStatusRoute } from "./routes/read/get-production-order-status.route";
+import { registerGetProductionOrderStatusRoute } from "./routes/commands/get-production-order-status.route";
+
+import { registerConfirmProductionOrderCallbackRoute } from "./routes/callbacks/confirm-production-order.callback.route";
+import { registerFailProductionOrderCallbackRoute } from "./routes/callbacks/fail-production-order.callback.route";
+
 import { registerListProductionOrdersRoute } from "./routes/read/list-production-orders.route";
 import { registerGetProductionOrderRoute } from "./routes/read/get-production-order.route";
 import { registerGetProductionOrderStatsRoute } from "./routes/read/get-production-order-stats.route";
@@ -19,13 +25,21 @@ import { registerGetQueueStatusRoute } from "./routes/read/get-queue-status.rout
 import { registerGetQueueFailuresRoute } from "./routes/read/get-queue-failures.route";
 
 export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
+  // ─── Commands (intenções) ─────────────────────────────────────────
   await registerCreateProductionOrderRoute(app);
-  await registerGetProductionOrderStatusRoute(app);
-  await registerConfirmProductionOrderRoute(app);
-  await registerFailProductionOrderRoute(app);
+  await registerUpdateProductionOrderRoute(app);
+  await registerCancelProductionOrderRoute(app);
+  await registerChangeProductionOrderStageRoute(app);
   await registerSyncAllProductionOrdersRoute(app);
 
-  // Read-Models (espelho local + fila)
+  // ─── Callbacks (respostas) ────────────────────────────────────────
+  await registerConfirmProductionOrderCallbackRoute(app);
+  await registerFailProductionOrderCallbackRoute(app);
+
+  // ─── Tracking (status de comando) ─────────────────────────────────
+  await registerGetProductionOrderStatusRoute(app);
+
+  // ─── Read-Models (espelho local + fila) ───────────────────────────
   await registerListProductionOrdersRoute(app);
   await registerGetProductionOrderRoute(app);
   await registerGetProductionOrderStatsRoute(app);

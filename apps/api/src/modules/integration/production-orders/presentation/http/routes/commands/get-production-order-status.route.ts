@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Route — Get Production Order Status (Read)
+// Route — Get Production Order Status (Command Tracking)
 // ---------------------------------------------------------------------------
 // Tracking de comando: busca status por externalRequestId.
 // Usa o padrão Real/Fake gateway selecionado via env var.
@@ -16,7 +16,7 @@ export async function registerGetProductionOrderStatusRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/integration/production-order/:externalRequestId",
+        "/v1/integration/production-order/commands/:externalRequestId",
         async (request, reply) => {
             try {
                 const { externalRequestId } = request.params as {

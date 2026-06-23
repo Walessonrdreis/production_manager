@@ -29,6 +29,18 @@ import type { ProductionOrderCreationGateway } from "@/modules/integration/produ
 import { RealProductionOrderCreationGateway } from "@/modules/integration/production-orders/infrastructure/gateways/creation/real-production-order-creation.gateway";
 import { FakeProductionOrderCreationGateway } from "@/modules/integration/production-orders/infrastructure/gateways/creation/fake-production-order-creation.gateway";
 
+import type { ProductionOrderUpdateGateway } from "@/modules/integration/production-orders/infrastructure/gateways/update/production-order-update.gateway";
+import { RealProductionOrderUpdateGateway } from "@/modules/integration/production-orders/infrastructure/gateways/update/real-production-order-update.gateway";
+import { FakeProductionOrderUpdateGateway } from "@/modules/integration/production-orders/infrastructure/gateways/update/fake-production-order-update.gateway";
+
+import type { ProductionOrderCancelGateway } from "@/modules/integration/production-orders/infrastructure/gateways/cancel/production-order-cancel.gateway";
+import { RealProductionOrderCancelGateway } from "@/modules/integration/production-orders/infrastructure/gateways/cancel/real-production-order-cancel.gateway";
+import { FakeProductionOrderCancelGateway } from "@/modules/integration/production-orders/infrastructure/gateways/cancel/fake-production-order-cancel.gateway";
+
+import type { ProductionOrderChangeStageGateway } from "@/modules/integration/production-orders/infrastructure/gateways/change-stage/production-order-change-stage.gateway";
+import { RealProductionOrderChangeStageGateway } from "@/modules/integration/production-orders/infrastructure/gateways/change-stage/real-production-order-change-stage.gateway";
+import { FakeProductionOrderChangeStageGateway } from "@/modules/integration/production-orders/infrastructure/gateways/change-stage/fake-production-order-change-stage.gateway";
+
 const LOCK_KEY = "production-order-queue-processor";
 const LOCK_TTL_MS = 60_000; // 1 minuto de lock
 const RATE_LIMIT_MS = 1_000; // 1 segundo entre chamadas Omie
@@ -82,6 +94,18 @@ export class ProcessProductionOrderQueueJob {
                     ? new FakeProductionOrderCreationGateway()
                     : new RealProductionOrderCreationGateway(omieClient);
 
+                const updateGateway: ProductionOrderUpdateGateway = isFake
+                    ? new FakeProductionOrderUpdateGateway()
+                    : new RealProductionOrderUpdateGateway(omieClient);
+
+                const cancelGateway: ProductionOrderCancelGateway = isFake
+                    ? new FakeProductionOrderCancelGateway()
+                    : new RealProductionOrderCancelGateway(omieClient);
+
+                const changeStageGateway: ProductionOrderChangeStageGateway = isFake
+                    ? new FakeProductionOrderChangeStageGateway()
+                    : new RealProductionOrderChangeStageGateway(omieClient);
+
                 let processedCount = 0;
 
                 while (true) {
@@ -102,7 +126,7 @@ export class ProcessProductionOrderQueueJob {
 
                     try {
                         // 2) Executa o comando de acordo com o tipo
-                        await executeCommand(command, creationGateway, commandStore, logger);
+                        await executeCommand(command, creationGateway, updateGateway, cancelGateway, changeStageGateway, commandStore, logger);
 
                         processedCount++;
                     } catch (error: unknown) {
@@ -143,6 +167,9 @@ async function executeCommand(
         payload: Record<string, unknown> | null;
     },
     creationGateway: ProductionOrderCreationGateway,
+    updateGateway: ProductionOrderUpdateGateway,
+    cancelGateway: ProductionOrderCancelGateway,
+    changeStageGateway: ProductionOrderChangeStageGateway,
     _commandStore: ProductionOrderCommandStore,
     _logger: ReturnType<typeof getLogger>
 ): Promise<void> {
@@ -165,13 +192,62 @@ async function executeCommand(
                 throw new Error(`Omie rejeitou a criação da OP: ${command.externalRequestId}`);
             }
 
-            // ✅ Gateway executou com sucesso (já persistiu no integrationStore internamente)
+            return;
+        }
+
+        case "UPDATE_OP": {
+            const payload = command.payload ?? {};
+
+            const gatewayResult = await updateGateway.updateProductionOrder({
+                externalRequestId: command.externalRequestId,
+                omieCode: String(payload.omieCode ?? ""),
+                quantity: payload.quantity ? Number(payload.quantity) : undefined,
+                forecastDate: payload.forecastDate
+                    ? String(payload.forecastDate)
+                    : undefined,
+                notes: payload.notes ? String(payload.notes) : undefined,
+            });
+
+            if (gatewayResult.status === "FAILED") {
+                throw new Error(`Omie rejeitou a atualização da OP: ${command.externalRequestId}`);
+            }
+
+            return;
+        }
+
+        case "CANCEL_OP": {
+            const payload = command.payload ?? {};
+
+            const gatewayResult = await cancelGateway.cancelProductionOrder({
+                externalRequestId: command.externalRequestId,
+                omieCode: String(payload.omieCode ?? ""),
+                reason: payload.reason ? String(payload.reason) : undefined,
+            });
+
+            if (gatewayResult.status === "FAILED") {
+                throw new Error(`Omie rejeitou o cancelamento da OP: ${command.externalRequestId}`);
+            }
+
+            return;
+        }
+
+        case "CHANGE_STAGE": {
+            const payload = command.payload ?? {};
+
+            const gatewayResult = await changeStageGateway.changeStage({
+                externalRequestId: command.externalRequestId,
+                omieCode: String(payload.omieCode ?? ""),
+                stage: String(payload.stage ?? ""),
+            });
+
+            if (gatewayResult.status === "FAILED") {
+                throw new Error(`Omie rejeitou a alteração de etapa da OP: ${command.externalRequestId}`);
+            }
+
             return;
         }
 
         case "SYNC_OP":
-        case "UPDATE_OP":
-            // Futuro: implementar gateways específicos
             throw new Error(`Command type ${command.commandType} not yet implemented`);
 
         case "SYNC_GLOBAL":

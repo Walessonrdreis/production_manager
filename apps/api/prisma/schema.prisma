@@ -573,6 +573,8 @@ enum ProductionOrderCommandType {
   CREATE_OP
   UPDATE_OP
   SYNC_OP
+  CANCEL_OP
+  CHANGE_STAGE
 
   @@schema("integration")
 }

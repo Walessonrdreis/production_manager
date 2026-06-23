@@ -186,6 +186,33 @@ order-sync-and-fetch        // ❌ (duas capacidades)
 data-management-sync        // ❌ (duas capacidades)
 ```
 
+### 🔴 REGRA 5 (🆕): Hierarquia de Path na API 1 (Commands / Callbacks / Read)
+
+Os paths HTTP seguem uma **hierarquia canônica** que **complementa** a nomenclatura do módulo:
+
+```
+/v1/integration/{modulo}/
+├── commands/{comando}      # POST — intenção que SAI do sistema
+├── callbacks/:id/{acao}    # POST — resposta que ENTRA no sistema  
+├── read/{...}              # GET  — consulta do espelho local
+└── commands/:id            # GET  — tracking de comando
+```
+
+**Commands** (`POST`) = ação com efeito colateral que sai para o Omie:
+- `POST /commands/create` — Cria, enfileira
+- `POST /commands/sync-global` — Sincroniza lote
+- **Nome do comando**: verbo no imperativo (`create`, `update`, `cancel`, `sync`, `sync-global`)
+
+**Callbacks** (`POST`) = resposta que entra no sistema:
+- `POST /callbacks/:id/confirm` — Confirma execução
+- `POST /callbacks/:id/fail` — Falha na execução  
+- **Nome do callback**: resultado (`confirm`, `fail`)
+
+**Reads** (`GET`) = consulta sem efeito colateral:
+- `GET /read/production-orders` — Lista espelho local
+- `GET /read/production-orders/:code` — Detalhe
+- **Nome do read**: entidade no plural, opcionalmente com sufixo (`/stats`, `/queue`)
+
 ---
 
 ## 5️⃣ EXEMPLOS CANÔNICOS VS PROBLEMÁTICOS
@@ -231,7 +258,8 @@ Gateway Fake: FakeSalesOrderSyncGateway (implementação)
   ↓
 Use Case: SyncSalesOrderUseCase
   ↓
-Route: /v1/integration/sales-order/sync
+Route: /v1/integration/sales-order/sync-global
+Route: /v1/integration/sales-order/commands/sync
 ```
 
 ### 6.2 Exemplo Prático: Sales Order Sync

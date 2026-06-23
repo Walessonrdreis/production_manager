@@ -5,7 +5,7 @@ Este documento é a **fonte de verdade principal** do projeto Production Manager
 Os demais arquivos de documentação detalham aspectos específicos e **não devem contradizê‑lo**.
 Para qualquer dúvida sobre padrões, arquitetura ou decisões de design, **comece aqui**.
 
-**Versão**: 1.1.0  
+**Versão**: 1.2.0  
 **Data**: 2026-06-22  
 **Foco**: API principal (`apps/api/`) e módulos de integração (`integration/`)
 
@@ -85,8 +85,9 @@ modules/integration/{nome-modulo}/
     └── http/
         ├── routes.ts              # Registro principal
         └── routes/                # Rotas organizadas
-            ├── commands/          # Comandos (alteram estado)
-            └── read/              # Consultas (não alteram estado)
+            ├── commands/          # POST — intenções (criam, atualizam, sincronizam)
+            ├── callbacks/         # POST — respostas (confirmam, falham)
+            └── read/              # GET — consultas do espelho local
 ```
 
 ### 2. CLEAN ARCHITECTURE E PORTS & ADAPTERS
@@ -197,28 +198,105 @@ ENABLE_OMIE_{MODULO}_QUEUE_JOB=true
 OMIE_{MODULO}_QUEUE_CRON="* * * * * *"  # A cada 1 segundo
 ```
 
-### 5. PADRÃO CANÔNICO: READ + COMMAND + JOB
+### 5. PADRÃO CANÔNICO: COMMAND + CALLBACK + READ + JOB
 
 #### Para cada entidade de integração:
-1. **Read-model**: GET para consulta rápida (cacheado)
-2. **Command**: POST para ações com efeitos colaterais (idempotente)
-3. **Job**: Processamento assíncrono agendado
+1. **Command** (`POST`): Intenção que **sai do sistema** (enfileira → eventual-consistente)
+2. **Callback** (`POST`): Resposta que **entra no sistema** (confirmar/falhar comando, webhook-ready)
+3. **Read** (`GET`): Consulta do espelho local (sem efeitos colaterais)
+4. **Job**: Processamento assíncrono agendado (queue processor, reconciliação)
 
-#### Exemplo `product-structure`:
-- `GET /product-structure/{codigo}` - Read-model
-- `POST /product-structure/{codigo}/apply` - Command
-- `Job reconcile-product-structures` - Reconciliação agendada
+#### Exemplo `production-order`:
+- `POST /commands/create` — Command (enfileira, retorna 202)
+- `POST /callbacks/:id/confirm` — Callback (confirma execução)
+- `POST /callbacks/:id/fail` — Callback (registra falha)
+- `GET /read/production-orders` — Read (lista espelho local)
+- `GET /read/production-orders/:omieCode` — Read (detalhe)
+- `GET /read/production-orders/stats` — Read (estatísticas)
+- `GET /read/production-orders/queue` — Read (status da fila)
+- `GET /commands/:externalRequestId` — Tracking (rastreio de comando)
+- `Job process-production-order-queue` — Queue processor (consome fila)
 
-### 6. ORGANIZAÇÃO DE ROTAS HTTP
+---
 
-#### Convenções:
-- **`/v1/integration/{modulo}/{entidade}/{ação}`** - Padrão canônico
-- **Commands**: POST com `externalRequestId` obrigatório
-- **Read**: GET sem efeitos colaterais
+### 6. ORGANIZAÇÃO DE ROTAS HTTP (CANÔNICO)
+
+#### Hierarquia de Path:
+```
+/v1/integration/{modulo}/
+├── commands/{comando}          # POST — intenção que SAI do sistema
+├── callbacks/:id/{acao}        # POST — resposta que ENTRA no sistema
+├── read/{...}                  # GET — consulta do espelho local
+└── commands/:id                # GET — tracking de um comando específico
+```
+
+#### 6.1 Commands — Intenção que Sai do Sistema
+- **Método**: `POST`
+- **Response**: `202 Accepted` (eventual-consistente)
+- **Body obrigatório**: `externalRequestId` (idempotência)
+- **Processamento**: Enfileira (`PENDING`) → Queue Processor executa assincronamente
+- **Exemplos**:
+  - `POST /v1/integration/production-order/commands/create`
+  - `POST /v1/integration/production-order/commands/update`
+  - `POST /v1/integration/production-order/commands/cancel`
+  - `POST /v1/integration/production-order/commands/sync-global`
+
+#### 6.2 Callbacks — Resposta que Entra no Sistema
+- **Método**: `POST`
+- **Response**: `200 OK` (processamento imediato)
+- **Propósito**: Confirmar ou falhar um comando previamente enfileirado
+- **Preparado para webhooks futuros**: Omie pode chamar callback quando processar
+- **Exemplos**:
+  - `POST /v1/integration/production-order/callbacks/:externalRequestId/confirm`
+  - `POST /v1/integration/production-order/callbacks/:externalRequestId/fail`
+
+#### 6.3 Reads — Consulta do Espelho Local
+- **Método**: `GET`
+- **Response**: `200 OK`
+- **Sem efeitos colaterais**: Apenas consulta o banco local (espelho Omie)
+- **Exemplos**:
+  - `GET /v1/integration/read/production-orders`
+  - `GET /v1/integration/read/production-orders/:omieCode`
+  - `GET /v1/integration/read/production-orders/stats`
+  - `GET /v1/integration/read/production-orders/queue`
+  - `GET /v1/integration/read/production-orders/queue/failures`
+
+#### 6.4 Tracking — Rastreio de Comando
+- **Método**: `GET`
+- **Response**: `200 OK`
+- **Exemplo**:
+  - `GET /v1/integration/production-order/commands/:externalRequestId`
+
+#### 6.5 Estrutura de Pastas (Rotas)
+```
+presentation/http/routes/
+├── commands/          # POST handlers para intenções
+│   ├── create.route.ts
+│   ├── update.route.ts
+│   └── sync-global.route.ts
+├── callbacks/         # POST handlers para respostas
+│   ├── confirm.route.ts
+│   └── fail.route.ts
+└── read/             # GET handlers para consultas
+    ├── list.route.ts
+    ├── get-by-code.route.ts
+    ├── stats.route.ts
+    ├── queue.route.ts
+    └── queue-failures.route.ts
+```
 
 #### Versionamento:
 - `v1/`: API atual (estável)
 - Sempre incluir `integration/` no path para módulos de integração
+
+#### 🚫 O que NÃO usar (nomenclatura obsoleta):
+```
+❌ /product-structure/{codigo}/apply       — parece CRUD, é comando
+❌ /production-order/{omieCode}/update     — parece CRUD, é comando
+❌ /production-order/{extId}/confirm       — é callback, não comando
+```
+A nomenclatura antiga (`/{entidade}/{id}/{ação}`) **não deve ser usada em módulos novos**.
+Use a hierarquia `/commands/`, `/callbacks/`, `/read/` para deixar explícita a semântica.
 
 ### 7. BOOTSTRAP E REGISTRO DE MÓDULOS
 
@@ -261,6 +339,10 @@ O CommandStore é responsável por:
 - **Armazenar status**: Mantém estados (PENDING / PROCESSING / ACCEPTED / CONFIRMED / FAILED)
 - **Permitir retry seguro**: Rastreia tentativas e permite retentativas controladas
 - **Base para observabilidade**: Fornece logs e métricas para monitoramento
+
+> 💡 **Callbacks** não passam pelo CommandStore pois **não são comandos**.
+> Callbacks (`POST /callbacks/:id/confirm|fail`) atualizam diretamente o status
+> de um comando existente — são respostas que entram no sistema.
 
 **Dois modos de operação**:
 - **Síncrono (legacy)**: `getOrCreateAccepted()` → cria com status `ACCEPTED`, executa imediatamente
