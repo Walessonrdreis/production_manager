@@ -12,6 +12,7 @@ Módulo de integração de Ordens de Produção (OP) com Omie.
 | **Callbacks** `POST /callbacks/*` | Respostas que entram no sistema (Fake-only) |
 | **Tracking** `GET /commands/:id` | Acompanhamento de status de comando |
 | **Read-Models** `GET /read/*` | Consultas ao espelho local (sem efeito colateral) |
+| **Refresh** `GET /read/*/refresh` | Consulta síncrona ao Omie + atualiza espelho |
 
 > **Arquitetura:** Toda intenção de escrita enfileira um comando `PENDING`. O **Queue Processor Job** consome a fila e executa contra o Omie. A resposta é assíncrona (eventual-consistente).
 
@@ -427,6 +428,8 @@ curl.exe -s "http://localhost:3333/v1/integration/production-order/commands/crea
 ## 4. Read-Models (Consultas — Espelho Local)
 
 > Consultas ao banco local. Nunca chamam o Omie. Sem efeitos colaterais.
+>
+> **Exceção:** `…/refresh` (seção 4.6) — consulta síncrona ao Omie + atualização do espelho.
 
 ### 4.1 Listar Ordens de Produção
 
@@ -625,6 +628,63 @@ Retorna comandos com falha (últimos 20).
 
 ```bash
 curl.exe -s "http://localhost:3333/v1/integration/read/production-orders/queue/failures"
+```
+
+---
+
+### 4.6 Atualizar OP do Omie (Refresh)
+
+```
+GET /v1/integration/read/production-orders/:omieCode/refresh
+```
+
+Consulta a OP diretamente no Omie (`ConsultarOrdemProducao`), atualiza o espelho local e retorna dados frescos.
+Rota **síncrona** — o dado é buscado do Omie e devolvido na hora.
+
+**Path Parameters:**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `omieCode` | `string` | ✅ Sim | Código numérico da OP no Omie (nCodOP) |
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "omieCode": "9551864263",
+    "internalCode": null,
+    "orderNumber": null,
+    "productCode": "9468673347",
+    "productIntegrationCode": null,
+    "quantity": "1",
+    "forecastDate": "2026-06-12T00:00:00.000Z",
+    "startDate": "2026-06-12T00:00:00.000Z",
+    "completionDate": null,
+    "stage": "10",
+    "projectCode": null,
+    "completed": false,
+    "active": true,
+    "items": []
+  }
+}
+```
+
+**Response 404:**
+
+```json
+{
+  "success": false,
+  "error": "NOT_FOUND",
+  "message": "Production order 9999999999 not found in Omie"
+}
+```
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/read/production-orders/9551864263/refresh"
 ```
 
 ---
