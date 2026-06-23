@@ -3,8 +3,14 @@
 ## 1. ARQUITETURA CANÔNICA (PADRÃO IMUTÁVEL)
 
 ### 1.1 Estrutura de Pastas Obrigatória
+
 ```
-modules/integration/{nome-modulo}/
+apps/api/src/
+├── shared/infra/job-queue/          # Shared infra — Job Queue Centralizada (PgBoss)
+│   ├── index.ts                     # Barrel exports
+│   ├── pgboss-queue.ts              # Singleton PgBoss, enqueue, stop
+│   └── integration.worker.ts        # Worker único, registra handlers, startWorker
+├── modules/integration/{nome-modulo}/
 ├── application/                    # Regras de negócio puras
 │   ├── ports/                     # Interfaces (Ports)
 │   │   ├── {entidade}-{ação}.gateway.ts
@@ -189,7 +195,7 @@ infrastructure/jobs/
 |------|-----------|--------|
 | **Sincronização** | Traz dados do Omie para espelho local | `sync-all-production-orders.job.ts` |
 | **Reconciliação** | Detecta e corrige divergências | `reconcile-product-structures.job.ts` |
-| **Queue Processor** | Consome fila de comandos com rate-limit | `process-production-order-queue.job.ts` |
+| **Queue Processor** | ⚠️ **LEGADO** — Consome fila de comandos com rate-limit (substituído por PgBoss) | `process-production-order-queue.job.ts` |
 
 ### 4.2 Job Register (Configuração)
 ```typescript
@@ -252,12 +258,16 @@ OMIE_PRODUCT_STRUCTURE_SYNC_CRON="0 */12 * * *"
 ENABLE_OMIE_STOCK_REFRESH_JOB=false
 STOCK_REFRESH_CRON="*/30 * * * *"
 
-// Queue Processor (fila de comandos)
+// Queue Processor (fila de comandos) — ⚠️ LEGADO: substituído por PgBoss
 ENABLE_OMIE_PRODUCTION_ORDER_QUEUE_JOB=true
 OMIE_PRODUCTION_ORDER_QUEUE_CRON="* * * * * *"
 ```
 
-### 4.5 Queue Processor Job
+### 4.5 Queue Processor Job — ⚠️ LEGADO
+
+> **⚠️ Este padrão foi substituído pelo worker centralizado PgBoss ([ADR-009](./DECISIONS.md#-adr-009--job-queue-centralizada-com-pgboss)).**
+> Consulte a **seção 5.5** para o novo padrão.
+> Módulos migrados para PgBoss removem este job e o cron `* * * * * *` correspondente.
 
 ```typescript
 // infrastructure/jobs/process-{entidade}-queue.job.ts
@@ -351,13 +361,17 @@ export class ReconcileProductStructuresJob {
 }
 ```
 
-### 5.4 Command Queue (Fila de Comandos Assíncrona)
+### 5.4 Command Queue (Fila de Comandos Assíncrona) — ⚠️ LEGADO
 
-**Quando usar**: Operações que exigem rate-limit contra o Omie (ex: 1 chamada/segundo).
+> **⚠️ Este padrão foi substituído pelo [ADR-009](./DECISIONS.md#-adr-009--job-queue-centralizada-com-pgboss).**
+> Módulos migrados/novos devem usar a fila centralizada **PgBoss** (seção 5.5 abaixo).
+> O `CommandStore` permanece como **audit trail** — o enfileiramento/dequeuing manual (`SKIP LOCKED + polling 1s`) é substituído pelo PgBoss.
 
-> 📌 **Decisão arquitetural documentada**: Consulte **[ADR-008](../DECISIONS.md)** para racional completo, alternativas consideradas e consequências deste padrão.
+**Quando usar (apenas módulos não migrados)**: Operações que exigem rate-limit contra o Omie (ex: 1 chamada/segundo).
 
-**Fluxo**:
+> 📌 **Decisão arquitetural original**: Consulte **[ADR-008](../DECISIONS.md)** para referência.
+
+**Fluxo (legado — manter apenas para módulos pendentes de migração)**:
 ```
 Route POST → ProductionOrderCommandStore.enqueue({ commandType: "CREATE_OP", status: "PENDING" })
                 ↓
@@ -372,7 +386,7 @@ ProcessProductionOrderQueueJob (cron * * * * * *)
          CONFIRMED ou FAILED
 ```
 
-**Estrutura do CommandStore para fila**:
+**Estrutura do CommandStore para fila (legado)**:
 ```typescript
 // infrastructure/db/{entidade}-command.store.ts
 export class {Entidade}CommandStore {
@@ -418,6 +432,115 @@ enum ProductionOrderCommandSource {
   ADMIN
 }
 ```
+
+---
+
+### 5.5 Job Queue Centralizada com PgBoss (NOVO PADRÃO)
+
+> 📌 **Decisão arquitetural**: Consulte **[ADR-009](./DECISIONS.md#-adr-009--job-queue-centralizada-com-pgboss)** para racional completo.
+
+**Propósito**: Substituir filas por módulo (`SKIP LOCKED + polling 1s`) por uma **fila centralizada**
+event-driven, com worker único e retry nativo.
+
+**Arquitetura:**
+
+```
+HTTP Route (POST)
+  ↓ 202 Accepted
+UseCase (aplicação)
+  ↓ getJobQueue().enqueue()
+┌──────────────────────────────┐
+│       PgBoss Queue           │  ← Tabela pg-boss no schema `pgboss`
+│  (event-driven LISTEN/NOTIFY)│
+└──────────┬───────────────────┘
+           ↓ EVENTO
+┌──────────────────────────────┐
+│  integration.worker.ts       │  ← Worker ÚNICO (singleton)
+│  boss.work(type, handler)    │
+│  Roteia por job.data.type    │
+└──────────┬───────────────────┘
+           ↓
+     UseCase (mesma lógica)
+           ↓
+    Gateway (Omie / Fake)
+           ↓
+  CommandStore (audit trail)
+```
+
+**Onde vive:**
+
+```
+apps/api/src/shared/infra/job-queue/
+├── index.ts                 # Barrel exports
+├── pgboss-queue.ts          # Singleton PgBoss, enqueue, stop
+└── integration.worker.ts    # Worker único, registra handlers, startWorker
+```
+
+**Como enfileirar (no UseCase):**
+
+```typescript
+import { getJobQueue } from "@/shared/infra/job-queue";
+
+// No use-case, após validar o comando:
+const boss = await getJobQueue();
+await boss.enqueue("product-structure.sync", {
+  productCode: "123",
+  externalRequestId: "uuid",
+}, {
+  retryLimit: 5,
+  retryBackoff: true,
+  singletonKey: "product-structure-sync-123", // evita duplicatas
+});
+```
+
+**Como registrar um handler (no bootstrap do módulo):**
+
+```typescript
+// modules/integration/product-structure/infrastructure/jobs/
+import { registerJobHandler } from "@/shared/infra/job-queue";
+
+// Antes do worker iniciar:
+registerJobHandler("product-structure.sync", async (job) => {
+  const useCase = container.resolve(SyncProductStructureUseCase);
+  await useCase.execute({
+    productCode: job.data.productCode,
+    externalRequestId: job.data.externalRequestId,
+  });
+}, {
+  concurrency: 3,           // jobs simultâneos deste tipo
+  batchSize: 1,             // jobs por vez (padrão)
+});
+```
+
+**Worker lifecycle (no bootstrap da API):**
+
+```typescript
+// bootstrap/index.ts
+import { startJobQueue, startWorker } from "@/shared/infra/job-queue";
+import "@/modules/integration/product-structure/infrastructure/jobs"; // side-effect: registra handlers
+
+const boss = await startJobQueue();
+await startWorker(boss); // inicia processamento
+```
+
+**Variáveis de Ambiente:**
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `PG_BOSS_CONNECTION_STRING` | (mesma DB) | Connection string para o PgBoss |
+| `PG_BOSS_CONCURRENCY` | `1` | Concorrência máxima global do worker |
+| `PG_BOSS_SCHEDULE_INTERVAL` | `2` | Polling interval interno do PgBoss (segundos) |
+
+**Vantagens sobre o padrão anterior:**
+
+| Característica | Command Queue (legado) | PgBoss (novo) |
+|---|---|---|
+| Entrega | Polling `SELECT ... SKIP LOCKED` a cada 1s | Event-driven (`LISTEN/NOTIFY`) |
+| Retry | Manual (`findProcessingStalled`) | Nativo (backoff exponencial) |
+| Worker | 1 job por módulo | 1 worker centralizado |
+| Concorrência | Rate-limit fixo 1 chamada/s | Configurável por tipo de job |
+| Duplicatas | Verificação manual | `singletonKey` nativo |
+| Monitoria | Logs + tabela `_command` | Dashboard nativo + métricas |
 
 ---
 

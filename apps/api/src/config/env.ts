@@ -89,6 +89,12 @@ const envSchema = z.object({
   CUSTOMER_SYNC_GATEWAY: z.enum(["fake", "real"]).default("fake"),
   ENABLE_OMIE_CUSTOMER_SYNC_JOB: envBoolean.default(false),
   OMIE_CUSTOMER_SYNC_CRON: z.string().default("0 */12 * * *"),
+
+  // PgBoss (Job Queue Centralizada - ADR-009)
+  PG_BOSS_CONNECTION_STRING: z.string().optional(),
+  PG_BOSS_CONCURRENCY: z.coerce.number().default(1),
+  /** Polling interval interno do PgBoss em segundos (pollingIntervalSeconds nos work options). Padrão: 2s */
+  PG_BOSS_SCHEDULE_INTERVAL: z.coerce.number().default(2),
 });
 
 /**
