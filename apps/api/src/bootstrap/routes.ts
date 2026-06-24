@@ -24,6 +24,7 @@ import { createCustomerSyncIntegration } from "@/modules/integration/customer-sy
 // NOVO/FUTURO (integration)
 // ---------------------------------------------------------------------------
 import { createProductStockFetchIntegration } from "@/modules/integration/product-stock-fetch";
+import { createProductManagerIntegration } from "@/modules/integration/product-manager";
 import { registerOrdersModule } from "@/modules/legacy/orders/register-orders-module";
 
 export async function registerRoutes(app: FastifyInstance) {
@@ -44,6 +45,8 @@ export async function registerRoutes(app: FastifyInstance) {
 
   // ✅ NOVO/FUTURO — manter ligados
   await createProductStockFetchIntegration().register(app);
+  // ✅ NOVO módulo product-manager (comandos de criar/atualizar/inativar)
+  await createProductManagerIntegration().register(app);
   await registerOrdersModule(app);
   await createProductionOrderIntegration().register(app);
   await createProductStructureIntegration().register(app);

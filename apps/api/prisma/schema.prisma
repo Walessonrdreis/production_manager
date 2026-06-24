@@ -842,6 +842,63 @@ model ProductCatalogCommand {
 }
 
 // ---------------------------------------------------------------------------
+// ProductManagerCommand
+// ---------------------------------------------------------------------------
+
+enum ProductManagerCommandType {
+  CREATE
+  UPDATE
+  INACTIVATE
+
+  @@schema("integration")
+}
+
+enum ProductManagerCommandStatus {
+  PENDING
+  PROCESSING
+  ACCEPTED
+  CONFIRMED
+  FAILED
+
+  @@schema("integration")
+}
+
+enum ProductManagerCommandSource {
+  API2
+  JOB
+  ADMIN
+
+  @@schema("integration")
+}
+
+model ProductManagerCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @map("external_request_id")
+  productCode       String @map("product_code")
+
+  commandType ProductManagerCommandType @map("command_type")
+  status      ProductManagerCommandStatus @default(PENDING)
+
+  source    ProductManagerCommandSource @default(API2)
+  lastError Json? @map("last_error")
+  payload   Json? @map("payload")
+  retryCount Int @default(0) @map("retry_count")
+
+  executedAt  DateTime? @map("executed_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([productCode])
+  @@index([status])
+  @@index([commandType])
+  @@map("product_manager_command")
+  @@schema("integration")
+}
+
+// ---------------------------------------------------------------------------
 // ProductStockCommand
 // ---------------------------------------------------------------------------
 
