@@ -14,6 +14,7 @@ export type SalesOrderFetchPageItem = {
   companyOmieId: string | null;
   forecastDate: Date | null;
   totalAmount: number | null;
+  updatedAt: Date | null;
   rawPayload: unknown;
 
   items: Array<{
@@ -38,6 +39,6 @@ export type SalesOrderFetchPageResult = {
   currentPage: number;
 };
 
-export interface SalesOrderFetchPageGateway {
+export type SalesOrderFetchPageGateway = {
   fetchPage(input: SalesOrderFetchPageInput): Promise<SalesOrderFetchPageResult>;
-}
+};

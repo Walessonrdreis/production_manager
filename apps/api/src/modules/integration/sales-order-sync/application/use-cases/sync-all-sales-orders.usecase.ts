@@ -1,11 +1,12 @@
 import { getLogger } from "@/shared/logger";
+import { fetchPageWithRetry, sleep } from "@/shared/integration/strategies/retry.strategy";
+import type { SyncStateStoreContract } from "@/shared/integration/strategies/types";
+import type { SyncHooksRunner } from "@/shared/integration/strategies/sync-hooks";
 import type {
   SalesOrderFetchPageGateway,
-  SalesOrderFetchPageInput,
 } from "../ports/sales-order-fetch-page.gateway";
 import { SalesOrderSyncIntegrationStore } from "../../infrastructure/db/sales-order-sync-integration.store";
 import { SalesOrderSyncCommandStore } from "../../infrastructure/db/sales-order-sync-command.store";
-import { SalesOrderSyncStateStore } from "../../infrastructure/db/sales-order-sync-state.store";
 import { RefreshProductCatalogProductionReadyUseCase } from "@/modules/integration/product-catalog/application/use-cases/refresh-product-catalog-production-ready.usecase";
 import { RefreshSalesOrderSummaryReadModelUseCase } from "./refresh-sales-order-summary-read-model.usecase";
 
@@ -16,10 +17,6 @@ export type SyncAllSalesOrdersCommand = {
   source?: "API2" | "JOB" | "ADMIN";
 };
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export class SyncAllSalesOrdersUseCase {
   private readonly logger = getLogger("SyncAllSalesOrdersUseCase");
 
@@ -27,119 +24,13 @@ export class SyncAllSalesOrdersUseCase {
     private readonly fetchPageGateway: SalesOrderFetchPageGateway,
     private readonly integrationStore: SalesOrderSyncIntegrationStore,
     private readonly commandStore: SalesOrderSyncCommandStore,
-    private readonly stateStore: SalesOrderSyncStateStore,
+    private readonly stateStore: SyncStateStoreContract,
     private readonly refreshProductCatalogUseCase: RefreshProductCatalogProductionReadyUseCase,
     private readonly refreshSalesOrderSummaryUseCase: RefreshSalesOrderSummaryReadModelUseCase,
     private readonly options: { noWrite?: boolean } = {}
   ) { }
 
-  private extractRedundantWaitSeconds(sample: string): number | null {
-    const match = sample.match(/aguarde\s+(\d+)\s+segundos/i);
-    if (!match) return null;
-
-    const seconds = Number(match[1]);
-    if (!Number.isFinite(seconds) || seconds <= 0) return null;
-
-    return seconds;
-  }
-
-  private async fetchPageWithRetry(
-    input: SalesOrderFetchPageInput & {
-      externalRequestId: string;
-      maxAttempts?: number;
-    }
-  ) {
-    const {
-      page,
-      pageSize,
-      updatedSince,
-      externalRequestId,
-      maxAttempts = 3,
-    } = input;
-
-    let lastError: unknown = null;
-    let redundantWaits = 0;
-    const maxRedundantWaits = 5;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      try {
-        const pageResult = await this.fetchPageGateway.fetchPage({
-          page,
-          pageSize,
-          updatedSince,
-        });
-
-        if (attempt > 1 || redundantWaits > 0) {
-          this.logger.info("Sales-order fetch page recovered after retry", {
-            externalRequestId,
-            page,
-            pageSize,
-            attempt,
-            maxAttempts,
-            redundantWaits,
-          });
-        }
-
-        return pageResult;
-      } catch (error: any) {
-        lastError = error;
-
-        const sample = String(error?.details?.sample ?? "");
-        const sampleLower = sample.toLowerCase();
-        const isRedundant =
-          sampleLower.includes("redundant") ||
-          sampleLower.includes("consumo redundante");
-
-        if (isRedundant) {
-          redundantWaits += 1;
-
-          const waitSeconds = this.extractRedundantWaitSeconds(sample) ?? 60;
-          const waitMs = (waitSeconds + 2) * 1000;
-
-          this.logger.warn("Sales-order REDUNDANT detected, waiting before retry", {
-            externalRequestId,
-            page,
-            pageSize,
-            redundantWaits,
-            maxRedundantWaits,
-            waitSeconds,
-            waitMs,
-            code: error?.code,
-            details: error?.details,
-          });
-
-          if (redundantWaits > maxRedundantWaits) {
-            throw error;
-          }
-
-          await sleep(waitMs);
-
-          attempt -= 1;
-          continue;
-        }
-
-        this.logger.warn("Sales-order fetch page failed", {
-          externalRequestId,
-          page,
-          pageSize,
-          attempt,
-          maxAttempts,
-          message: error?.message,
-          code: error?.code,
-          details: error?.details,
-        });
-
-        if (attempt < maxAttempts) {
-          await sleep(1000 * attempt);
-          continue;
-        }
-      }
-    }
-
-    throw lastError;
-  }
-
-  async execute(command: SyncAllSalesOrdersCommand) {
+  async execute(command: SyncAllSalesOrdersCommand, hooks?: SyncHooksRunner) {
     const pageSize = Math.max(1, Math.min(Number(command.pageSize || 100), 500));
     const maxPages = Math.max(1, Math.min(Number(command.maxPages || 1000), 10000));
 
@@ -186,12 +77,10 @@ export class SyncAllSalesOrdersUseCase {
       let processedItems = 0;
 
       while (processedPages < maxPages) {
-        const pageResult = await this.fetchPageWithRetry({
-          page,
-          pageSize,
-          updatedSince: lastSyncAt,
-          externalRequestId: command.externalRequestId,
-        });
+        const pageResult = await fetchPageWithRetry(
+          () => this.fetchPageGateway.fetchPage({ page, pageSize, updatedSince: lastSyncAt }),
+          { label: "sales-order-sync", externalRequestId: command.externalRequestId, page, pageSize }
+        );
 
         const totalPages =
           pageResult.totalPages != null && Number.isFinite(pageResult.totalPages)
@@ -220,8 +109,8 @@ export class SyncAllSalesOrdersUseCase {
         }
 
         if (!this.options.noWrite) {
-          for (const order of pageResult.items) {
-            const savedOrder = await this.integrationStore.upsertSalesOrder({
+          const batchInputs = pageResult.items.map((order) => ({
+            order: {
               omieId: order.omieId,
               orderNumber: order.orderNumber,
               stage: order.stage,
@@ -232,26 +121,26 @@ export class SyncAllSalesOrdersUseCase {
               forecastDate: order.forecastDate,
               totalAmount: order.totalAmount,
               rawPayload: order.rawPayload,
-            });
+            },
+            items: order.items.map((item) => ({
+              omieItemId: item.omieItemId,
+              productCode: item.productCode,
+              productOmieId: item.productOmieId,
+              description: item.description,
+              unit: item.unit,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              totalPrice: item.totalPrice,
+              rawPayload: item.rawPayload,
+            })),
+          }));
 
-            for (const item of order.items) {
-              await this.integrationStore.upsertSalesOrderItem(savedOrder.id, {
-                omieItemId: item.omieItemId,
-                productCode: item.productCode,
-                productOmieId: item.productOmieId,
-                description: item.description,
-                unit: item.unit,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                totalPrice: item.totalPrice,
-                rawPayload: item.rawPayload,
-              });
+          await this.integrationStore.saveMany(batchInputs);
 
-              processedItems += 1;
-            }
-
-            processedOrders += 1;
-          }
+          processedOrders += pageResult.items.length;
+          processedItems += pageResult.items.reduce(
+            (sum, o) => sum + o.items.length, 0
+          );
         } else {
           for (const order of pageResult.items) {
             processedOrders += 1;
@@ -317,6 +206,14 @@ export class SyncAllSalesOrdersUseCase {
         });
 
         await this.refreshSalesOrderSummaryUseCase.execute();
+
+        // ✅ Executar hooks pós-sync (SyncHooksRunner)
+        if (hooks && !hooks.empty) {
+          this.logger.info("Running post-sync hooks", {
+            externalRequestId: command.externalRequestId,
+          });
+          await hooks.runAll({ externalRequestId: command.externalRequestId });
+        }
       }
 
       this.logger.info("Sales-order sync completed", {
@@ -342,4 +239,42 @@ export class SyncAllSalesOrdersUseCase {
       throw error;
     }
   }
+}
+
+// ─── Função auxiliar para execução direta pelo PgBoss handler ────────────
+
+export async function executeSyncAllSalesOrders(
+  fetchPageGateway: SalesOrderFetchPageGateway,
+  integrationStore: SalesOrderSyncIntegrationStore,
+  commandStore: SalesOrderSyncCommandStore,
+  stateStore: SyncStateStoreContract,
+  refreshProductCatalogUseCase: RefreshProductCatalogProductionReadyUseCase,
+  refreshSalesOrderSummaryUseCase: RefreshSalesOrderSummaryReadModelUseCase,
+  command: SyncAllSalesOrdersCommand,
+  hooks?: SyncHooksRunner
+): Promise<void> {
+  const logger = getLogger("SyncAllSalesOrdersExecutor");
+  const { externalRequestId } = command;
+
+  logger.info("Executing sales-order global sync via helper", {
+    externalRequestId,
+    pageSize: command.pageSize ?? 100,
+    maxPages: command.maxPages ?? 1000,
+  });
+
+  const useCase = new SyncAllSalesOrdersUseCase(
+    fetchPageGateway,
+    integrationStore,
+    commandStore,
+    stateStore,
+    refreshProductCatalogUseCase,
+    refreshSalesOrderSummaryUseCase,
+    { noWrite: false }
+  );
+
+  await useCase.execute(command, hooks);
+
+  logger.info("Sales-order global sync helper completed", {
+    externalRequestId,
+  });
 }

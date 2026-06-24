@@ -7,7 +7,7 @@ import { FakeSalesOrderFetchPageGateway } from "../gateways/fetch-page/fake-sale
 import { RealSalesOrderFetchPageGateway } from "../gateways/fetch-page/real-sales-order-fetch-page.gateway";
 import { SalesOrderSyncIntegrationStore } from "../db/sales-order-sync-integration.store";
 import { SalesOrderSyncCommandStore } from "../db/sales-order-sync-command.store";
-import { SalesOrderSyncStateStore } from "../db/sales-order-sync-state.store";
+import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 import { SyncAllSalesOrdersUseCase } from "../../application/use-cases/sync-all-sales-orders.usecase";
 
 // ✅ imports do product-catalog (NOVO)
@@ -66,7 +66,7 @@ export class SyncSalesOrdersJob {
       fetchPageGateway,
       new SalesOrderSyncIntegrationStore(prisma),
       new SalesOrderSyncCommandStore(prisma),
-      new SalesOrderSyncStateStore(),
+      new PrismaSyncStateStore(prisma.salesOrderSyncState, "GLOBAL"),
       refreshProductCatalogUseCase,
       refreshSalesOrderSummaryUseCase,
       {

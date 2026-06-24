@@ -134,6 +134,14 @@ export class SalesOrderSummaryReadModelStore {
         };
     }
 
+    async getByOmieId(omieId: string): Promise<SalesOrderSummaryRecord | null> {
+        const record = await prisma.salesOrderSummaryReadModel.findFirst({
+            where: { omieId },
+        });
+
+        return record;
+    }
+
     async getStats(): Promise<SalesOrderSummaryStats> {
         const [totalOrders, totalCanceled, totalClosed, byStage] =
             await Promise.all([

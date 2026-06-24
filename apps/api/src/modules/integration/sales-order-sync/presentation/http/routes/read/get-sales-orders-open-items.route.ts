@@ -33,4 +33,24 @@ export async function registerGetSalesOrdersOpenItemsRoute(
             });
         }
     );
+
+    // ── Alias canônico ───────────────────────────────────────────────
+    app.get(
+        "/v1/integration/sales-order-sync/read/open-items",
+        async (request, reply) => {
+            const query = request.query as ListOpenItemsQueryString;
+
+            const result = await store.list({
+                q: query.q ?? null,
+                limit: query.limit,
+                offset: query.offset,
+            });
+
+            return reply.send({
+                success: true,
+                data: result.data,
+                meta: result.meta,
+            });
+        }
+    );
 }

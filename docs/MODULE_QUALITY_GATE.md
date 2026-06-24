@@ -353,7 +353,7 @@ Copie a tabela abaixo no README do módulo e preencha:
 | 2026-06-24 | `product-structure` | 🥇 **100%** | Checklist canônico (referência) |
 | 2026-06-24 | `production-orders` | ✅ **~95%** | Avaliação automática |
 | — | `product-catalog` | ⏳ Pendente | — |
-| — | `sales-order-sync` | ⏳ Pendente | — |
+| 2026-06-24 | `sales-order-sync` | ✅ **~99%** | Pós-refatoração (4 gaps fechados) |
 | — | `customer-sync` | ⏳ Pendente | — |
 
 ### Exemplo: Avaliação do `production-orders`
@@ -379,6 +379,29 @@ Copie a tabela abaixo no README do módulo e preencha:
 - `5.8` Sync store não tem `saveMany()` — faz `save()` item por item
 - `9.17` Códigos de erro Omie podem não estar 100% mapeados
 - Demais gaps são itens opcionais não aplicáveis (ex: command queue legado)
+
+### Exemplo: Avaliação do `sales-order-sync`
+
+```
+📦 sales-order-sync
+├── 1. Estrutura          ✅ 4/4
+├── 2. Ports             ✅ 4/4 (type em vez de interface ✅)
+├── 3. Use Cases         ✅ 12/12
+├── 4. Gateways          ✅ 8/8
+├── 5. Stores            ✅ 11/11 (saveMany batch via $transaction ✅)
+├── 6. Jobs              ✅ 7/7
+├── 7. Routes            ✅ 22/22 (GET /read/:omieId adicionado ✅)
+├── 8. Schemas/OpenAPI   ✅ 4/4
+├── 9. Cross-Cutting     ✅ 20/20 (OmieSalesOrderAdapter compartilhado ✅)
+├── 10. Config (Env)     ✅ 4/4
+├── 11. Testes/Fake      ✅ 5/5
+├── 12. Documentação     ✅ 3/3
+└── 📊 TOTAL: 104/104 ≈ 100% (4 gaps fechados)
+```
+
+> **Nota:** Todos os 4 gaps identificados foram corrigidos. O módulo atingiu 100% nos itens aplicáveis (sync-only).
+
+> **Sync-only:** Vários itens (command queue, lifecycle, reconcile) marcados como N/A por serem módulo read-only.
 
 ### Exemplo: Avaliação do `product-structure` (canônico)
 

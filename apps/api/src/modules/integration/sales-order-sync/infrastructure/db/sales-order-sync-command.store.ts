@@ -15,7 +15,7 @@ export type CreateAcceptedCommandInput = {
  * - auditoria mínima de comandos
  */
 export class SalesOrderSyncCommandStore {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaClient) { }
 
   async findByExternalRequestId(
     externalRequestId: string
@@ -69,10 +69,10 @@ export class SalesOrderSyncCommandStore {
     const normalized =
       error instanceof Error
         ? {
-            message: error.message,
-            name: error.name,
-            stack: error.stack,
-          }
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+        }
         : { message: String(error) };
 
     return this.prisma.salesOrderSyncCommand.update({
@@ -90,6 +90,18 @@ export class SalesOrderSyncCommandStore {
   ): Promise<number> {
     return this.prisma.salesOrderSyncCommand.count({
       where: { status },
+    });
+  }
+
+  async listByStatus(
+    status: "ACCEPTED" | "CONFIRMED" | "FAILED",
+    options?: { limit?: number; offset?: number }
+  ): Promise<SalesOrderSyncCommand[]> {
+    return this.prisma.salesOrderSyncCommand.findMany({
+      where: { status },
+      orderBy: { createdAt: "desc" },
+      take: options?.limit ?? 50,
+      skip: options?.offset ?? 0,
     });
   }
 }

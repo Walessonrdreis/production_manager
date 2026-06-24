@@ -42,6 +42,36 @@ GET /v1/admin/read/sales-orders
 
 ---
 
+### Detalhe do pedido
+```
+GET /v1/admin/read/sales-orders/:omieId
+```
+**Descrição:** Retorna os detalhes de um pedido específico pelo ID Omie.
+
+**Resposta (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "omieId": "1234567890",
+    "orderNumber": "3070",
+    "stage": "20",
+    "isCanceled": false,
+    "isClosed": false,
+    "customerOmieId": "9428243340",
+    "customerName": "SX CORP LTDA",
+    "forecastDate": "2026-05-19T00:00:00.000Z",
+    "totalAmount": 320.00,
+    "totalItems": 1,
+    "totalQuantity": 10,
+    "lastSyncAt": "2026-06-24T10:00:00.000Z"
+  }
+}
+```
+**Resposta (404):** `{ "success": false, "error": "NOT_FOUND", "message": "Sales order not found" }`
+
+---
+
 ### Estatísticas
 ```
 GET /v1/admin/read/sales-orders/stats
