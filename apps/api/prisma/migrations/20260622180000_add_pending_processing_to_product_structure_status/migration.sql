@@ -7,9 +7,9 @@ ALTER TYPE integration."ProductStructureCommandStatus" ADD VALUE IF NOT EXISTS '
 ALTER TYPE integration."ProductStructureCommandStatus" ADD VALUE IF NOT EXISTS 'PROCESSING' BEFORE 'ACCEPTED';
 
 -- AlterTable: change default status
-ALTER TABLE integration.product_structure_command
-ALTER COLUMN status
-SET DEFAULT 'PENDING';
+-- NOTA: SET DEFAULT removido desta migration porque ADD VALUE + SET DEFAULT
+-- no mesmo enum na mesma transação causa erro no PostgreSQL.
+-- O `prisma migrate dev` gerará uma migration separada para o SET DEFAULT.
 
 -- AlterTable: add payload and retryCount if not exist
 DO $$ BEGIN
