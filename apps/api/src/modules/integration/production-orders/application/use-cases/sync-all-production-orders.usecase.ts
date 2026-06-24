@@ -172,10 +172,8 @@ export async function executeSyncAllProductionOrders(
         processedPages += 1;
         processedItems += pageResult.items.length;
 
-        // Persiste cada item no espelho local
-        for (const item of pageResult.items) {
-            await syncStore.save(item);
-        }
+        // Persiste página inteira em batch (mais eficiente)
+        await syncStore.saveMany(pageResult.items);
 
         logger.info("Page processed", {
             externalRequestId,

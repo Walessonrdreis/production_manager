@@ -2,6 +2,12 @@ import type { ProductionOrderCreationGateway, CreateProductionOrderCommand } fro
 import { env } from "@/config";
 import type { OmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
 import {
+  isOmieErrorResponse,
+  isRedundantFault,
+  isOmieHttpErrorWithSample,
+  mapHttpErrorToOmieError,
+} from "@/shared/integration/strategies/omie-error.mapper";
+import {
   productionOrderIntegrationStore,
   type IntegrationStatus,
 } from "../../db/production-order-integration.store";
@@ -56,10 +62,27 @@ export class RealProductionOrderCreationGateway
     };
 
     try {
-      const apiResponse = await this.omieClient.post<any>(
-        "/api/v1/produtos/op/",
-        payload
-      );
+      let apiResponse;
+      try {
+        apiResponse = await this.omieClient.post<any>(
+          "/api/v1/produtos/op/",
+          payload
+        );
+      } catch (error: unknown) {
+        // 🔥 Mapear OMIE_HTTP_ERROR com sample JSON para erros Omie
+        if (isOmieHttpErrorWithSample(error)) {
+          const mapped = mapHttpErrorToOmieError(error);
+          if (mapped) {
+            const code = isRedundantFault(mapped.message) ? "OMIE_REDUNDANT" : "OMIE_FAULT";
+            await productionOrderIntegrationStore.markFailed(
+              command.externalRequestId,
+              { code, message: mapped.message }
+            );
+            return { externalRequestId: command.externalRequestId, status: "FAILED" };
+          }
+        }
+        throw error; // Re-lança erros não-Omie para o catch externo
+      }
 
       const response =
         apiResponse &&
@@ -68,18 +91,14 @@ export class RealProductionOrderCreationGateway
           ? (apiResponse as any).data
           : apiResponse;
 
-      if (
-        response?.faultstring ||
-        response?.error ||
-        (response?.codigo_status && response.codigo_status !== "0")
-      ) {
-        const message = String(
-          response?.faultstring || response?.error || "Unknown error"
-        );
+      // 🔥 Verificar erro semântico na resposta (faultstring / status = "error")
+      if (isOmieErrorResponse(response) || (response?.codigo_status && response.codigo_status !== "0")) {
+        const faultstring = String(response?.faultstring || response?.error || "Unknown error");
+        const code = isRedundantFault(faultstring) ? "OMIE_REDUNDANT" : "OMIE_FAULT";
 
         await productionOrderIntegrationStore.markFailed(
           command.externalRequestId,
-          { code: "OMIE_ERROR", message }
+          { code, message: faultstring }
         );
 
         return {

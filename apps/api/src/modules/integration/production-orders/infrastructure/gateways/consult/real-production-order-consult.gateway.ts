@@ -9,6 +9,11 @@ import { env } from "@/config";
 import type { OmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
 import { OMIE_ENDPOINTS } from "@/shared/integrations/omie/omie.constants";
 import { mapProductionOrder } from "@/shared/integrations/omie/OmieProductionOrdersAdapter";
+import {
+    isOmieErrorResponse,
+    isOmieHttpErrorWithSample,
+    mapHttpErrorToOmieError,
+} from "@/shared/integration/strategies/omie-error.mapper";
 import type { ProductionOrderConsultGateway, ProductionOrderConsultResult } from "../../../application/ports/production-order-consult.gateway";
 
 export class RealProductionOrderConsultGateway
@@ -27,18 +32,34 @@ export class RealProductionOrderConsultGateway
             param: [{ nCodOP: Number(omieCode) }],
         };
 
-        const apiResponse = await this.omieClient.post<any>(
-            `/api/v1/${OMIE_ENDPOINTS.PRODUCTION_ORDER_CONSULT.path}`,
-            payload
-        );
+        let apiResponse;
+        try {
+            apiResponse = await this.omieClient.post<any>(
+                `/api/v1/${OMIE_ENDPOINTS.PRODUCTION_ORDER_CONSULT.path}`,
+                payload
+            );
+        } catch (error: unknown) {
+            // 🔥 Mapear OMIE_HTTP_ERROR com sample JSON para erros Omie
+            if (isOmieHttpErrorWithSample(error)) {
+                const mapped = mapHttpErrorToOmieError(error);
+                if (mapped) {
+                    console.error("[OP][CONSULT][OMIE_ERROR]", mapped.message, mapped.details);
+                    return null;
+                }
+            }
+            console.error("[OP][CONSULT][NETWORK_ERROR]", error);
+            return null;
+        }
 
         const response =
             apiResponse && typeof apiResponse === "object" && "data" in apiResponse
                 ? (apiResponse as any).data
                 : apiResponse;
 
-        if (response?.faultstring || response?.error) {
-            console.error("[OP][CONSULT][OMIE_ERROR]", response?.faultstring || response?.error);
+        // 🔥 Verificar erro semântico na resposta (faultstring / status = "error")
+        if (isOmieErrorResponse(response)) {
+            const faultstring = String((response as any).faultstring ?? (response as any).error ?? "");
+            console.error("[OP][CONSULT][OMIE_FAULT]", faultstring);
             return null;
         }
 

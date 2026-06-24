@@ -8,6 +8,14 @@
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 import { OMIE_ENDPOINTS } from "@/shared/integrations/omie/omie.constants";
 import { mapProductionOrder } from "@/shared/integrations/omie/OmieProductionOrdersAdapter";
+import {
+    isOmieErrorResponse,
+    isRedundantFault,
+    buildOmieFaultError,
+    buildOmieRedundantError,
+    isOmieHttpErrorWithSample,
+    mapHttpErrorToOmieError,
+} from "@/shared/integration/strategies/omie-error.mapper";
 
 import type {
     ProductionOrderSyncPageGateway,
@@ -36,13 +44,32 @@ export class RealProductionOrderSyncPageGateway
             params.push({ dDtConclusaoDe: dateStr });
         }
 
-        const response = await this.omieClient.post<any>(
-            OMIE_ENDPOINTS.PRODUCTION_ORDERS.path,
-            {
-                call: OMIE_ENDPOINTS.PRODUCTION_ORDERS.call,
-                param: params,
+        let response: any;
+        try {
+            response = await this.omieClient.post<any>(
+                OMIE_ENDPOINTS.PRODUCTION_ORDERS.path,
+                {
+                    call: OMIE_ENDPOINTS.PRODUCTION_ORDERS.call,
+                    param: params,
+                }
+            );
+        } catch (error: unknown) {
+            // 🔥 Mapear OMIE_HTTP_ERROR com sample JSON para erros Omie
+            if (isOmieHttpErrorWithSample(error)) {
+                const mapped = mapHttpErrorToOmieError(error);
+                if (mapped) throw mapped;
             }
-        );
+            throw error;
+        }
+
+        // 🔥 Verificar erro semântico na resposta (faultstring / status = "error")
+        if (isOmieErrorResponse(response)) {
+            const faultstring = String((response as any).faultstring ?? "");
+            if (isRedundantFault(faultstring)) {
+                throw buildOmieRedundantError(faultstring, response);
+            }
+            throw buildOmieFaultError(faultstring || "Unknown Omie error", response);
+        }
 
         const cadastros = Array.isArray(response?.cadastros)
             ? response.cadastros
