@@ -8,6 +8,7 @@ import { getLogger } from "@/shared/logger";
 import { prisma } from "@/shared/db/prisma";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
+import { SyncHooksRunner } from "@/shared/integration/strategies/sync-hooks";
 
 import type {
     SyncAllProductionOrdersRequestDTO,
@@ -51,13 +52,18 @@ export async function registerSyncAllProductionOrdersRoute(app: FastifyInstance)
             { noWrite: isFake }
         );
 
+        const hooks = new SyncHooksRunner();
+
         void useCase
-            .execute({
-                externalRequestId,
-                pageSize: body.pageSize,
-                maxPages: body.maxPages,
-                source: "API2",
-            })
+            .execute(
+                {
+                    externalRequestId,
+                    pageSize: body.pageSize,
+                    maxPages: body.maxPages,
+                    source: "API2",
+                },
+                hooks
+            )
             .catch((error) => {
                 logger.error("Sync global failed", error as any);
             });

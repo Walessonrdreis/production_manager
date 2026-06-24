@@ -1,5 +1,5 @@
 import { productionOrderIntegrationStore } from "../../db/production-order-integration.store";
-import type { ProductionOrderChangeStageGateway, ChangeProductionOrderStageCommand } from "./production-order-change-stage.gateway";
+import type { ProductionOrderChangeStageGateway, ChangeProductionOrderStageCommand } from "../../../application/ports/production-order-change-stage.gateway";
 
 export class FakeProductionOrderChangeStageGateway implements ProductionOrderChangeStageGateway {
     async changeStage(

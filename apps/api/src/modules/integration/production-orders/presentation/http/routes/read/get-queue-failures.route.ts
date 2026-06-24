@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Get Queue Failures (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/integration/read/production-orders/queue/failures
+// GET /v1/integration/production-orders/read/queue/failures
 // Retorna os comandos com falha mais recentes.
 // ---------------------------------------------------------------------------
 
@@ -12,7 +12,7 @@ import { ProductionOrderCommandStore } from "../../../../infrastructure/db/produ
 
 export async function registerGetQueueFailuresRoute(app: FastifyInstance) {
     app.get(
-        "/v1/integration/read/production-orders/queue/failures",
+        "/v1/integration/production-orders/read/queue/failures",
         async (request, reply) => {
             try {
                 const commandStore = new ProductionOrderCommandStore(prisma);

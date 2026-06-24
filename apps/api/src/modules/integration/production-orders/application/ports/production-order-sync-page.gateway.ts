@@ -27,6 +27,8 @@ export type ProductionOrderSyncPageItem = {
     startDate: string | null;
     /** código do local de estoque */
     stockLocationCode: number | null;
+    /** Data/hora da última alteração no Omie (dAlteracao + hAlteracao) */
+    updatedAt: Date | null;
     /** payload bruto da Omie (para auditoria) */
     raw: any;
 };

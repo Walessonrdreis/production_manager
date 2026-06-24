@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Get Production Order Detail (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/integration/read/production-orders/:omieCode
+// GET /v1/integration/production-orders/read/:omieCode
 // Retorna detalhe da OP + itens do espelho local.
 // Usa o padrão Real/Fake gateway selecionado via env var.
 // ---------------------------------------------------------------------------
@@ -15,7 +15,7 @@ import { RealProductionOrderQueryGateway } from "../../../../infrastructure/gate
 
 export async function registerGetProductionOrderRoute(app: FastifyInstance) {
     app.get(
-        "/v1/integration/read/production-orders/:omieCode",
+        "/v1/integration/production-orders/read/:omieCode",
         async (request, reply) => {
             try {
                 const { omieCode } = request.params as { omieCode: string };

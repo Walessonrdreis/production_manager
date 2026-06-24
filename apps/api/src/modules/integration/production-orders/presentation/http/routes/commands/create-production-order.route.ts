@@ -9,31 +9,26 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { CreateProductionOrderRequestSchema } from "../../schemas";
-import { enqueueJob } from "@/shared/infra/job-queue";
+import { EnqueueCreateProductionOrderUseCase } from "../../../../application/use-cases/enqueue-create-production-order.usecase";
 
 export async function registerCreateProductionOrderRoute(app: FastifyInstance) {
+    const useCase = new EnqueueCreateProductionOrderUseCase();
+
     app.post("/v1/integration/production-orders/commands/create", async (request, reply) => {
         try {
             const validatedData = CreateProductionOrderRequestSchema.parse(request.body);
 
-            await enqueueJob("production-order.create-op", {
+            const result = await useCase.execute({
                 externalRequestId: validatedData.externalRequestId,
                 productId: validatedData.productId,
                 quantity: validatedData.quantity,
                 scheduledDate: validatedData.scheduledDate,
                 notes: validatedData.notes,
-            }, {
-                retryLimit: 5,
-                retryBackoff: true,
-                singletonKey: `production-order-create-${validatedData.externalRequestId}`,
             });
 
             return reply.code(202).send({
                 success: true,
-                data: {
-                    externalRequestId: validatedData.externalRequestId,
-                    status: "PENDING",
-                },
+                data: result,
             });
         } catch (error) {
             if (error instanceof z.ZodError) {

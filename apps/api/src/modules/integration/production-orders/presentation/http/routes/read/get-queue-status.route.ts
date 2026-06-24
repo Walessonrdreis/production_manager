@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Get Queue Status (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/integration/read/production-orders/queue
+// GET /v1/integration/production-orders/read/queue
 // Retorna status atual da fila de comandos (command queue).
 // ---------------------------------------------------------------------------
 
@@ -12,7 +12,7 @@ import { ProductionOrderCommandStore } from "../../../../infrastructure/db/produ
 
 export async function registerGetQueueStatusRoute(app: FastifyInstance) {
     app.get(
-        "/v1/integration/read/production-orders/queue",
+        "/v1/integration/production-orders/read/queue",
         async (request, reply) => {
             try {
                 const commandStore = new ProductionOrderCommandStore(prisma);

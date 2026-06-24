@@ -1,11 +1,6 @@
-import type { ProductionOrderCancelGateway } from "../../infrastructure/gateways/cancel/production-order-cancel.gateway";
+import type { ProductionOrderCancelGateway } from "../ports/production-order-cancel.gateway";
 import type { ProductionOrderCommandStore } from "../../infrastructure/db/production-order-command.store";
-
-export type ProcessCancelProductionOrderData = {
-    externalRequestId: string;
-    omieCode: string;
-    reason?: string;
-};
+import type { ProcessCancelProductionOrderData } from "../dto/cancel-production-order.dto";
 
 /**
  * Use case — Process cancel production order from PgBoss worker

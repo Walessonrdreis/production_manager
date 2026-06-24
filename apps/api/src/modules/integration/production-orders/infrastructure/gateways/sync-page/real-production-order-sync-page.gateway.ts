@@ -31,7 +31,7 @@ export class RealProductionOrderSyncPageGateway
         ];
 
         if (updatedSince) {
-            // Filtra por data de conclusão (incremental)
+            // Filtro server-side: reduz páginas buscadas (data de conclusão)
             const dateStr = updatedSince.toISOString().split("T")[0]; // YYYY-MM-DD
             params.push({ dDtConclusaoDe: dateStr });
         }
@@ -53,13 +53,24 @@ export class RealProductionOrderSyncPageGateway
                 ? Number(response.total_de_paginas)
                 : null;
 
-        const items: ProductionOrderSyncPageItem[] = cadastros.map(
-            (entry: any): ProductionOrderSyncPageItem => {
+        const items: ProductionOrderSyncPageItem[] = cadastros
+            .map((entry: any): ProductionOrderSyncPageItem | null => {
                 const { order } = mapProductionOrder(entry);
 
                 const identificacao = entry?.identificacao ?? {};
                 const infAdicionais = entry?.infAdicionais ?? {};
                 const outrasInf = entry?.outrasInf ?? {};
+
+                // ── Filtro incremental local (dAlteracao + hAlteracao) ──
+                // Complementa o filtro server-side dDtConclusaoDe para capturar
+                // alterações que não mudaram a data de conclusão (ex: estágio).
+                const updatedAt = parseOmieDateTime(
+                    outrasInf.dAlteracao,
+                    outrasInf.hAlteracao
+                );
+                if (updatedSince && updatedAt && updatedAt <= updatedSince) {
+                    return null; // Item não modificado desde o último sync
+                }
 
                 return {
                     omieCode: order.omieCode,
@@ -76,10 +87,11 @@ export class RealProductionOrderSyncPageGateway
                         infAdicionais.codigo_local_estoque != null
                             ? Number(infAdicionais.codigo_local_estoque)
                             : null,
+                    updatedAt,
                     raw: entry,
                 };
-            }
-        );
+            })
+            .filter((item): item is ProductionOrderSyncPageItem => item !== null);
 
         return {
             items,
@@ -88,4 +100,25 @@ export class RealProductionOrderSyncPageGateway
             currentPage: page,
         };
     }
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────
+
+/** Parseia data/hora no formato brasileiro (DD/MM/YYYY + HH:MM:SS) */
+function parseOmieDateTime(dateStr?: string | null, timeStr?: string | null): Date | null {
+    if (!dateStr) return null;
+
+    const parts = String(dateStr).split("/");
+    if (parts.length !== 3) return null;
+
+    const [day, month, year] = parts;
+    const isoDate = `${year}-${month}-${day}`;
+
+    if (timeStr) {
+        const date = new Date(`${isoDate}T${timeStr}`);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(`${isoDate}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
 }

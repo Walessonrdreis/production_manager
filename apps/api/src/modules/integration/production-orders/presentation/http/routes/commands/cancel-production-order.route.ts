@@ -9,29 +9,24 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { CancelProductionOrderRequestSchema } from "../../schemas";
-import { enqueueJob } from "@/shared/infra/job-queue";
+import { EnqueueCancelProductionOrderUseCase } from "../../../../application/use-cases/enqueue-cancel-production-order.usecase";
 
 export async function registerCancelProductionOrderRoute(app: FastifyInstance) {
+    const useCase = new EnqueueCancelProductionOrderUseCase();
+
     app.post("/v1/integration/production-orders/commands/cancel", async (request, reply) => {
         try {
             const validatedData = CancelProductionOrderRequestSchema.parse(request.body);
 
-            await enqueueJob("production-order.cancel-op", {
+            const result = await useCase.execute({
                 externalRequestId: validatedData.externalRequestId,
                 omieCode: validatedData.omieCode,
                 reason: validatedData.reason,
-            }, {
-                retryLimit: 5,
-                retryBackoff: true,
-                singletonKey: `production-order-cancel-${validatedData.externalRequestId}`,
             });
 
             return reply.code(202).send({
                 success: true,
-                data: {
-                    externalRequestId: validatedData.externalRequestId,
-                    status: "PENDING",
-                },
+                data: result,
             });
         } catch (error) {
             if (error instanceof z.ZodError) {

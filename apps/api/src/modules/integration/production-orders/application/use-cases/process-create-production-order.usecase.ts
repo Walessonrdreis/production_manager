@@ -1,13 +1,6 @@
-import type { ProductionOrderCreationGateway } from "../../infrastructure/gateways/creation/production-order-creation.gateway";
+import type { ProductionOrderCreationGateway } from "../ports/production-order-creation.gateway";
 import type { ProductionOrderCommandStore } from "../../infrastructure/db/production-order-command.store";
-
-export type ProcessCreateProductionOrderData = {
-    externalRequestId: string;
-    productId: string;
-    quantity: number;
-    scheduledDate?: string;
-    notes?: string;
-};
+import type { ProcessCreateProductionOrderData } from "../dto/create-production-order.dto";
 
 /**
  * Use case — Process create production order from PgBoss worker

@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import type { PrismaClient } from "@prisma/client";
-import type { ProductionOrderQueryGateway } from "./production-order-query.gateway";
+import type { ProductionOrderQueryGateway } from "../../../application/ports/production-order-query.gateway";
 import { ProductionOrderQueryStore } from "../../db/production-order-query.store";
 
 export class RealProductionOrderQueryGateway implements ProductionOrderQueryGateway {

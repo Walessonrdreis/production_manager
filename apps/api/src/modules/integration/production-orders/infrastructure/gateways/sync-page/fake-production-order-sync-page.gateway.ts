@@ -31,6 +31,8 @@ export class FakeProductionOrderSyncPageGateway
             length: Math.min(pageSize, 3),
         }).map((_, index) => {
             const num = index + 1;
+            const now = new Date();
+            const updatedAt = new Date(now.getTime() - num * 3600000); // horas diferentes
             return {
                 omieCode: `${1000000 + num}`,
                 number: `${2025}/${String(1000 + num).padStart(5, "0")}`,
@@ -44,6 +46,7 @@ export class FakeProductionOrderSyncPageGateway
                     num === 3 ? new Date(2025, 5, 10 + num).toISOString() : null,
                 startDate: new Date(2025, 5, 1).toISOString(),
                 stockLocationCode: 1,
+                updatedAt,
                 raw: {
                     identificacao: {
                         nCodOP: 1000000 + num,
@@ -62,6 +65,8 @@ export class FakeProductionOrderSyncPageGateway
                     },
                     outrasInf: {
                         cConcluida: num === 3 ? "S" : "N",
+                        dAlteracao: `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`,
+                        hAlteracao: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`,
                     },
                 },
             };

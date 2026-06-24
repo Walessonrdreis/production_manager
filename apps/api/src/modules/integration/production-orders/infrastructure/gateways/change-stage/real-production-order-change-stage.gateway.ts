@@ -1,7 +1,7 @@
 import { env } from "@/config";
 import type { OmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
 import { productionOrderIntegrationStore, type IntegrationStatus } from "../../db/production-order-integration.store";
-import type { ProductionOrderChangeStageGateway, ChangeProductionOrderStageCommand } from "./production-order-change-stage.gateway";
+import type { ProductionOrderChangeStageGateway, ChangeProductionOrderStageCommand } from "../../../application/ports/production-order-change-stage.gateway";
 
 export class RealProductionOrderChangeStageGateway implements ProductionOrderChangeStageGateway {
     constructor(private readonly omieClient: OmieClientWithCircuitBreaker) { }

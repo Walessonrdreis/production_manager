@@ -1,4 +1,4 @@
-import type { ProductionOrderQueryGateway } from "./production-order-query.gateway";
+import type { ProductionOrderQueryGateway } from "../../../application/ports/production-order-query.gateway";
 import { productionOrderIntegrationStore } from "../../db/production-order-integration.store";
 
 export class FakeProductionOrderQueryGateway implements ProductionOrderQueryGateway {

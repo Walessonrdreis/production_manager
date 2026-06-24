@@ -1,11 +1,6 @@
-import type { ProductionOrderChangeStageGateway } from "../../infrastructure/gateways/change-stage/production-order-change-stage.gateway";
+import type { ProductionOrderChangeStageGateway } from "../ports/production-order-change-stage.gateway";
 import type { ProductionOrderCommandStore } from "../../infrastructure/db/production-order-command.store";
-
-export type ProcessChangeStageProductionOrderData = {
-    externalRequestId: string;
-    omieCode: string;
-    stage: string;
-};
+import type { ProcessChangeStageProductionOrderData } from "../dto/change-stage-production-order.dto";
 
 /**
  * Use case — Process change stage of production order from PgBoss worker

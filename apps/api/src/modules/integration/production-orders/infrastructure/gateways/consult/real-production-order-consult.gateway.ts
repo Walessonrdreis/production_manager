@@ -9,7 +9,7 @@ import { env } from "@/config";
 import type { OmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
 import { OMIE_ENDPOINTS } from "@/shared/integrations/omie/omie.constants";
 import { mapProductionOrder } from "@/shared/integrations/omie/OmieProductionOrdersAdapter";
-import type { ProductionOrderConsultGateway, ProductionOrderConsultResult } from "./production-order-consult.gateway";
+import type { ProductionOrderConsultGateway, ProductionOrderConsultResult } from "../../../application/ports/production-order-consult.gateway";
 
 export class RealProductionOrderConsultGateway
     implements ProductionOrderConsultGateway {

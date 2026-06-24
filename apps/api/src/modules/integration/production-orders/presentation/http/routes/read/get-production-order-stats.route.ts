@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Get Production Order Stats (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/integration/read/production-orders/stats
+// GET /v1/integration/production-orders/read/stats
 // Retorna contagens do espelho local.
 // Usa o padrão Real/Fake gateway selecionado via env var.
 // ---------------------------------------------------------------------------
@@ -15,7 +15,7 @@ import { RealProductionOrderQueryGateway } from "../../../../infrastructure/gate
 
 export async function registerGetProductionOrderStatsRoute(app: FastifyInstance) {
     app.get(
-        "/v1/integration/read/production-orders/stats",
+        "/v1/integration/production-orders/read/stats",
         async (request, reply) => {
             try {
                 const isFake = env.PRODUCTION_ORDER_GATEWAY === "fake";

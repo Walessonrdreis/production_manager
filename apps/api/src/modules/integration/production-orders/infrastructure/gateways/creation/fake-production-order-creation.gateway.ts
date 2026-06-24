@@ -1,12 +1,10 @@
-import type { ProductionOrderCreationGateway } from "./production-order-creation.gateway";
-import type { CreateProductionOrderRequest } from "../../../presentation/http/schemas";
+import type { ProductionOrderCreationGateway, CreateProductionOrderCommand } from "../../../application/ports/production-order-creation.gateway";
 import { productionOrderIntegrationStore } from "../../db/production-order-integration.store";
 
 export class FakeProductionOrderCreationGateway
-  implements ProductionOrderCreationGateway
-{
+  implements ProductionOrderCreationGateway {
   async createProductionOrder(
-    command: CreateProductionOrderRequest
+    command: CreateProductionOrderCommand
   ): Promise<{ externalRequestId: string; status: "ACCEPTED" }> {
     console.log("[OP][FAKE][CREATION] create", {
       externalRequestId: command.externalRequestId,

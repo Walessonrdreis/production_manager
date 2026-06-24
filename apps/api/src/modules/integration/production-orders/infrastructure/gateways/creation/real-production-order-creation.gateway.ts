@@ -1,5 +1,4 @@
-import type { ProductionOrderCreationGateway } from "./production-order-creation.gateway";
-import type { CreateProductionOrderRequest } from "../../../presentation/http/schemas";
+import type { ProductionOrderCreationGateway, CreateProductionOrderCommand } from "../../../application/ports/production-order-creation.gateway";
 import { env } from "@/config";
 import type { OmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
 import {
@@ -8,12 +7,11 @@ import {
 } from "../../db/production-order-integration.store";
 
 export class RealProductionOrderCreationGateway
-  implements ProductionOrderCreationGateway
-{
-  constructor(private readonly omieClient: OmieClientWithCircuitBreaker) {}
+  implements ProductionOrderCreationGateway {
+  constructor(private readonly omieClient: OmieClientWithCircuitBreaker) { }
 
   async createProductionOrder(
-    command: CreateProductionOrderRequest
+    command: CreateProductionOrderCommand
   ): Promise<{ externalRequestId: string; status: IntegrationStatus }> {
     if (!this.omieClient) {
       throw new Error("OMIE_CLIENT_NOT_CONFIGURED");
@@ -65,8 +63,8 @@ export class RealProductionOrderCreationGateway
 
       const response =
         apiResponse &&
-        typeof apiResponse === "object" &&
-        "data" in apiResponse
+          typeof apiResponse === "object" &&
+          "data" in apiResponse
           ? (apiResponse as any).data
           : apiResponse;
 

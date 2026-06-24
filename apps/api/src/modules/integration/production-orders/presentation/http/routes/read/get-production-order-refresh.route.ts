@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Refresh Production Order from Omie (Read + Sync)
 // ---------------------------------------------------------------------------
-// GET /v1/integration/read/production-orders/:omieCode/refresh
+// GET /v1/integration/production-orders/read/:omieCode/refresh
 // Consulta a OP no Omie (ConsultarOrdemProducao), atualiza o espelho local
 // e retorna os dados frescos.
 // Síncrona (sem fila) — o usuário quer o dado agora.
@@ -20,7 +20,7 @@ const logger = getLogger("get-production-order-refresh.route");
 
 export async function registerGetProductionOrderRefreshRoute(app: FastifyInstance) {
     app.get(
-        "/v1/integration/read/production-orders/:omieCode/refresh",
+        "/v1/integration/production-orders/read/:omieCode/refresh",
         async (request, reply) => {
             try {
                 const { omieCode } = request.params as { omieCode: string };

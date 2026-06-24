@@ -1,5 +1,5 @@
 import { productionOrderIntegrationStore } from "../../db/production-order-integration.store";
-import type { ProductionOrderCancelGateway, CancelProductionOrderCommand } from "./production-order-cancel.gateway";
+import type { ProductionOrderCancelGateway, CancelProductionOrderCommand } from "../../../application/ports/production-order-cancel.gateway";
 
 export class FakeProductionOrderCancelGateway implements ProductionOrderCancelGateway {
     async cancelProductionOrder(

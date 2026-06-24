@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — List Production Orders (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/integration/read/production-orders
+// GET /v1/integration/production-orders/read
 // Retorna lista paginada do espelho local (omie_production_order).
 // Usa o padrão Real/Fake gateway selecionado via env var.
 // ---------------------------------------------------------------------------
@@ -14,7 +14,7 @@ import { FakeProductionOrderQueryGateway } from "../../../../infrastructure/gate
 import { RealProductionOrderQueryGateway } from "../../../../infrastructure/gateways/query/real-production-order-query.gateway";
 
 export async function registerListProductionOrdersRoute(app: FastifyInstance) {
-    app.get("/v1/integration/read/production-orders", async (request, reply) => {
+    app.get("/v1/integration/production-orders/read", async (request, reply) => {
         try {
             const query = request.query as {
                 page?: string;

@@ -9,29 +9,24 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { ChangeProductionOrderStageRequestSchema } from "../../schemas";
-import { enqueueJob } from "@/shared/infra/job-queue";
+import { EnqueueChangeStageProductionOrderUseCase } from "../../../../application/use-cases/enqueue-change-stage-production-order.usecase";
 
 export async function registerChangeProductionOrderStageRoute(app: FastifyInstance) {
+    const useCase = new EnqueueChangeStageProductionOrderUseCase();
+
     app.post("/v1/integration/production-orders/commands/change-stage", async (request, reply) => {
         try {
             const validatedData = ChangeProductionOrderStageRequestSchema.parse(request.body);
 
-            await enqueueJob("production-order.change-stage", {
+            const result = await useCase.execute({
                 externalRequestId: validatedData.externalRequestId,
                 omieCode: validatedData.omieCode,
                 stage: validatedData.stage,
-            }, {
-                retryLimit: 5,
-                retryBackoff: true,
-                singletonKey: `production-order-change-stage-${validatedData.externalRequestId}`,
             });
 
             return reply.code(202).send({
                 success: true,
-                data: {
-                    externalRequestId: validatedData.externalRequestId,
-                    status: "PENDING",
-                },
+                data: result,
             });
         } catch (error) {
             if (error instanceof z.ZodError) {

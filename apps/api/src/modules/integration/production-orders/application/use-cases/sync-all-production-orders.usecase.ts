@@ -10,8 +10,10 @@ import { getLogger } from "@/shared/logger";
 import type { ProductionOrderSyncPageGateway } from "../ports/production-order-sync-page.gateway";
 import { ProductionOrderCommandStore } from "../../infrastructure/db/production-order-command.store";
 import { ProductionOrderSyncStore } from "../../infrastructure/db/production-order-sync.store";
-import { fetchPageWithRetry } from "@/shared/integration/strategies/retry.strategy";
+import { fetchPageWithRetry, sleep } from "@/shared/integration/strategies/retry.strategy";
 import type { SyncStateStoreContract } from "@/shared/integration/strategies/types";
+import { SyncHooksRunner } from "@/shared/integration/strategies/sync-hooks";
+import { enqueueJob } from "@/shared/infra/job-queue";
 
 export type SyncAllProductionOrdersCommand = {
     externalRequestId: string;
@@ -29,7 +31,10 @@ export class SyncAllProductionOrdersUseCase {
         private readonly options: { noWrite?: boolean } = {}
     ) { }
 
-    async execute(command: SyncAllProductionOrdersCommand) {
+    async execute(
+        command: SyncAllProductionOrdersCommand,
+        hooks?: SyncHooksRunner
+    ) {
         const pageSize = Math.max(
             1,
             Math.min(Number(command.pageSize || 100), 500)
@@ -102,76 +107,116 @@ export class SyncAllProductionOrdersUseCase {
             };
         }
 
-        // ── Sync incremental ─────────────────────────────────────────────
-        try {
-            const state = await this.syncStateStore.getState();
-            const lastSyncAt = state.lastSyncAt;
+        // ── Enfileira no PgBoss para execução assíncrona ─────────────────
+        this.logger.info("Global sync enqueued", {
+            externalRequestId: command.externalRequestId,
+        });
 
-            this.logger.info("Production-orders incremental sync window", {
-                externalRequestId: command.externalRequestId,
-                lastSyncAt,
-            });
+        await enqueueJob("production-order.sync-global", {
+            externalRequestId: command.externalRequestId,
+            pageSize: command.pageSize,
+            maxPages: command.maxPages,
+        }, {
+            retryLimit: 2,
+            retryBackoff: true,
+            singletonKey: "production-order-sync-global",
+        });
 
-            let page = 1;
-            let processedPages = 0;
-            let processedItems = 0;
+        return {
+            status: "ACCEPTED" as const,
+            externalRequestId: command.externalRequestId,
+            resourceId: "__GLOBAL__" as const,
+        };
+    }
+}
 
-            while (processedPages < maxPages) {
-                const pageResult = await fetchPageWithRetry(
-                    () =>
-                        this.fetchPageGateway.fetchPage({
-                            page,
-                            pageSize,
-                            updatedSince: lastSyncAt,
-                        }),
-                    {
-                        label: "production-orders",
-                        externalRequestId: command.externalRequestId,
-                        page,
-                        pageSize,
-                    }
-                );
+// ─── Função auxiliar exportada para execução direta pelo queue processor ──
 
-                processedPages += 1;
-                processedItems += pageResult.items.length;
+export async function executeSyncAllProductionOrders(
+    fetchPageGateway: ProductionOrderSyncPageGateway,
+    syncStore: ProductionOrderSyncStore,
+    commandStore: ProductionOrderCommandStore,
+    syncStateStore: SyncStateStoreContract,
+    command: SyncAllProductionOrdersCommand,
+    hooks?: SyncHooksRunner
+): Promise<void> {
+    const logger = getLogger("SyncAllProductionOrdersExecutor");
+    const pageSize = Math.max(1, Math.min(Number(command.pageSize || 100), 500));
+    const maxPages = Math.max(1, Math.min(Number(command.maxPages || 1000), 10000));
+    const { externalRequestId } = command;
 
-                // Persiste cada item no espelho local
-                for (const item of pageResult.items) {
-                    await this.syncStore.save(item);
-                }
+    logger.info("Executing global sync", { externalRequestId, pageSize, maxPages });
 
-                this.logger.info("Page processed", {
-                    externalRequestId: command.externalRequestId,
-                    page,
-                    items: pageResult.items.length,
-                    totalPages: pageResult.totalPages,
-                    currentPage: pageResult.currentPage,
-                    processedPages,
-                    processedItems,
-                    hasNextPage: pageResult.hasNextPage,
-                });
+    const state = await syncStateStore.getState();
+    const lastSyncAt = state.lastSyncAt;
 
-                if (!pageResult.hasNextPage || pageResult.items.length === 0) break;
-                page += 1;
+    let page = 1;
+    let processedPages = 0;
+    let processedItems = 0;
+
+    while (processedPages < maxPages) {
+        const pageResult = await fetchPageWithRetry(
+            () => fetchPageGateway.fetchPage({
+                page,
+                pageSize,
+                updatedSince: lastSyncAt,
+            }),
+            {
+                label: "production-orders",
+                externalRequestId,
+                page,
+                pageSize,
             }
+        );
 
-            await this.syncStateStore.updateLastSync(new Date());
-            await this.commandStore.markConfirmed(command.externalRequestId);
+        processedPages += 1;
+        processedItems += pageResult.items.length;
 
-            this.logger.info("Global sync completed", {
-                externalRequestId: command.externalRequestId,
+        // Persiste cada item no espelho local
+        for (const item of pageResult.items) {
+            await syncStore.save(item);
+        }
+
+        logger.info("Page processed", {
+            externalRequestId,
+            page,
+            items: pageResult.items.length,
+            totalPages: pageResult.totalPages,
+            currentPage: pageResult.currentPage,
+            processedPages,
+            processedItems,
+            hasNextPage: pageResult.hasNextPage,
+        });
+
+        // Checkpoint a cada 10 páginas
+        if (processedPages % 10 === 0) {
+            logger.info("Checkpoint reached", {
+                externalRequestId,
                 processedPages,
                 processedItems,
             });
+        }
 
-            return {
-                status: "ACCEPTED" as const,
-                externalRequestId: command.externalRequestId,
-                resourceId: "__GLOBAL__" as const,
-            };
-        } catch (err) {
-            await this.commandStore.markFailed(command.externalRequestId, err);
-            throw err;
+        if (!pageResult.hasNextPage || pageResult.items.length === 0) break;
+        page += 1;
+
+        // Rate-limit: pausa entre páginas
+        if (pageResult.hasNextPage) {
+            await sleep(700);
         }
     }
+
+    await syncStateStore.updateLastSync(new Date());
+    await commandStore.markConfirmed(externalRequestId);
+
+    // Executa hooks pós-sync (se houver)
+    if (hooks && hooks.any) {
+        await hooks.runAll({ externalRequestId });
+    }
+
+    logger.info("Global sync completed", {
+        externalRequestId,
+        processedPages,
+        processedItems,
+    });
 }

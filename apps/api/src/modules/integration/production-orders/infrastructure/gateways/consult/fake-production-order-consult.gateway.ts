@@ -5,7 +5,7 @@
 // sem depender do Omie.
 // ---------------------------------------------------------------------------
 
-import type { ProductionOrderConsultGateway, ProductionOrderConsultResult } from "./production-order-consult.gateway";
+import type { ProductionOrderConsultGateway, ProductionOrderConsultResult } from "../../../application/ports/production-order-consult.gateway";
 
 export class FakeProductionOrderConsultGateway
     implements ProductionOrderConsultGateway {

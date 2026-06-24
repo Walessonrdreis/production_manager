@@ -17,6 +17,7 @@ import { registerJobHandler } from "@/shared/infra/job-queue";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 
 import { ProductionOrderCommandStore } from "../db/production-order-command.store";
+import { ProductionOrderSyncStore } from "../db/production-order-sync.store";
 
 import { ProcessCreateProductionOrderUseCase } from "../../application/use-cases/process-create-production-order.usecase";
 import { ProcessUpdateProductionOrderUseCase } from "../../application/use-cases/process-update-production-order.usecase";
@@ -35,10 +36,24 @@ import { FakeProductionOrderCancelGateway } from "../gateways/cancel/fake-produc
 import { RealProductionOrderChangeStageGateway } from "../gateways/change-stage/real-production-order-change-stage.gateway";
 import { FakeProductionOrderChangeStageGateway } from "../gateways/change-stage/fake-production-order-change-stage.gateway";
 
-import type { ProcessCreateProductionOrderData } from "../../application/use-cases/process-create-production-order.usecase";
-import type { ProcessUpdateProductionOrderData } from "../../application/use-cases/process-update-production-order.usecase";
-import type { ProcessCancelProductionOrderData } from "../../application/use-cases/process-cancel-production-order.usecase";
-import type { ProcessChangeStageProductionOrderData } from "../../application/use-cases/process-change-stage-production-order.usecase";
+import type { ProcessCreateProductionOrderData } from "../../application/dto/create-production-order.dto";
+import type { ProcessUpdateProductionOrderData } from "../../application/dto/update-production-order.dto";
+import type { ProcessCancelProductionOrderData } from "../../application/dto/cancel-production-order.dto";
+import type { ProcessChangeStageProductionOrderData } from "../../application/dto/change-stage-production-order.dto";
+
+// ── Sync-global ───────────────────────────────────────────────────────
+
+import { executeSyncAllProductionOrders } from "../../application/use-cases/sync-all-production-orders.usecase";
+import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
+import { SyncHooksRunner } from "@/shared/integration/strategies/sync-hooks";
+import { RealProductionOrderSyncPageGateway } from "../gateways/sync-page/real-production-order-sync-page.gateway";
+import { FakeProductionOrderSyncPageGateway } from "../gateways/sync-page/fake-production-order-sync-page.gateway";
+
+type SyncGlobalJobData = {
+    externalRequestId: string;
+    pageSize?: number;
+    maxPages?: number;
+};
 
 const logger = getLogger("production-orders:jobs:handler");
 
@@ -125,12 +140,56 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
         { concurrency: 1, batchSize: 1 }
     );
 
+    // ── 5. SYNC_GLOBAL: Sincronizar ordens de produção completas (paginação) ──
+
+    registerJobHandler<SyncGlobalJobData>(
+        "production-order.sync-global",
+        async (job) => {
+            const { externalRequestId, pageSize, maxPages } = job.data;
+            logger.info("Processing sync-global", { externalRequestId, pageSize, maxPages });
+
+            const fetchPageGateway = isFake
+                ? new FakeProductionOrderSyncPageGateway()
+                : new RealProductionOrderSyncPageGateway(omieClient);
+
+            if (!isFake) {
+                const syncStateStore = new PrismaSyncStateStore(
+                    prisma.productionOrderSyncState,
+                    "GLOBAL"
+                );
+
+                const hooks = new SyncHooksRunner();
+
+                await executeSyncAllProductionOrders(
+                    fetchPageGateway,
+                    new ProductionOrderSyncStore(prisma),
+                    commandStore,
+                    syncStateStore,
+                    {
+                        externalRequestId,
+                        pageSize: pageSize ?? 100,
+                        maxPages: maxPages ?? 1000,
+                        source: "JOB",
+                    },
+                    hooks
+                );
+            } else {
+                // Modo fake: apenas marca como confirmado
+                await commandStore.markConfirmed(externalRequestId);
+            }
+
+            logger.info("Sync-global completed", { externalRequestId });
+        },
+        { concurrency: 1, batchSize: 1 }
+    );
+
     logger.info("Production-order PgBoss handlers registered", {
         types: [
             "production-order.create-op",
             "production-order.update-op",
             "production-order.cancel-op",
             "production-order.change-stage",
+            "production-order.sync-global",
         ],
     });
 }

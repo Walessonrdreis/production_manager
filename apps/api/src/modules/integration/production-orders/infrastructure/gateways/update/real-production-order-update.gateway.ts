@@ -1,7 +1,7 @@
 import { env } from "@/config";
 import type { OmieClientWithCircuitBreaker } from "@/shared/integrations/omie/omie-client-with-circuit-breaker";
 import { productionOrderIntegrationStore, type IntegrationStatus } from "../../db/production-order-integration.store";
-import type { ProductionOrderUpdateGateway, UpdateProductionOrderCommand } from "./production-order-update.gateway";
+import type { ProductionOrderUpdateGateway, UpdateProductionOrderCommand } from "../../../application/ports/production-order-update.gateway";
 
 export class RealProductionOrderUpdateGateway implements ProductionOrderUpdateGateway {
     constructor(private readonly omieClient: OmieClientWithCircuitBreaker) { }

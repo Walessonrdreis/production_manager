@@ -1,13 +1,6 @@
-import type { ProductionOrderUpdateGateway } from "../../infrastructure/gateways/update/production-order-update.gateway";
+import type { ProductionOrderUpdateGateway } from "../ports/production-order-update.gateway";
 import type { ProductionOrderCommandStore } from "../../infrastructure/db/production-order-command.store";
-
-export type ProcessUpdateProductionOrderData = {
-    externalRequestId: string;
-    omieCode: string;
-    quantity?: number;
-    forecastDate?: string;
-    notes?: string;
-};
+import type { ProcessUpdateProductionOrderData } from "../dto/update-production-order.dto";
 
 /**
  * Use case — Process update production order from PgBoss worker
