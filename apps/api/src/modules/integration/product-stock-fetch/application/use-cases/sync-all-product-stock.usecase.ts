@@ -14,6 +14,7 @@ import type { SyncStateStoreContract } from "@/shared/integration/strategies/typ
 
 export type IntegrationStoreContract = {
   upsert(productId: string, data: { stockQuantity: number; minimumStock?: number }): Promise<any>;
+  saveMany(items: Array<{ productId: string; stockQuantity: number; minimumStock?: number }>): Promise<any>;
 };
 
 export type CommandStoreContract = {
@@ -143,12 +144,13 @@ export class SyncAllProductStockUseCase {
         if (pageResult.items.length > 0) {
           totalItems += pageResult.items.length;
 
-          for (const item of pageResult.items) {
-            await this.integrationStore.upsert(item.productId, {
+          await this.integrationStore.saveMany(
+            pageResult.items.map((item) => ({
+              productId: item.productId,
               stockQuantity: item.stockQuantity,
               minimumStock: item.minimumStock,
-            });
-          }
+            })),
+          );
         }
 
         this.logger.info("Product stock page processed", {

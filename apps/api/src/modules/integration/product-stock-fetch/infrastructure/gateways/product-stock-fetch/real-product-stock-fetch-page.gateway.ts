@@ -16,6 +16,11 @@ import {
   extractProductCode,
   extractStockLocationCode,
 } from "../../../application/mappers/map-omie-stock-to-domain";
+import {
+  isOmieErrorResponse,
+  isOmieHttpErrorWithSample,
+  mapHttpErrorToOmieError,
+} from "@/shared/integration/strategies/omie-error.mapper";
 
 /**
  * Data de hoje no formato DD/MM/YYYY (comum em filtros do Omie).
@@ -29,7 +34,7 @@ function getTodayBr(): string {
 }
 
 export class RealProductStockFetchPageGateway implements ProductStockFetchPageGateway {
-  constructor(private readonly omieClient: OmieHttpClientPort) {}
+  constructor(private readonly omieClient: OmieHttpClientPort) { }
 
   async fetchPage({ page, pageSize }: ProductStockFetchPageInput): Promise<ProductStockFetchPageResult> {
     const positionDate = getTodayBr();
@@ -49,21 +54,26 @@ export class RealProductStockFetchPageGateway implements ProductStockFetchPageGa
       ],
     };
 
-    const apiResponse = await this.omieClient.post<any>(
-      "/api/v1/estoque/consulta/",
-      payload,
-    );
+    let response: any;
 
-    const response =
-      apiResponse && typeof apiResponse === "object" && "data" in apiResponse
-        ? (apiResponse as any).data
-        : apiResponse;
+    try {
+      const apiResponse = await this.omieClient.post<any>(
+        "/api/v1/estoque/consulta/",
+        payload,
+      );
 
-    if (
-      response?.faultstring ||
-      response?.error ||
-      (response?.codigo_status && response.codigo_status !== "0")
-    ) {
+      response =
+        apiResponse && typeof apiResponse === "object" && "data" in apiResponse
+          ? (apiResponse as any).data
+          : apiResponse;
+    } catch (httpError) {
+      if (isOmieHttpErrorWithSample(httpError)) {
+        throw mapHttpErrorToOmieError(httpError);
+      }
+      throw httpError;
+    }
+
+    if (isOmieErrorResponse(response)) {
       throw new Error(
         response?.faultstring || response?.error || "Omie stock API error",
       );

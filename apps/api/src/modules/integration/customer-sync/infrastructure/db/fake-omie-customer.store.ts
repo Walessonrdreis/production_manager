@@ -260,6 +260,49 @@ export class FakeOmieCustomerStore {
         return record;
     }
 
+    // ---- saveMany ----
+    async saveMany(
+        items: Array<{
+            customerCode: string;
+            legalName: string;
+            tradeName: string | null;
+            document: string;
+            personType: string;
+            email: string | null;
+            phone: string | null;
+            isActive: boolean;
+            isBlocked: boolean;
+            isBillingBlocked: boolean;
+            createdAtOmie: Date | null | undefined;
+            updatedAtOmie: Date | null | undefined;
+            rawPayload: any;
+        }>,
+    ) {
+        const records = items.map((input) => {
+            const record: OmieCustomerRecord = {
+                customerCode: input.customerCode,
+                omieCode: input.customerCode,
+                legalName: input.legalName,
+                tradeName: input.tradeName ?? null,
+                document: input.document,
+                personType: input.personType,
+                email: input.email ?? null,
+                phone: input.phone ?? null,
+                isActive: input.isActive,
+                isBlocked: input.isBlocked,
+                isBillingBlocked: input.isBillingBlocked,
+                createdAtOmie: input.createdAtOmie ?? null,
+                updatedAtOmie: input.updatedAtOmie ?? null,
+                lastSyncAt: new Date(),
+            };
+            this.data.set(input.customerCode, record);
+            return record;
+        });
+
+        this.logger.info("Fake batch upserted customers", { count: records.length });
+        return records;
+    }
+
     // ---- getStats ----
     async getStats() {
         const all = Array.from(this.data.values());

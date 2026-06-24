@@ -3,15 +3,35 @@ import type {
     CustomerExternalCustomer,
     CustomerFetchGateway,
 } from "../../../application/ports/customer-fetch.gateway";
+import {
+    isOmieErrorResponse,
+    isOmieHttpErrorWithSample,
+    mapHttpErrorToOmieError,
+} from "@/shared/integration/strategies/omie-error.mapper";
 
 export class RealCustomerFetchGateway implements CustomerFetchGateway {
     constructor(private readonly omieClient: OmieHttpClientPort) { }
 
     async fetchByCustomerCode(customerCode: string): Promise<CustomerExternalCustomer | null> {
-        const response = await this.omieClient.post<any>("geral/clientes/", {
-            call: "ConsultarCliente",
-            param: [{ codigo_cliente_omie: Number(customerCode) }],
-        });
+        let response: any;
+
+        try {
+            response = await this.omieClient.post<any>("geral/clientes/", {
+                call: "ConsultarCliente",
+                param: [{ codigo_cliente_omie: Number(customerCode) }],
+            });
+        } catch (httpError) {
+            if (isOmieHttpErrorWithSample(httpError)) {
+                throw mapHttpErrorToOmieError(httpError);
+            }
+            throw httpError;
+        }
+
+        if (isOmieErrorResponse(response)) {
+            throw new Error(
+                response?.faultstring || response?.error || "Omie customer consult API error",
+            );
+        }
 
         if (!response) {
             return null;

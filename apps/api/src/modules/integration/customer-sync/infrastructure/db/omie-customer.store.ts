@@ -261,6 +261,64 @@ export class OmieCustomerStore {
         });
     }
 
+    async saveMany(
+        items: Array<{
+            customerCode: string;
+            legalName: string;
+            tradeName: string | null;
+            document: string;
+            personType: string;
+            email: string | null;
+            phone: string | null;
+            isActive: boolean;
+            isBlocked: boolean;
+            isBillingBlocked: boolean;
+            createdAtOmie: Date | null | undefined;
+            updatedAtOmie: Date | null | undefined;
+            rawPayload: any;
+        }>,
+    ) {
+        this.logger.info("Batch upserting customers", { count: items.length });
+
+        return prisma.$transaction(
+            items.map((input) =>
+                prisma.omieCustomer.upsert({
+                    where: { omieCode: input.customerCode },
+                    create: {
+                        omieCode: input.customerCode,
+                        legalName: input.legalName,
+                        tradeName: input.tradeName ?? null,
+                        document: input.document,
+                        personType: input.personType,
+                        email: input.email ?? null,
+                        phone: input.phone ?? null,
+                        isActive: input.isActive,
+                        isBlocked: input.isBlocked,
+                        isBillingBlocked: input.isBillingBlocked,
+                        createdAtOmie: input.createdAtOmie ?? null,
+                        updatedAtOmie: input.updatedAtOmie ?? null,
+                        rawPayload: input.rawPayload,
+                    },
+                    update: {
+                        legalName: input.legalName,
+                        tradeName: input.tradeName ?? null,
+                        document: input.document,
+                        personType: input.personType,
+                        email: input.email ?? null,
+                        phone: input.phone ?? null,
+                        isActive: input.isActive,
+                        isBlocked: input.isBlocked,
+                        isBillingBlocked: input.isBillingBlocked,
+                        createdAtOmie: input.createdAtOmie ?? null,
+                        updatedAtOmie: input.updatedAtOmie ?? null,
+                        rawPayload: input.rawPayload,
+                        lastSyncAt: new Date(),
+                    },
+                }),
+            ),
+        );
+    }
+
     async getStats() {
         const [total, active, inactive, lastCustomer] = await Promise.all([
             prisma.omieCustomer.count(),

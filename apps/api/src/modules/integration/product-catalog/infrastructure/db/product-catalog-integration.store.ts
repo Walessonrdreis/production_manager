@@ -43,19 +43,19 @@ export class ProductCatalogIntegrationStore {
       ...(sku ? { sku: { contains: sku, mode: "insensitive" as const } } : {}),
       ...(q
         ? {
-            OR: [
-              { description: { contains: q, mode: "insensitive" as const } },
-              { sku: { contains: q, mode: "insensitive" as const } },
-              { omieCode: { contains: q, mode: "insensitive" as const } },
-            ],
-          }
+          OR: [
+            { description: { contains: q, mode: "insensitive" as const } },
+            { sku: { contains: q, mode: "insensitive" as const } },
+            { omieCode: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
         : {}),
       ...(since
         ? {
-            lastSyncAt: {
-              gte: new Date(since),
-            },
-          }
+          lastSyncAt: {
+            gte: new Date(since),
+          },
+        }
         : {}),
     };
 
@@ -132,9 +132,9 @@ export class ProductCatalogIntegrationStore {
 
         const full = includeRaw
           ? {
-              ...base,
-              rawPayload: record.rawPayload,
-            }
+            ...base,
+            rawPayload: record.rawPayload,
+          }
           : base;
 
         if (!fields || fields.length === 0) {
@@ -208,6 +208,46 @@ export class ProductCatalogIntegrationStore {
         lastSyncAt: new Date(),
       },
     });
+  }
+
+  async saveMany(
+    items: Array<{
+      productCode: string;
+      omieId?: string | null;
+      sku?: string | null;
+      description: string;
+      familyDescription?: string | null;
+      active: boolean;
+      rawPayload: any;
+    }>,
+  ) {
+    this.logger.info("Batch upserting products", { count: items.length });
+
+    return prisma.$transaction(
+      items.map((input) =>
+        prisma.omieProduct.upsert({
+          where: { omieCode: input.productCode },
+          create: {
+            omieCode: input.productCode,
+            omieId: input.omieId ?? null,
+            sku: input.sku ?? null,
+            description: input.description,
+            familyDescription: input.familyDescription ?? null,
+            active: input.active,
+            rawPayload: input.rawPayload,
+          },
+          update: {
+            omieId: input.omieId ?? null,
+            sku: input.sku ?? null,
+            description: input.description,
+            familyDescription: input.familyDescription ?? null,
+            active: input.active,
+            rawPayload: input.rawPayload,
+            lastSyncAt: new Date(),
+          },
+        }),
+      ),
+    );
   }
 
   async getStats() {

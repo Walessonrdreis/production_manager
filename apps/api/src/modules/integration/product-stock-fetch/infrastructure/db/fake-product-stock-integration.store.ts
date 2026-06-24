@@ -39,6 +39,23 @@ export class FakeProductStockIntegrationStore {
         return this.data.get(productId) ?? null;
     }
 
+    async saveMany(
+        items: Array<{ productId: string; stockQuantity: number; minimumStock?: number }>,
+    ) {
+        const records = items.map((item) => {
+            const existing = this.data.get(item.productId);
+            const record: StockRecord = {
+                omieCode: item.productId,
+                stockQuantity: item.stockQuantity,
+                minimumStock: item.minimumStock ?? existing?.minimumStock ?? 0,
+                updatedAt: new Date(),
+            };
+            this.data.set(item.productId, record);
+            return record;
+        });
+        return records;
+    }
+
     async list(limit = 50, offset = 0) {
         return Array.from(this.data.values())
             .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())

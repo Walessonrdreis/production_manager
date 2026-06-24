@@ -38,6 +38,29 @@ export class ProductStockIntegrationStore {
         });
     }
 
+    async saveMany(
+        items: Array<{ productId: string; stockQuantity: number; minimumStock?: number }>,
+    ) {
+        this.logger.info("Batch upserting stock items", { count: items.length });
+
+        return prisma.$transaction(
+            items.map((item) =>
+                prisma.productStock.upsert({
+                    where: { omieCode: item.productId },
+                    create: {
+                        omieCode: item.productId,
+                        stockQuantity: item.stockQuantity,
+                        minimumStock: item.minimumStock ?? 0,
+                    },
+                    update: {
+                        stockQuantity: item.stockQuantity,
+                        minimumStock: item.minimumStock ?? 0,
+                    },
+                }),
+            ),
+        );
+    }
+
     async list(limit = 50, offset = 0) {
         return prisma.productStock.findMany({
             orderBy: { updatedAt: "desc" },

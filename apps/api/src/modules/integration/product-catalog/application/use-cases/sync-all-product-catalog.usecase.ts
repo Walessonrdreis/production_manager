@@ -139,16 +139,18 @@ export class SyncAllProductCatalogUseCase {
           }
         );
 
-        for (const item of pageResult.items) {
-          await this.integrationStore.upsertFromExternal({
-            productCode: item.productCode,
-            omieId: item.omieId,
-            sku: item.sku,
-            description: item.description,
-            familyDescription: item.familyDescription,
-            active: item.active,
-            rawPayload: item.rawPayload,
-          });
+        if (pageResult.items.length > 0) {
+          await this.integrationStore.saveMany(
+            pageResult.items.map((item) => ({
+              productCode: item.productCode,
+              omieId: item.omieId,
+              sku: item.sku,
+              description: item.description,
+              familyDescription: item.familyDescription,
+              active: item.active,
+              rawPayload: item.rawPayload,
+            })),
+          );
         }
 
         processedPages += 1;

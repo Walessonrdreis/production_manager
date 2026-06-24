@@ -2,8 +2,17 @@ import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-cl
 
 import type {
   ProductCatalogFetchPageGateway,
+  ProductCatalogFetchPageInput,
   ProductCatalogFetchPageResult,
 } from "../../../application/ports/product-catalog-fetch-page.gateway";
+import {
+  isOmieErrorResponse,
+  isOmieHttpErrorWithSample,
+  mapHttpErrorToOmieError,
+} from "@/shared/integration/strategies/omie-error.mapper";
+import { getLogger } from "@/shared/logger";
+
+const logger = getLogger("RealProductCatalogFetchPageGateway");
 
 function normalizeText(value: string) {
   return value
@@ -45,17 +54,32 @@ export class RealProductCatalogFetchPageGateway
     const { page, pageSize } = input;
 
     try {
-      const response = await this.omieClient.post<any>("geral/produtos/", {
-        call: "ListarProdutos",
-        param: [
-          {
-            pagina: page,
-            registros_por_pagina: pageSize,
-            apenas_importado_api: "N",
-            filtrar_apenas_omiepdv: "N",
-          },
-        ],
-      });
+      let response: any;
+
+      try {
+        response = await this.omieClient.post<any>("geral/produtos/", {
+          call: "ListarProdutos",
+          param: [
+            {
+              pagina: page,
+              registros_por_pagina: pageSize,
+              apenas_importado_api: "N",
+              filtrar_apenas_omiepdv: "N",
+            },
+          ],
+        });
+      } catch (httpError) {
+        if (isOmieHttpErrorWithSample(httpError)) {
+          throw mapHttpErrorToOmieError(httpError);
+        }
+        throw httpError;
+      }
+
+      if (isOmieErrorResponse(response)) {
+        throw new Error(
+          response?.faultstring || response?.error || "Omie product catalog API error",
+        );
+      }
 
       const items = Array.isArray(response?.produto_servico_cadastro)
         ? response.produto_servico_cadastro
@@ -99,8 +123,7 @@ export class RealProductCatalogFetchPageGateway
       const normalizedFault = normalizeText(faultString);
 
       if (normalizedFault.includes("nao existem registros para a pagina")) {
-        console.log(`[SYNC] Page ${page} - END OF DATA`);
-
+        logger.info("Page end of data", { page });
         return {
           items: [],
           hasNextPage: false,

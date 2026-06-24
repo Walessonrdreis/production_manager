@@ -5,6 +5,14 @@ import type {
     CustomerFetchPageInput,
     CustomerFetchPageResult,
 } from "../../../application/ports/customer-fetch-page.gateway";
+import {
+    isOmieErrorResponse,
+    isOmieHttpErrorWithSample,
+    mapHttpErrorToOmieError,
+} from "@/shared/integration/strategies/omie-error.mapper";
+import { getLogger } from "@/shared/logger";
+
+const logger = getLogger("RealCustomerFetchPageGateway");
 
 function normalizeText(value: string) {
     return value
@@ -48,16 +56,43 @@ export class RealCustomerFetchPageGateway implements CustomerFetchPageGateway {
 
     async fetchPage({ page, pageSize, updatedSince }: CustomerFetchPageInput): Promise<CustomerFetchPageResult> {
         try {
-            const response = await this.omieClient.post<any>("geral/clientes/", {
-                call: "ListarClientes",
-                param: [
-                    {
-                        pagina: page,
-                        registros_por_pagina: pageSize,
-                        apenas_importado_api: "N",
-                    },
-                ],
-            });
+            let response: any;
+
+            try {
+                response = await this.omieClient.post<any>("geral/clientes/", {
+                    call: "ListarClientes",
+                    param: [
+                        {
+                            pagina: page,
+                            registros_por_pagina: pageSize,
+                            apenas_importado_api: "N",
+                        },
+                    ],
+                });
+            } catch (httpError) {
+                if (isOmieHttpErrorWithSample(httpError)) {
+                    throw mapHttpErrorToOmieError(httpError);
+                }
+                throw httpError;
+            }
+
+            if (isOmieErrorResponse(response)) {
+                const fault = response?.faultstring || response?.error || "Omie customer API error";
+                const normalizedFault = normalizeText(fault);
+
+                if (normalizedFault.includes("nao existem registros para a pagina")) {
+                    logger.info("Page end of data", { page });
+                    return {
+                        items: [],
+                        totalPages: page - 1,
+                        currentPage: page,
+                        totalRecords: 0,
+                        hasNext: false,
+                    };
+                }
+
+                throw new Error(fault);
+            }
 
             const rawItems = Array.isArray(response?.clientes_cadastro)
                 ? response.clientes_cadastro
@@ -75,9 +110,14 @@ export class RealCustomerFetchPageGateway implements CustomerFetchPageGateway {
                 })
                 : rawItems;
 
-            console.log(
-                `[SYNC] Page ${page} - Raw: ${rawItems.length} - Filtered: ${itemsToMap.length} - TotalPages: ${totalPages ?? "unknown"} - TotalRecords: ${totalRecords ?? "unknown"}${updatedSince ? " (incremental)" : " (full)"}`
-            );
+            logger.info("Page fetched", {
+                page,
+                rawCount: rawItems.length,
+                filteredCount: itemsToMap.length,
+                totalPages,
+                totalRecords,
+                isIncremental: !!updatedSince,
+            });
 
             const mappedItems = itemsToMap.map((item: any) => {
                 const personType = String(item.pessoa_fisica ?? "N") === "S" ? "PF" : "PJ";
@@ -115,8 +155,7 @@ export class RealCustomerFetchPageGateway implements CustomerFetchPageGateway {
             const normalizedFault = normalizeText(faultString);
 
             if (normalizedFault.includes("nao existem registros para a pagina")) {
-                console.log(`[SYNC] Page ${page} - END OF DATA`);
-
+                logger.info("Page end of data (from outer catch)", { page });
                 return {
                     items: [],
                     totalPages: page - 1,

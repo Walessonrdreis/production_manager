@@ -5,8 +5,8 @@ import type { CustomerCommandStore } from "../../infrastructure/db/customer-comm
 import { fetchPageWithRetry, sleep } from "@/shared/integration/strategies/retry.strategy";
 import type { SyncStateStoreContract } from "@/shared/integration/strategies/types";
 
-// Contrato: qualquer store que implemente upsertFromExternal
-export type IntegrationStoreContract = Pick<OmieCustomerStore, "upsertFromExternal">;
+// Contrato: qualquer store que implemente upsertFromExternal e saveMany
+export type IntegrationStoreContract = Pick<OmieCustomerStore, "upsertFromExternal" | "saveMany">;
 export type CommandStoreContract = Pick<
     CustomerCommandStore,
     "getOrCreateAccepted" | "markConfirmed" | "markFailed"
@@ -121,8 +121,8 @@ export class SyncAllCustomersUseCase {
                 if (pageResult.items.length > 0) {
                     totalItems += pageResult.items.length;
 
-                    for (const item of pageResult.items) {
-                        await this.integrationStore.upsertFromExternal({
+                    await this.integrationStore.saveMany(
+                        pageResult.items.map((item) => ({
                             customerCode: item.customerCode,
                             legalName: item.legalName,
                             tradeName: item.tradeName,
@@ -136,8 +136,8 @@ export class SyncAllCustomersUseCase {
                             createdAtOmie: item.createdAtOmie,
                             updatedAtOmie: item.updatedAtOmie,
                             rawPayload: item.rawPayload,
-                        });
-                    }
+                        })),
+                    );
                 }
 
                 this.logger.info("Customer sync page processed", {
