@@ -11,15 +11,15 @@ import { productManagerIntegrationRoutes } from "./presentation/http/routes";
 import { registerProductManagerJobs } from "./infrastructure/jobs/product-manager-jobs.register";
 
 export function createProductManagerIntegration() {
-  return {
-    name: "product-manager-integration",
-    register: async (app: FastifyInstance) => {
-      await productManagerIntegrationRoutes(app);
+    return {
+        name: "product-manager-integration",
+        register: async (app: FastifyInstance) => {
+            await productManagerIntegrationRoutes(app);
 
-      const omieClient = (app as any).omieClient as OmieHttpClientPort;
-      if (omieClient) {
-        registerProductManagerJobs(omieClient);
-      }
-    },
-  };
+            const omieClient = (app as any).omieClient as OmieHttpClientPort;
+            if (omieClient) {
+                registerProductManagerJobs(omieClient);
+            }
+        },
+    };
 }

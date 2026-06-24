@@ -13,34 +13,34 @@ import { getLogger } from "@/shared/logger";
 const logger = getLogger("ProcessCreateProductUseCase");
 
 export class ProcessCreateProductUseCase {
-  constructor(
-    private readonly creationGateway: ProductCreationGateway,
-    private readonly commandStore: ProductManagerCommandStore,
-    private readonly options: { isFake: boolean }
-  ) {}
+    constructor(
+        private readonly creationGateway: ProductCreationGateway,
+        private readonly commandStore: ProductManagerCommandStore,
+        private readonly options: { isFake: boolean }
+    ) { }
 
-  async execute(data: ProcessCreateProductData): Promise<void> {
-    const { externalRequestId } = data;
+    async execute(data: ProcessCreateProductData): Promise<void> {
+        const { externalRequestId } = data;
 
-    await this.commandStore.markProcessing(externalRequestId);
+        await this.commandStore.markProcessing(externalRequestId);
 
-    const result = await this.creationGateway.create(data);
+        const result = await this.creationGateway.create(data);
 
-    if (result.status === "FAILED") {
-      await this.commandStore.markFailed(externalRequestId, {
-        code: "OMIE_REJECTED",
-        message: "Omie rejeitou a criação do produto",
-      });
-      logger.error("Product creation failed in Omie", { externalRequestId });
-      return;
+        if (result.status === "FAILED") {
+            await this.commandStore.markFailed(externalRequestId, {
+                code: "OMIE_REJECTED",
+                message: "Omie rejeitou a criação do produto",
+            });
+            logger.error("Product creation failed in Omie", { externalRequestId });
+            return;
+        }
+
+        // Atualiza o comando com o código do produto gerado
+        await this.commandStore.markConfirmed(externalRequestId);
+
+        logger.info("Product created successfully", {
+            externalRequestId,
+            productCode: result.productCode,
+        });
     }
-
-    // Atualiza o comando com o código do produto gerado
-    await this.commandStore.markConfirmed(externalRequestId);
-
-    logger.info("Product created successfully", {
-      externalRequestId,
-      productCode: result.productCode,
-    });
-  }
 }

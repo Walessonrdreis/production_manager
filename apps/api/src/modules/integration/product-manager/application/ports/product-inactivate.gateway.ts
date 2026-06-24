@@ -5,16 +5,16 @@
 // ---------------------------------------------------------------------------
 
 export type InactivateProductCommand = {
-  externalRequestId: string;
-  productCode: string;
+    externalRequestId: string;
+    productCode: string;
 };
 
 export interface ProductInactivateGateway {
-  inactivate(
-    command: InactivateProductCommand
-  ): Promise<{
-    externalRequestId: string;
-    productCode: string;
-    status: "ACCEPTED" | "CONFIRMED" | "FAILED";
-  }>;
+    inactivate(
+        command: InactivateProductCommand
+    ): Promise<{
+        externalRequestId: string;
+        productCode: string;
+        status: "ACCEPTED" | "CONFIRMED" | "FAILED";
+    }>;
 }

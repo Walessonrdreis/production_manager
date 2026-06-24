@@ -10,33 +10,33 @@ import { getLogger } from "@/shared/logger";
 const logger = getLogger("ProcessInactivateProductUseCase");
 
 export class ProcessInactivateProductUseCase {
-  constructor(
-    private readonly inactivateGateway: ProductInactivateGateway,
-    private readonly commandStore: ProductManagerCommandStore,
-    private readonly options: { isFake: boolean }
-  ) {}
+    constructor(
+        private readonly inactivateGateway: ProductInactivateGateway,
+        private readonly commandStore: ProductManagerCommandStore,
+        private readonly options: { isFake: boolean }
+    ) { }
 
-  async execute(data: ProcessInactivateProductData): Promise<void> {
-    const { externalRequestId } = data;
+    async execute(data: ProcessInactivateProductData): Promise<void> {
+        const { externalRequestId } = data;
 
-    await this.commandStore.markProcessing(externalRequestId);
+        await this.commandStore.markProcessing(externalRequestId);
 
-    const result = await this.inactivateGateway.inactivate(data);
+        const result = await this.inactivateGateway.inactivate(data);
 
-    if (result.status === "FAILED") {
-      await this.commandStore.markFailed(externalRequestId, {
-        code: "OMIE_REJECTED",
-        message: "Omie rejeitou a inativação do produto",
-      });
-      logger.error("Product inactivation failed in Omie", { externalRequestId });
-      return;
+        if (result.status === "FAILED") {
+            await this.commandStore.markFailed(externalRequestId, {
+                code: "OMIE_REJECTED",
+                message: "Omie rejeitou a inativação do produto",
+            });
+            logger.error("Product inactivation failed in Omie", { externalRequestId });
+            return;
+        }
+
+        await this.commandStore.markConfirmed(externalRequestId);
+
+        logger.info("Product inactivated successfully", {
+            externalRequestId,
+            productCode: result.productCode,
+        });
     }
-
-    await this.commandStore.markConfirmed(externalRequestId);
-
-    logger.info("Product inactivated successfully", {
-      externalRequestId,
-      productCode: result.productCode,
-    });
-  }
 }

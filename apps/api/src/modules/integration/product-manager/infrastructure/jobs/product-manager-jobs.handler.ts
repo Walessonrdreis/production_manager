@@ -38,21 +38,21 @@ import type { ProcessInactivateProductData } from "../../application/dto/inactiv
 const logger = getLogger("product-manager:jobs:handler");
 
 function createGateways(omieClient: OmieHttpClientPort) {
-  const isFake = env.PRODUCT_MANAGER_GATEWAY === "fake";
+    const isFake = env.PRODUCT_MANAGER_GATEWAY === "fake";
 
-  const creationGateway = isFake
-    ? new FakeProductCreationGateway()
-    : new RealProductCreationGateway(omieClient);
+    const creationGateway = isFake
+        ? new FakeProductCreationGateway()
+        : new RealProductCreationGateway(omieClient);
 
-  const updateGateway = isFake
-    ? new FakeProductUpdateGateway()
-    : new RealProductUpdateGateway(omieClient);
+    const updateGateway = isFake
+        ? new FakeProductUpdateGateway()
+        : new RealProductUpdateGateway(omieClient);
 
-  const inactivateGateway = isFake
-    ? new FakeProductInactivateGateway()
-    : new RealProductInactivateGateway(omieClient);
+    const inactivateGateway = isFake
+        ? new FakeProductInactivateGateway()
+        : new RealProductInactivateGateway(omieClient);
 
-  return { isFake, creationGateway, updateGateway, inactivateGateway };
+    return { isFake, creationGateway, updateGateway, inactivateGateway };
 }
 
 /**
@@ -61,61 +61,61 @@ function createGateways(omieClient: OmieHttpClientPort) {
  * que delegam para os use-cases.
  */
 export function registerProductManagerJobHandlers(
-  omieClient: OmieHttpClientPort
+    omieClient: OmieHttpClientPort
 ): void {
-  const commandStore = new ProductManagerCommandStore(prisma);
-  const { isFake, creationGateway, updateGateway, inactivateGateway } =
-    createGateways(omieClient);
+    const commandStore = new ProductManagerCommandStore(prisma);
+    const { isFake, creationGateway, updateGateway, inactivateGateway } =
+        createGateways(omieClient);
 
-  // ── Instancia use-cases de processamento ──────────────────────────
+    // ── Instancia use-cases de processamento ──────────────────────────
 
-  const createUseCase = new ProcessCreateProductUseCase(
-    creationGateway,
-    commandStore,
-    { isFake }
-  );
+    const createUseCase = new ProcessCreateProductUseCase(
+        creationGateway,
+        commandStore,
+        { isFake }
+    );
 
-  const updateUseCase = new ProcessUpdateProductUseCase(
-    updateGateway,
-    commandStore,
-    { isFake }
-  );
+    const updateUseCase = new ProcessUpdateProductUseCase(
+        updateGateway,
+        commandStore,
+        { isFake }
+    );
 
-  const inactivateUseCase = new ProcessInactivateProductUseCase(
-    inactivateGateway,
-    commandStore,
-    { isFake }
-  );
+    const inactivateUseCase = new ProcessInactivateProductUseCase(
+        inactivateGateway,
+        commandStore,
+        { isFake }
+    );
 
-  // ── 1. CREATE ─────────────────────────────────────────────────────
+    // ── 1. CREATE ─────────────────────────────────────────────────────
 
-  registerJobHandler<ProcessCreateProductData>(
-    "product-manager.create",
-    (job) => createUseCase.execute(job.data),
-    { concurrency: 1, batchSize: 1 }
-  );
+    registerJobHandler<ProcessCreateProductData>(
+        "product-manager.create",
+        (job) => createUseCase.execute(job.data),
+        { concurrency: 1, batchSize: 1 }
+    );
 
-  // ── 2. UPDATE ─────────────────────────────────────────────────────
+    // ── 2. UPDATE ─────────────────────────────────────────────────────
 
-  registerJobHandler<ProcessUpdateProductData>(
-    "product-manager.update",
-    (job) => updateUseCase.execute(job.data),
-    { concurrency: 1, batchSize: 1 }
-  );
+    registerJobHandler<ProcessUpdateProductData>(
+        "product-manager.update",
+        (job) => updateUseCase.execute(job.data),
+        { concurrency: 1, batchSize: 1 }
+    );
 
-  // ── 3. INACTIVATE ─────────────────────────────────────────────────
+    // ── 3. INACTIVATE ─────────────────────────────────────────────────
 
-  registerJobHandler<ProcessInactivateProductData>(
-    "product-manager.inactivate",
-    (job) => inactivateUseCase.execute(job.data),
-    { concurrency: 1, batchSize: 1 }
-  );
+    registerJobHandler<ProcessInactivateProductData>(
+        "product-manager.inactivate",
+        (job) => inactivateUseCase.execute(job.data),
+        { concurrency: 1, batchSize: 1 }
+    );
 
-  logger.info("Product-manager PgBoss handlers registered", {
-    types: [
-      "product-manager.create",
-      "product-manager.update",
-      "product-manager.inactivate",
-    ],
-  });
+    logger.info("Product-manager PgBoss handlers registered", {
+        types: [
+            "product-manager.create",
+            "product-manager.update",
+            "product-manager.inactivate",
+        ],
+    });
 }

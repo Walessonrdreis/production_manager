@@ -11,7 +11,7 @@ import { registerUpdateProductRoute } from "./routes/commands/update-product.rou
 import { registerInactivateProductRoute } from "./routes/commands/inactivate-product.route";
 
 export async function productManagerIntegrationRoutes(app: FastifyInstance) {
-  await registerCreateProductRoute(app);
-  await registerUpdateProductRoute(app);
-  await registerInactivateProductRoute(app);
+    await registerCreateProductRoute(app);
+    await registerUpdateProductRoute(app);
+    await registerInactivateProductRoute(app);
 }

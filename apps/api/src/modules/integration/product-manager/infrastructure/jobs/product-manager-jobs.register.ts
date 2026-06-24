@@ -8,7 +8,7 @@ import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-cl
 import { registerProductManagerJobHandlers } from "./product-manager-jobs.handler";
 
 export function registerProductManagerJobs(
-  omieClient: OmieHttpClientPort
+    omieClient: OmieHttpClientPort
 ): void {
-  registerProductManagerJobHandlers(omieClient);
+    registerProductManagerJobHandlers(omieClient);
 }
