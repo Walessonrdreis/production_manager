@@ -5,6 +5,9 @@
 > módulo `product-structure`, que é o padrão mais completo e revisado do projeto.
 > Consulte `apps/api/src/modules/integration/product-structure/` como referência viva.
 
+> ✅ **Quality Gate:** Consulte `docs/MODULE_QUALITY_GATE.md` para o checklist canônico
+> que deve ser preenchido ao criar ou evoluir um módulo.
+
 Este template define a estrutura canônica obrigatória para todos os novos módulos de integração. Use este template como ponto de partida e referência ao criar qualquer novo módulo.
 
 ## 1. Estrutura Completa do Módulo
@@ -1708,55 +1711,53 @@ const integrations = [
 - [ ] Testes unitários escritos
 - [ ] README.md do módulo atualizado
 
-## 6. Exemplo Completo: Módulo `product-catalog`
+## 6. Exemplo Completo: Módulo `product-structure` (Canônico)
 
-> **⚠️ IMPORTANTE**: Usamos `product-catalog` (específico) em vez de `products` (genérico) para:
-> - **Clareza de domínio**: "product catalog" vs "product structure" vs "sales order"
+> **⚠️ IMPORTANTE**: Usamos `product-structure` (canônico) em vez de `products` (genérico) para:
+> - **Clareza de domínio**: "product structure" vs "product catalog" vs "sales order"
 > - **Ownership explícito**: API 1 mantém espelho Omie + materialização; API 2 consome read-models prontos
 > - **Separação de responsabilidades**: sincronização (commands) vs consulta (reads) vs materialização (refresh)
 > - **Consistência canônica**: Segue padrão "entidade específica + capacidade"
 >
-> **📌 REFERÊNCIA OBRIGATÓRIA**: Consulte [DOMAIN_NAMING_GUIDE.md](./DOMAIN_NAMING_GUIDE.md) para padrões canônicos de nomenclatura de domínio.
+> **📌 REFERÊNCIA OBRIGATÓRIA**: Consulte [DOMAIN_NAMING_GUIDE.md](./DOMAIN_NAMING_GUIDE.md) para padrões canônicos de nomenclatura de domínio. Veja a implementação real em `apps/api/src/modules/integration/product-structure/`.
 
 ```
-product-catalog/
+product-structure/
 ├── application/
 │   ├── dto/
-│   │   ├── get-product-catalog-production-ready.dto.ts
-│   │   ├── get-product-catalog-read-model.dto.ts
-│   │   ├── sync-all-product-catalog.dto.ts
-│   │   └── sync-product-catalog.dto.ts
+│   │   ├── get-product-structure-production-ready.dto.ts
+│   │   ├── get-product-structure-read-model.dto.ts
+│   │   ├── sync-all-product-structures.dto.ts
+│   │   └── reconcile-product-structures.dto.ts
 │   ├── mappers/
 │   │   └── map-omie-product-to-summary.ts
 │   ├── ports/
-│   │   ├── product-catalog-fetch.gateway.ts
-│   │   ├── product-catalog-fetch-page.gateway.ts
-│   │   └── product-catalog-fetch-page.ts
+│   │   ├── product-structure-apply.gateway.ts
+│   │   ├── product-structure-fetch-page.gateway.ts
+│   │   └── product-structure-read-model-query.gateway.ts
 │   ├── use-cases/
-│   │   ├── get-product-catalog-production-ready.usecase.ts
-│   │   ├── get-product-catalog-read-model.usecase.ts
-│   │   ├── get-product-catalog-summary.usecase.ts
-│   │   ├── refresh-product-catalog-production-ready.usecase.ts
-│   │   ├── sync-all-product-catalog.usecase.ts
-│   │   └── sync-product-catalog.usecase.ts
+│   │   ├── get-product-structure-summary.usecase.ts
+│   │   ├── reconcile-product-structures.usecase.ts
+│   │   └── sync-all-product-structures.usecase.ts
 │   └── utils/
 │       └── query.utils.ts
 ├── infrastructure/
 │   ├── db/
-│   │   ├── product-catalog-command.store.ts
-│   │   ├── product-catalog-integration.store.ts
-│   │   ├── product-catalog-production-ready-read-model.store.ts
-│   │   └── product-catalog-sales-order-aggregation.store.ts
+│   │   └── product-structure-command.store.ts
 │   ├── gateways/
-│   │   ├── fetch/
-│   │   │   ├── fake-product-catalog-fetch.gateway.ts
-│   │   │   └── real-product-catalog-fetch.gateway.ts
-│   │   └── fetch-page/
-│   │       ├── fake-product-catalog-fetch-page.gateway.ts
-│   │       └── real-product-catalog-fetch-page.gateway.ts
+│   │   ├── apply/
+│   │   │   ├── fake-product-structure-apply.gateway.ts
+│   │   │   └── real-product-structure-apply.gateway.ts
+│   │   ├── fetch-page/
+│   │   │   ├── fake-product-structure-fetch-page.gateway.ts
+│   │   │   └── real-product-structure-fetch-page.gateway.ts
+│   │   └── read-model-query/
+│   │       ├── fake-product-structure-read-model-query.gateway.ts
+│   │       └── real-product-structure-read-model-query.gateway.ts
 │   └── jobs/
-│       ├── product-catalog-jobs.register.ts
-│       └── refresh-product-catalog-production-ready.job.ts
+│       ├── product-structure-jobs.handler.ts
+│       ├── product-structure-jobs.register.ts
+│       └── reconcile-product-structures.job.ts
 ├── presentation/
 │   └── http/
 │       ├── index.ts
@@ -1765,31 +1766,29 @@ product-catalog/
 │       └── routes/
 │           ├── Routes.md
 │           ├── commands/
-│           │   ├── refresh-product-catalog-production-ready.route.ts
-│           │   ├── sync-all-product-catalog.route.ts
-│           │   └── sync-product-catalog.route.ts
+│           │   ├── reconcile-product-structures.route.ts
+│           │   └── sync-all-product-structures.route.ts
 │           └── read/
-│               ├── get-product-catalog-last-sync.route.ts
-│               ├── get-product-catalog-production-ready.route.ts
-│               ├── get-product-catalog-read-model.route.ts
-│               ├── get-product-catalog-stats.route.ts
-│               ├── get-product-catalog-summary.route.ts
-│               ├── get-product-catalog-sync-failures.route.ts
-│               ├── get-product-catalog-sync-history.route.ts
-│               └── get-product-catalog-sync-status.route.ts
+│               ├── get-product-structure-last-sync.route.ts
+│               ├── get-product-structure-stats.route.ts
+│               ├── get-product-structure-summary.route.ts
+│               ├── get-product-structure-sync-failures.route.ts
+│               ├── get-product-structure-sync-history.route.ts
+│               └── get-product-structure-sync-status.route.ts
 ├── index.ts
-├── product-catalog-integration-register.ts
+├── product-structure-integration-register.ts
 └── README.md
 ```
 
-> 💡 **Por que este módulo é o exemplo ideal?**
-> `product-catalog` é o módulo mais completo do projeto, pois combina:
-> - **Commands de sincronização** (`sync`, `sync-all`) — com idempotência via `externalRequestId`
-> - **Read-models materializados** (`production-ready`) — consolida dados de produto, estoque, estrutura, OP e pedidos
-> - **Múltiplas stores** — command store, integration store, read-model store, aggregation store
-> - **Gateways reais e fake** — para fetch (produto individual) e fetch-page (paginação)
-> - **Jobs agendados** — refresh periódico do read-model de produção
-> - **Múltiplos endpoints de leitura** — status, histórico, falhas, summary, stats, read-model
+> 💡 **Por que `product-structure` é o módulo canônico?**
+> `product-structure` é a implementação de referência do projeto, pois combina:
+> - **Commands de sincronização** (`sync-all`) — com idempotência via `externalRequestId`
+> - **Commands de reconciliação** (`reconcile`) — correção de divergências via PgBoss
+> - **Read-models materializados** — consolida dados de produto, estrutura e estoque
+> - **Stores focadas** — command store e sync state store
+> - **Gateways por capacidade** — apply, fetch-page e read-model-query (pares real/fake)
+> - **Jobs agendados** — reconciliação periódica com hooks de integração
+> - **Múltiplos endpoints de leitura** — status, histórico, falhas, summary, stats
 > - **DTOs e mappers específicos** — separação clara entre camadas
 
 ---
@@ -1798,7 +1797,7 @@ product-catalog/
 - [NAMING_CONVENTIONS.md](./NAMING_CONVENTIONS.md): Padrões de nomenclatura
 - [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md): Arquitetura técnica
 - [DECISIONS.md](./DECISIONS.md): Decisões arquiteturais fundamentais (ADR)
-- Módulo `product-catalog`: Implementação de referência em `apps/api/src/modules/integration/product-catalog/`
+- Módulo `product-structure`: Implementação de referência em `apps/api/src/modules/integration/product-structure/`
 
 **Próximos passos**:
 1. Use `pnpm --filter api gen:module` para scaffold automático

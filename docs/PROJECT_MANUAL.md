@@ -439,8 +439,8 @@ idempotência + audit
 ```typescript
 import { getJobQueue } from '@/shared/infra/job-queue'
 
-await getJobQueue().enqueue('product-catalog.sync', {
-  type: 'product-catalog.sync',
+await getJobQueue().enqueue('product-structure.sync', {
+  type: 'product-structure.sync',
   payload: { productId: '123' },
   options: { retryLimit: 5, retryBackoff: true }
 })
@@ -734,25 +734,25 @@ nome-do-modulo/
 └── README.md                                          # Documentação do módulo
 ```
 
-> 💡 **Referência real**: Consulte o módulo `product-catalog` em `apps/api/src/modules/integration/product-catalog/` como implementação de referência completa.
+> 💡 **Referência real**: Consulte o módulo `product-structure` em `apps/api/src/modules/integration/product-structure/` como implementação de referência completa.
 
 ### 2. NOMENCLATURA DE ARQUIVOS
 
 | Tipo de Arquivo | Padrão | Exemplo |
 |----------------|--------|---------|
-| **DTO** | `[ação]-nome-do-modulo.dto.ts` | `sync-product-catalog.dto.ts` |
-| **Mapper** | `map-[origem]-[entidade]-to-[destino].ts` | `map-omie-product-to-summary.ts` |
+| **DTO** | `[ação]-nome-do-modulo.dto.ts` | `sync-product-structure.dto.ts` |
+| **Mapper** | `map-[origem]-[entidade]-to-[destino].ts` | `map-product-structure-to-summary.ts` |
 | **Utils** | `[contexto].utils.ts` | `query.utils.ts` |
-| **Port (Interface)** | `nome-do-modulo-[ação].gateway.ts` | `product-catalog-fetch-page.gateway.ts` |
-| **Use Case** | `[ação]-nome-do-modulo.usecase.ts` | `sync-product-catalog.usecase.ts` |
-| **Store (DB)** | `nome-do-modulo-[tipo].store.ts` | `product-catalog-command.store.ts` |
-| **Gateway Real** | `real-nome-do-modulo-[ação].gateway.ts` | `real-product-catalog-fetch.gateway.ts` |
-| **Gateway Fake** | `fake-nome-do-modulo-[ação].gateway.ts` | `fake-product-catalog-fetch.gateway.ts` |
-| **Job** | `[ação]-nome-do-modulo.job.ts` | `refresh-product-catalog-production-ready.job.ts` |
-| **Job Register** | `nome-do-modulo-jobs.register.ts` | `product-catalog-jobs.register.ts` |
-| **Route (Command)** | `[ação]-nome-do-modulo.route.ts` | `sync-product-catalog.route.ts` |
-| **Route (Read)** | `get-nome-do-modulo-[modelo].route.ts` | `get-product-catalog-production-ready.route.ts` |
-| **Module Register** | `nome-do-modulo-integration-register.ts` | `product-catalog-integration-register.ts` |
+| **Port (Interface)** | `nome-do-modulo-[ação].gateway.ts` | `product-structure-fetch-page.gateway.ts` |
+| **Use Case** | `[ação]-nome-do-modulo.usecase.ts` | `sync-all-product-structures.usecase.ts` |
+| **Store (DB)** | `nome-do-modulo-[tipo].store.ts` | `product-structure-command.store.ts` |
+| **Gateway Real** | `real-nome-do-modulo-[ação].gateway.ts` | `real-product-structure-fetch-page.gateway.ts` |
+| **Gateway Fake** | `fake-nome-do-modulo-[ação].gateway.ts` | `fake-product-structure-fetch-page.gateway.ts` |
+| **Job** | `[ação]-nome-do-modulo.job.ts` | `reconcile-product-structures.job.ts` |
+| **Job Register** | `nome-do-modulo-jobs.register.ts` | `product-structure-jobs.register.ts` |
+| **Route (Command)** | `[ação]-nome-do-modulo.route.ts` | `sync-all-product-structures.route.ts` |
+| **Route (Read)** | `get-nome-do-modulo-[modelo].route.ts` | `get-product-structure-summary.route.ts` |
+| **Module Register** | `nome-do-modulo-integration-register.ts` | `product-structure-integration-register.ts` |
 | **OpenAPI** | `openapi.ts` | `openapi.ts` |
 | **README** | `README.md` | `README.md` |
 | **Routes Doc** | `Routes.md` | `Routes.md` |
@@ -1225,6 +1225,9 @@ logger.error("Falha na integração", { error: err, productCode });
 ---
 
 ## 📦 TEMPLATE DE MÓDULO
+
+> ✅ **Quality Gate obrigatório:** Consulte `docs/MODULE_QUALITY_GATE.md` antes de criar ou evoluir um módulo.
+> O checklist de 119 itens garante que todos os módulos sigam o mesmo padrão arquitetural.
 
 ### 1. ESTRUTURA COMPLETA
 
@@ -1732,7 +1735,7 @@ Ao finalizar o sync, **DEVE** disparar refresh dos read-models impactados:
 | **`sales-order-sync`** | ✅ Completo | ✅ | ✅ | ✅ summary |
 | **`customer-sync`** | ✅ Completo | ✅ | ✅ | ❌ |
 | **`product-stock-fetch`** | ✅ Parcial | ✅ | ✅ | ❌ |
-| **`product-structure`** | ⏳ Em evolução | ⏳ Em evolução | ⏳ Em evolução | ⏳ |
+| **`product-structure`** 🥇 | ✅ Completo | ✅ | ✅ | ✅ pós-sync |
 | **`product-catalog`** | ❌ Pendente | ❌ Pendente | ❌ | ⚠️ Parcial |
 
 > 💡 **Módulo de referência para paginação**: `sales-order-sync` — implementação mais completa com retry, incremental, redundant handling e pós-sync refresh.
@@ -1815,7 +1818,8 @@ const result = await fetchPageWithRetry(
 4. **`NAMING_CONVENTIONS.md`** - Padrões de nomenclatura
 5. **`HOW_TO_CONTRIBUTE.md`** - Guia prático para contribuir
 6. **`MODULE_TEMPLATE.md`** - Template completo para módulos
-7. **`DB_SCHEMA_GUIDE.md`** - Guia canônico de schema do banco
+7. **`MODULE_QUALITY_GATE.md`** - Checklist canônico (119 itens) para avaliar maturidade de módulos
+8. **`DB_SCHEMA_GUIDE.md`** - Guia canônico de schema do banco
 8. **`PROJECT_MANUAL.md`** - Manual consolidado (este arquivo)
 
 #### Referência Principal:

@@ -46,7 +46,7 @@ apps/api/src/modules/integration
 ### Módulo de Referência (Modelo)
 
 ```
-apps/api/src/modules/integration/product-catalog
+apps/api/src/modules/integration/product-structure
 ```
 
 ---
@@ -56,6 +56,7 @@ apps/api/src/modules/integration/product-catalog
 Consulte os documentos em `docs/` para regras detalhadas:
 
 - `docs/MODULE_TEMPLATE.md` — Template canônico para novos módulos
+- `docs/MODULE_QUALITY_GATE.md` — Checklist canônico (119 itens) para avaliar maturidade de módulos
 - `docs/PROJECT_MANUAL.md` — Manual completo com padrões de nomenclatura e arquitetura
 - `docs/DOMAIN_NAMING_GUIDE.md` — Nomenclatura de domínio
 - `docs/DECISIONS.md` — ADRs (Architectural Decision Records)
