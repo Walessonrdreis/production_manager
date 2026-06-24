@@ -465,7 +465,7 @@ model OmieProductionOrderItem {
   // ✅ CORRETO: relation em uma linha
   productionOrder OmieProductionOrder @relation(fields: [omieProductionOrderId], references: [id], onDelete: Cascade)
 
-  @@unique([omieItemCode])
+  @@unique([omieItemCode, omieProductionOrderId])
   @@index([omieProductionOrderId])
   @@index([productMeshId])
   @@map("omie_production_order_item")

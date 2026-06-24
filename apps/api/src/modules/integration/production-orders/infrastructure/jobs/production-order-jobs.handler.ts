@@ -44,15 +44,20 @@ import type { ProcessChangeStageProductionOrderData } from "../../application/dt
 // ── Sync-global ───────────────────────────────────────────────────────
 
 import { executeSyncAllProductionOrders } from "../../application/use-cases/sync-all-production-orders.usecase";
+import { SyncProductionOrderItemsUseCase } from "../../application/use-cases/sync-production-order-items.usecase";
+import { enqueueJob } from "@/shared/infra/job-queue";
 import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
 import { SyncHooksRunner } from "@/shared/integration/strategies/sync-hooks";
 import { RealProductionOrderSyncPageGateway } from "../gateways/sync-page/real-production-order-sync-page.gateway";
 import { FakeProductionOrderSyncPageGateway } from "../gateways/sync-page/fake-production-order-sync-page.gateway";
+import { RealProductionOrderConsultGateway } from "../gateways/consult/real-production-order-consult.gateway";
 
 type SyncGlobalJobData = {
     externalRequestId: string;
     pageSize?: number;
     maxPages?: number;
+    /** Se true, enfileira sync-items após o sync-global */
+    syncItems?: boolean;
 };
 
 const logger = getLogger("production-orders:jobs:handler");
@@ -145,8 +150,8 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
     registerJobHandler<SyncGlobalJobData>(
         "production-order.sync-global",
         async (job) => {
-            const { externalRequestId, pageSize, maxPages } = job.data;
-            logger.info("Processing sync-global", { externalRequestId, pageSize, maxPages });
+            const { externalRequestId, pageSize, maxPages, syncItems } = job.data;
+            logger.info("Processing sync-global", { externalRequestId, pageSize, maxPages, syncItems });
 
             const fetchPageGateway = isFake
                 ? new FakeProductionOrderSyncPageGateway()
@@ -159,6 +164,24 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
                 );
 
                 const hooks = new SyncHooksRunner();
+
+                // Hook pós-sync: enfileira sync-items se solicitado
+                if (syncItems ?? true) {
+                    hooks.add({
+                        name: "sync-items",
+                        execute: async () => {
+                            logger.info("Enqueuing sync-items after sync-global", { externalRequestId });
+                            await enqueueJob("production-order.sync-items", {
+                                externalRequestId: `${externalRequestId}-items`,
+                                maxOrders: 50,
+                            }, {
+                                retryLimit: 2,
+                                retryBackoff: true,
+                                singletonKey: "production-order-sync-items",
+                            });
+                        },
+                    });
+                }
 
                 await executeSyncAllProductionOrders(
                     fetchPageGateway,
@@ -178,7 +201,52 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
                 await commandStore.markConfirmed(externalRequestId);
             }
 
-            logger.info("Sync-global completed", { externalRequestId });
+            logger.info("Sync-global completed", { externalRequestId, syncItems });
+        },
+        { concurrency: 1, batchSize: 1 }
+    );
+
+    // ── 6. SYNC_ITEMS: Buscar itens de ordens via ConsultarOrdemProducao ──
+
+    registerJobHandler<any>(
+        "production-order.sync-items",
+        async (job) => {
+            const { externalRequestId, omieCodes, maxOrders } = job.data ?? {};
+            logger.info("Processing sync-items", { externalRequestId, maxOrders, specificCodes: omieCodes?.length ?? 0 });
+
+            if (isFake) {
+                logger.info("Fake mode: skipping sync-items");
+                return;
+            }
+
+            const consultGateway = new RealProductionOrderConsultGateway(omieClient);
+            const useCase = new SyncProductionOrderItemsUseCase(consultGateway, prisma);
+
+            const result = await useCase.execute({
+                externalRequestId,
+                omieCodes,
+                maxOrders: maxOrders ?? 50,
+            });
+
+            logger.info("Sync-items batch completed", {
+                externalRequestId,
+                processed: result.processed,
+                updated: result.updated,
+                failed: result.failed,
+                hasMore: result.hasMore,
+            });
+
+            // Se ainda há mais ordens, re-enfileira para processar o próximo lote
+            if (result.hasMore) {
+                logger.info("More orders need items, re-enqueuing", { externalRequestId });
+                await enqueueJob("production-order.sync-items", {
+                    externalRequestId: `${externalRequestId}-next`,
+                    maxOrders: maxOrders ?? 50,
+                }, {
+                    retryLimit: 2,
+                    retryBackoff: true,
+                });
+            }
         },
         { concurrency: 1, batchSize: 1 }
     );
@@ -190,6 +258,7 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
             "production-order.cancel-op",
             "production-order.change-stage",
             "production-order.sync-global",
+            "production-order.sync-items",
         ],
     });
 }

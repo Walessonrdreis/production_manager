@@ -45,6 +45,8 @@ export async function startJobQueue(): Promise<PgBoss> {
     bossInstance = new PgBoss({
         connectionString,
         schema: "integration",
+        migrate: true,
+        createSchema: true,
     });
 
     bossInstance.on("error", (error: Error) => {

@@ -1,5 +1,6 @@
 import { getLogger } from "@/shared/logger";
 import { prisma } from "@/shared/db/prisma";
+import { OmieAdapter } from "@/shared/integrations/omie/omie.adapter";
 import {
   ProductCatalogProductionReadyReadModelStore,
   type ProductCatalogProductionReadyRecord,
@@ -57,7 +58,7 @@ export class RefreshProductCatalogProductionReadyUseCase {
 
   constructor(
     private readonly readModelStore: ProductCatalogProductionReadyReadModelStore
-  ) {}
+  ) { }
 
   async execute() {
     this.logger.info("Starting production-ready read-model refresh");
@@ -271,8 +272,31 @@ export class RefreshProductCatalogProductionReadyUseCase {
           }
         }
 
-        const openProductionOrderCount =
-          openProductionOrderMap.get(product.omieCode) ?? 0;
+        // Lookup robusta: tenta omieCode → rawPayload → omieId como fallback
+        const openProductionOrderCount = (() => {
+          const direct = openProductionOrderMap.get(product.omieCode ?? "");
+          if (direct !== undefined) return direct;
+
+          // Fallback 1: extrair código do rawPayload
+          const raw = product.rawPayload
+            ? asRecord(product.rawPayload)
+            : null;
+          if (raw) {
+            const rawCode = OmieAdapter.extractProductCode(raw);
+            if (rawCode) {
+              const fromRaw = openProductionOrderMap.get(String(rawCode));
+              if (fromRaw !== undefined) return fromRaw;
+            }
+          }
+
+          // Fallback 2: testar com omieId
+          if (product.omieId) {
+            const fromId = openProductionOrderMap.get(product.omieId);
+            if (fromId !== undefined) return fromId;
+          }
+
+          return 0;
+        })();
 
         const openSalesOrderStage20Count =
           openSalesOrderStage20Map.get(product.omieCode) ?? 0;
