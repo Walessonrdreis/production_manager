@@ -51,6 +51,8 @@ import { SyncHooksRunner } from "@/shared/integration/strategies/sync-hooks";
 import { RealProductionOrderSyncPageGateway } from "../gateways/sync-page/real-production-order-sync-page.gateway";
 import { FakeProductionOrderSyncPageGateway } from "../gateways/sync-page/fake-production-order-sync-page.gateway";
 import { RealProductionOrderConsultGateway } from "../gateways/consult/real-production-order-consult.gateway";
+import { ProductionOrderReadModelStore } from "../db/production-order-read-model.store";
+import { RefreshProductionOrderReadModelUseCase } from "../../application/use-cases/refresh-production-order-read-model.usecase";
 
 type SyncGlobalJobData = {
     externalRequestId: string;
@@ -125,7 +127,19 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
 
     registerJobHandler<ProcessUpdateProductionOrderData>(
         "production-order.update-op",
-        (job) => updateUseCase.execute(job.data),
+        async (job) => {
+            await updateUseCase.execute(job.data);
+            // Fase 1: refresh incremental do read model
+            if (job.data.omieCode) {
+                await enqueueJob("production-order.refresh", {
+                    omieCode: job.data.omieCode,
+                }, {
+                    retryLimit: 2,
+                    retryBackoff: true,
+                    singletonKey: `prorm-refresh-${job.data.omieCode}`,
+                });
+            }
+        },
         { concurrency: 1, batchSize: 1 }
     );
 
@@ -133,7 +147,19 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
 
     registerJobHandler<ProcessCancelProductionOrderData>(
         "production-order.cancel-op",
-        (job) => cancelUseCase.execute(job.data),
+        async (job) => {
+            await cancelUseCase.execute(job.data);
+            // Fase 1: refresh incremental do read model
+            if (job.data.omieCode) {
+                await enqueueJob("production-order.refresh", {
+                    omieCode: job.data.omieCode,
+                }, {
+                    retryLimit: 2,
+                    retryBackoff: true,
+                    singletonKey: `prorm-refresh-${job.data.omieCode}`,
+                });
+            }
+        },
         { concurrency: 1, batchSize: 1 }
     );
 
@@ -141,7 +167,19 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
 
     registerJobHandler<ProcessChangeStageProductionOrderData>(
         "production-order.change-stage",
-        (job) => changeStageUseCase.execute(job.data),
+        async (job) => {
+            await changeStageUseCase.execute(job.data);
+            // Fase 1: refresh incremental do read model
+            if (job.data.omieCode) {
+                await enqueueJob("production-order.refresh", {
+                    omieCode: job.data.omieCode,
+                }, {
+                    retryLimit: 2,
+                    retryBackoff: true,
+                    singletonKey: `prorm-refresh-${job.data.omieCode}`,
+                });
+            }
+        },
         { concurrency: 1, batchSize: 1 }
     );
 
@@ -251,6 +289,30 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
         { concurrency: 1, batchSize: 1 }
     );
 
+    // ── 7. REFRESH_READ_MODEL: Recalcular 1 OP no read model ───────────
+
+    registerJobHandler<{ omieCode: string }>(
+        "production-order.refresh",
+        async (job) => {
+            const { omieCode } = job.data;
+            logger.info("Refreshing production order read model", { omieCode });
+
+            try {
+                const store = new ProductionOrderReadModelStore();
+                const useCase = new RefreshProductionOrderReadModelUseCase(store);
+                await useCase.refreshOne(omieCode);
+                logger.info("Production order read model refreshed", { omieCode });
+            } catch (error) {
+                logger.error("Failed to refresh production order read model", {
+                    omieCode,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+                throw error; // PgBoss faz retry automático
+            }
+        },
+        { concurrency: 2, batchSize: 1 }
+    );
+
     logger.info("Production-order PgBoss handlers registered", {
         types: [
             "production-order.create-op",
@@ -259,6 +321,7 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
             "production-order.change-stage",
             "production-order.sync-global",
             "production-order.sync-items",
+            "production-order.refresh",
         ],
     });
 }
