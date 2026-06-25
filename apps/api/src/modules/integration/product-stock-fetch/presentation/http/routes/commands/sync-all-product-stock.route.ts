@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Route: POST /v1/integration/product-stock-fetch/sync-global
+// Route: POST /v1/integration/product-stock-fetch/commands/sync-global
 // Inicia sincronização global de estoque (incremental).
 // Retorna 202 Accepted com externalRequestId para rastreio.
 // ---------------------------------------------------------------------------
@@ -32,7 +32,7 @@ type SyncAllProductStockBody = {
 
 export async function registerSyncAllProductStockRoute(app: FastifyInstance) {
   app.post<{ Body: SyncAllProductStockBody }>(
-    "/v1/integration/product-stock-fetch/sync-global",
+    "/v1/integration/product-stock-fetch/commands/sync-global",
     async (request, reply) => {
       const externalRequestId = request.body?.externalRequestId ?? randomUUID();
       const pageSize = request.body?.pageSize ?? 100;

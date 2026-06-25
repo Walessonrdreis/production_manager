@@ -13,7 +13,7 @@
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | POST | `/v1/integration/product-stock-fetch/refresh` | Atualiza estoque de um produto (202 Accepted) |
-| POST | `/v1/integration/product-stock-fetch/sync-global` | Sync completo de todos os estoques (202 Accepted) |
+| POST | `/v1/integration/product-stock-fetch/commands/sync-global` | Sync completo de todos os estoques (202 Accepted) |
 
 ### Read
 

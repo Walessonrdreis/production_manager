@@ -4,7 +4,7 @@
 
 export const productStockFetchOpenApi = {
     paths: {
-        "/v1/integration/product-stock-fetch/sync-global": {
+        "/v1/integration/product-stock-fetch/commands/sync-global": {
             post: {
                 tags: ["Product Stock Fetch"],
                 summary: "Sync global de posição de estoque",
