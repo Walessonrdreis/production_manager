@@ -145,27 +145,25 @@ function main() {
             });
             console.log('✅ prisma db push concluído com sucesso!');
 
-            // Limpar funções órfãs do PgBoss (caso tabelas tenham sido dropadas em deploy anterior)
-            // Importante: usar DIRECT_URL (conexão direta, sem PgBouncer) pois DDL não funciona via PgBouncer
+            // =============================================================
+            // Limpar funções órfãs do PgBoss (deploy anterior dropou tabelas)
+            // =============================================================
+            // Prisma db execute precisa de conexão DIRETA (sem PgBouncer) pra DDL.
+            // Usamos --file com SQL em arquivo temporário + --url explícito.
+            // =============================================================
             console.log('🧹 Limpando funções PgBoss órfãs (se houver)...');
             const directUrl = process.env.DIRECT_URL || process.env.DATABASE_URL || '';
-            const cleanupSql = `
-                DROP FUNCTION IF EXISTS integration.create_queue(text, jsonb) CASCADE;
-                DROP FUNCTION IF EXISTS integration.create_queue(text) CASCADE;
-            `;
+            const cleanupSql = 'DROP FUNCTION IF EXISTS integration.create_queue(text, jsonb) CASCADE;\nDROP FUNCTION IF EXISTS integration.create_queue(text) CASCADE;\n';
+            const cleanupFile = '/tmp/cleanup-pgboss.sql';
             try {
+                fs.writeFileSync(cleanupFile, cleanupSql, 'utf8');
                 execSync(
-                    `npx prisma db execute --stdin --query "${cleanupSql}"`,
-                    {
-                        encoding: 'utf8',
-                        stdio: 'pipe',
-                        timeout: 30000,
-                        env: { ...process.env, DATABASE_URL: directUrl }
-                    }
+                    `npx prisma db execute --file "${cleanupFile}" --url "${directUrl}"`,
+                    { encoding: 'utf8', stdio: 'pipe', timeout: 30000 }
                 );
                 console.log('✅ Funções PgBoss limpas');
             } catch (cleanupErr) {
-                console.log('⚠️  Aviso: limpeza de funções PgBoss (pode ser esperado):', cleanupErr.message);
+                console.log('⚠️  Aviso: limpeza de funções PgBoss:', cleanupErr.message);
             }
         } catch (pushError) {
             console.log('⚠️  Fallback 1 (db push) falhou:', pushError.message);

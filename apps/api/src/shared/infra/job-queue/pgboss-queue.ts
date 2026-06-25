@@ -40,7 +40,7 @@ let bossInstance: PgBoss | null = null;
 export async function startJobQueue(): Promise<PgBoss> {
     if (bossInstance) return bossInstance;
 
-    const connectionString = env.PG_BOSS_CONNECTION_STRING || env.DATABASE_URL;
+    const connectionString = env.PG_BOSS_CONNECTION_STRING || env.DIRECT_URL || env.DATABASE_URL;
 
     bossInstance = new PgBoss({
         connectionString,
