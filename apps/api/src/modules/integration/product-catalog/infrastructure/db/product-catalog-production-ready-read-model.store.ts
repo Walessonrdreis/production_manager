@@ -97,23 +97,23 @@ export class ProductCatalogProductionReadyReadModelStore {
     const stockWhere =
       onlyInStock || withAvailability || safeMinStock > 0
         ? {
-            gte: onlyInStock || withAvailability || safeMinStock > 0
-              ? Math.max(onlyInStock ? 1 : 0, safeMinStock)
-              : undefined,
-          }
+          gte: onlyInStock || withAvailability || safeMinStock > 0
+            ? Math.max(onlyInStock ? 1 : 0, safeMinStock)
+            : undefined,
+        }
         : undefined;
 
     const where = {
       ...(onlyActive ? { active: true } : {}),
       ...(q
         ? {
-            OR: [
-              { description: { contains: q, mode: "insensitive" as const } },
-              { productCode: { contains: q, mode: "insensitive" as const } },
-              { sku: { contains: q, mode: "insensitive" as const } },
-              { family: { contains: q, mode: "insensitive" as const } },
-            ],
-          }
+          OR: [
+            { description: { contains: q, mode: "insensitive" as const } },
+            { productCode: { contains: q, mode: "insensitive" as const } },
+            { sku: { contains: q, mode: "insensitive" as const } },
+            { family: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
         : {}),
       ...(stockWhere ? { stock: stockWhere } : {}),
       ...(withAvailability ? { available: true } : {}),
