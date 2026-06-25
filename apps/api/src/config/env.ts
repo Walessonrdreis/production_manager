@@ -23,6 +23,7 @@ const envBoolean = z.preprocess((value) => {
 const envSchema = z.object({
   // Core
   DATABASE_URL: z.string().min(1),
+  DIRECT_URL: z.string().optional(),
   PORT: z.coerce.number().default(3333),
   CORS_ORIGIN: z.string().default(""),
 
