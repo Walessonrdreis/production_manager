@@ -2,14 +2,14 @@
 
 > **Gerado em:** 2026-06-25
 > **Fonte:** Código fonte do bootstrap + arquivos `.route.ts`
-> **Módulos registrados:** 8 integração + 6 legado ativos
+> **Módulos de integração:** 7
 
 ---
 
 ## 📋 Sumário
 
-- [Meta / Health](#-meta--health)
-- [Módulos de Integração (Novos)](#-módulos-de-integração-novos)
+- [🏠 Meta / Health](#-meta--health)
+- [🧩 Módulos de Integração](#-módulos-de-integração)
   - [1. product-structure](#1-product-structure)
   - [2. production-orders](#2-production-orders)
   - [3. sales-order-sync](#3-sales-order-sync)
@@ -17,15 +17,7 @@
   - [5. product-catalog](#5-product-catalog)
   - [6. product-stock-fetch](#6-product-stock-fetch)
   - [7. product-manager](#7-product-manager)
-  - [8. orders (stage20)](#8-orders-stage20)
-- [Módulos Legado (Ativos)](#-módulos-legado-ativos)
-  - [9. products (legado)](#9-products-legado)
-  - [10. omie-sales-orders](#10-omie-sales-orders)
-  - [11. omie-production-orders](#11-omie-production-orders)
-  - [12. product-structure (legado)](#12-product-structure-legado)
-  - [13. client](#13-client)
-  - [14. sales-production-integration](#14-sales-production-integration)
-- [Módulos Legado (Desativados)](#-módulos-legado-desativados)
+- [🚀 Curl Commands — Todas as Rotas](#-curl-commands--todas-as-rotas)
 
 ---
 
@@ -39,7 +31,7 @@
 
 ---
 
-## 🧩 Módulos de Integração (Novos)
+## 🧩 Módulos de Integração
 
 ### 1. product-structure
 
@@ -200,176 +192,164 @@
 | `POST` | `/v1/integration/product-manager/commands/update` | Atualizar produto no Omie |
 | `POST` | `/v1/integration/product-manager/commands/inactivate` | Inativar produto no Omie |
 
-**3 rotas**
+---
+
+## 🚀 Curl Commands — Todas as Rotas
+
+> Base URL: `http://localhost:3333`
+> Use `-H "Content-Type: application/json"` em todos os POST. Parâmetros entre `<>` são placeholders.
 
 ---
 
-### 8. orders (stage20)
+### product-structure
 
-| Método | Caminho | Descrição |
-|--------|---------|-----------|
-| `POST` | `/v1/integration/orders/stage20` | Obter pedidos stage 20 |
+```bash
+# ── Commands ──
+curl -s -X POST http://localhost:3333/v1/integration/product-structure/commands/sync -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","productCode":"<codigo>"}'
+curl -s -X POST http://localhost:3333/v1/integration/product-structure/commands/sync-global -H "Content-Type: application/json" -d '{"externalRequestId":"opcional"}'
+curl -s -X POST http://localhost:3333/v1/integration/product-structure/commands/apply -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","productCode":"<codigo>","structure":{"items":[{"componentCode":"<comp>","quantity":1}]}}'
+curl -s -X POST http://localhost:3333/v1/integration/product-structure/commands/submit -H "Content-Type: application/json" -d '{}'
+curl -s -X POST http://localhost:3333/v1/integration/product-structure/commands/delete -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","productCode":"<codigo>"}'
 
-**1 rota**
+# ── Callbacks ──
+curl -s -X POST http://localhost:3333/v1/integration/product-structure/callbacks/<externalRequestId>/confirm
+curl -s -X POST http://localhost:3333/v1/integration/product-structure/callbacks/<externalRequestId>/fail
 
----
-
-## 🔧 Módulos Legado (Ativos)
-
-### 9. products (legado)
-
-| Método | Caminho | Descrição |
-|--------|---------|-----------|
-| `GET` | `/v1/products` | Lista pública de produtos |
-| `GET` | `/v1/products/:omieCode` | Detalhe público por código Omie |
-| `GET` | `/v1/products/stock` | **(deprecated)** Redireciona para `/v1/products` |
-| `POST` | `/v1/admin/managed-products` | Criar produto gerenciado |
-| `POST` | `/v1/admin/managed-products/bulk` | Criar produtos em lote |
-| `GET` | `/v1/admin/managed-products` | Listar produtos gerenciados |
-| `GET` | `/v1/admin/managed-products/:id` | Detalhe de produto gerenciado |
-| `PATCH` | `/v1/admin/managed-products/:id` | Atualizar produto gerenciado |
-| `DELETE` | `/v1/admin/managed-products/:id` | Excluir produto gerenciado |
-| `GET` | `/v1/admin/managed-products/:id/stock` | Estoque do produto gerenciado |
-| `GET` | `/v1/admin/managed-products/:id/stock/history` | Histórico de estoque |
-| `GET` | `/v1/admin/omie/sync/products` | Info sincronização Omie |
-| `POST` | `/v1/admin/omie/sync/products` | Sincronizar produtos do Omie |
-| `GET` | `/v1/admin/omie/products` | Catálogo Omie enriquecido |
-| `GET` | `/v1/admin/omie/categories` | Categorias/famílias Omie |
-| `GET` | `/v1/admin/omie/products/search` | Search/autocomplete Omie |
-| `GET` | `/v1/admin/omie/products/:id` | Detalhe por UUID |
-| `GET` | `/v1/admin/omie/products/by-code/:omieCode` | Detalhe por código Omie |
-| `GET` | `/v1/admin/omie/products/:id/stock` | Estoque por UUID |
-| `GET` | `/v1/admin/omie/products/by-code/:omieCode/stock` | Estoque por código Omie |
-| `GET` | `/v1/admin/omie/stock` | Info do estoque persistido |
-| `POST` | `/v1/admin/omie/products/stock/refresh` | Refresh/persistência do estoque |
-| `GET` | `/v1/admin/read/products` | Listagem de produtos + visão estrutura |
-| `GET` | `/v1/admin/read/products/:omieCode/structure` | Estrutura (BOM) de um produto |
+# ── Read-models ──
+curl -s http://localhost:3333/v1/integration/product-structure/commands/<externalRequestId>
+curl -s http://localhost:3333/v1/integration/product-structure/read/summary
+curl -s "http://localhost:3333/v1/integration/product-structure/read/<productCode>/refresh"
+curl -s "http://localhost:3333/v1/admin/read/products/production-readiness?view=summary"
+```
 
 ---
 
-### 10. omie-sales-orders
+### production-orders
 
-| Método | Caminho | Descrição |
-|--------|---------|-----------|
-| `GET` | `/v1/admin/orders` | Lista geral de pedidos |
-| `GET` | `/v1/admin/orders/stage20` | Pedidos stage 20 |
-| `GET` | `/v1/admin/orders/stage20/totals` | Totais stage 20 |
-| `GET` | `/v1/admin/orders/stage20/totals/detailed` | Totais detalhados stage 20 |
-| `POST` | `/v1/admin/omie/orders/stage20/sync` | Sincronizar stage 20 |
-| `GET` | `/v1/admin/omie/orders/stage20/sync` | Info sincronização stage 20 |
-| `GET` | `/v1/admin/omie/orders/stage20/ping` | Ping Omie |
-| `POST` | `/v1/admin/orders/backfill-client-names` | Backfill manual de nomes de clientes |
+```bash
+# ── Commands ──
+curl -s -X POST http://localhost:3333/v1/integration/production-orders/commands/create -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","productCode":"<codigo>","quantity":100}'
+curl -s -X POST http://localhost:3333/v1/integration/production-orders/commands/update -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","omieCode":"<codigo>","quantity":200}'
+curl -s -X POST http://localhost:3333/v1/integration/production-orders/commands/cancel -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","omieCode":"<codigo>"}'
+curl -s -X POST http://localhost:3333/v1/integration/production-orders/commands/change-stage -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","omieCode":"<codigo>","stage":"<novo_estagio>"}'
+curl -s -X POST http://localhost:3333/v1/integration/production-orders/commands/sync-global -H "Content-Type: application/json" -d '{"externalRequestId":"opcional"}'
 
----
+# ── Callbacks ──
+curl -s -X POST http://localhost:3333/v1/integration/production-orders/callbacks/<externalRequestId>/confirm
+curl -s -X POST http://localhost:3333/v1/integration/production-orders/callbacks/<externalRequestId>/fail
 
-### 11. omie-production-orders
-
-| Método | Caminho | Descrição |
-|--------|---------|-----------|
-| `GET` | `/v1/admin/omie/production-orders` | Listar OPs |
-| `GET` | `/v1/admin/omie/production-orders/:omieCode` | Detalhe por código Omie |
-| `GET` | `/v1/admin/omie/production-orders/product/:productCode` | Busca por código do produto |
-| `GET` | `/v1/admin/omie/production-orders/product-integration/:integrationCode` | Busca por código de integração |
-| `GET` | `/v1/admin/omie/production-orders/stats` | Estatísticas |
-| `GET` | `/v1/admin/omie/production-orders/stats/active` | Contagem de ativas |
-| `GET` | `/v1/admin/omie/production-orders/stats/completed` | Contagem de concluídas |
-| `POST` | `/v1/admin/omie/production-orders/sync` | Sincronizar OPs |
-| `GET` | `/v1/admin/omie/production-orders/sync` | Info sincronização |
-| `GET` | `/v1/admin/omie/production-orders/ping` | Ping Omie |
+# ── Read-models ──
+curl -s http://localhost:3333/v1/integration/production-orders/commands/<externalRequestId>
+curl -s http://localhost:3333/v1/integration/production-orders/read
+curl -s http://localhost:3333/v1/integration/production-orders/read/<omieCode>
+curl -s http://localhost:3333/v1/integration/production-orders/read/stats
+curl -s http://localhost:3333/v1/integration/production-orders/read/queue
+curl -s http://localhost:3333/v1/integration/production-orders/read/queue/failures
+curl -s http://localhost:3333/v1/integration/production-orders/read/<omieCode>/refresh
+```
 
 ---
 
-### 12. product-structure (legado)
+### sales-order-sync
 
-| Método | Caminho | Descrição |
-|--------|---------|-----------|
-| `GET` | `/v1/admin/product-structures` | Listar estruturas persistidas |
-| `GET` | `/v1/admin/product-structures/:codProduto` | Detalhe de estrutura por código |
-| `POST` | `/v1/admin/omie/product-structures/sync` | Sincronizar estrutura pelo Omie |
-| `POST` | `/v1/admin/omie/product-structures/sync-job-tick` | Tick de job de sincronização |
+```bash
+# ── Commands ──
+curl -s -X POST http://localhost:3333/v1/integration/sales-order-sync/commands/sync-global -H "Content-Type: application/json" -d '{"externalRequestId":"opcional"}'
 
----
+# ── Callbacks ──
+curl -s -X POST http://localhost:3333/v1/integration/sales-order-sync/callbacks/<externalRequestId>/confirm
+curl -s -X POST http://localhost:3333/v1/integration/sales-order-sync/callbacks/<externalRequestId>/fail
 
-### 13. client
+# ── Read-models (integration) ──
+curl -s http://localhost:3333/v1/integration/sales-order-sync/commands/<externalRequestId>
+curl -s http://localhost:3333/v1/integration/sales-order-sync/read/summary
+curl -s http://localhost:3333/v1/integration/sales-order-sync/read/stats
+curl -s http://localhost:3333/v1/integration/sales-order-sync/read/<omieId>
+curl -s http://localhost:3333/v1/integration/sales-order-sync/read/open-items
+curl -s http://localhost:3333/v1/integration/sales-order-sync/read/transitions
+curl -s http://localhost:3333/v1/integration/sales-order-sync/read/<omieId>/transitions
+curl -s http://localhost:3333/v1/integration/sales-order-sync/read/queue
+curl -s http://localhost:3333/v1/integration/sales-order-sync/read/failures
 
-| Método | Caminho | Descrição |
-|--------|---------|-----------|
-| `GET` | `/v1/clients` | Listar clientes |
-| `GET` | `/v1/clients/:omieClientCode` | Detalhe de cliente |
-| `POST` | `/v1/admin/omie/clients/sync` | Sincronizar clientes do Omie |
-| `POST` | `/v1/admin/omie/clients/sync-missing` | Sincronizar clientes faltantes |
-
----
-
-### 14. sales-production-integration
-
-| Método | Caminho | Descrição |
-|--------|---------|-----------|
-| `POST` | `/api/integration/sales-to-production` | Integrar pedido → fila de produção |
-| `GET` | `/api/integration/sales-to-production/statistics` | Estatísticas da integração |
-
----
-
-## 🔕 Módulos Legado (Desativados)
-
-> Estas rotas **existem no código** mas estão **comentadas no bootstrap**. Não estão ativas.
-
-### sectors
-| Método | Caminho |
-|--------|---------|
-| `POST` | `/v1/admin/sectors` |
-| `GET` | `/v1/admin/sectors` |
-| `PATCH` | `/v1/admin/sectors/:id` |
-| `DELETE` | `/v1/admin/sectors/:id` |
-
-### plans
-| Método | Caminho |
-|--------|---------|
-| `POST` | `/v1/admin/plans` |
-| `GET` | `/v1/admin/plans` |
-| `GET` | `/v1/admin/plans/:id` |
-| `POST` | `/v1/admin/plans/:id/items` |
-| `GET` | `/v1/admin/plans/:id/by-sector` |
-| `GET` | `/v1/admin/plans/:id/export.csv` |
-
-### internal-production-orders
-| Método | Caminho |
-|--------|---------|
-| `POST` | `/v1/internal-production-orders` |
-| `GET` | `/v1/internal-production-orders` |
-| `GET` | `/v1/internal-production-orders/:id` |
-| `PATCH` | `/v1/internal-production-orders/:id` |
-| `POST` | `/v1/internal-production-orders/:id/start` |
-| `POST` | `/v1/internal-production-orders/:id/complete` |
-| `DELETE` | `/v1/internal-production-orders/:id` |
-
-### trello-integration
-| Método | Caminho |
-|--------|---------|
-| `GET` | `/v1/trello/webhook` |
-| `POST` | `/v1/trello/webhook` |
-
-### outros (1 rota cada)
-| Método | Caminho | Módulo |
-|--------|---------|--------|
-| `GET` | `/v1/orders` | orders-view |
-| `GET` | `/admin/orders/stage20/enriched` | orders-enriched |
-| `POST` | `/api/sync/stock` | sync |
-| `POST` | `/api/sync/orders` | sync |
-| `GET` | `/api/sync/status` | sync |
-| `GET` | `/api/alerts/stock` | stock-alerts |
-| `POST` | `/api/production/queue/add` | production-queue |
+# ── Read-models (admin) ──
+curl -s http://localhost:3333/v1/admin/read/sales-orders
+curl -s http://localhost:3333/v1/admin/read/sales-orders/stats
+curl -s http://localhost:3333/v1/admin/read/sales-orders/<omieId>
+curl -s http://localhost:3333/v1/admin/read/sales-orders/open-items
+curl -s http://localhost:3333/v1/admin/read/sales-orders/transitions
+curl -s http://localhost:3333/v1/admin/read/sales-orders/<omieId>/transitions
+```
 
 ---
 
-## 📊 Resumo Final
+### customer-sync
 
-| Categoria | Qtde Rotas | Status |
-|-----------|-----------:|--------|
-| Meta / Health | 3 | ✅ Ativo |
-| **Integração (7 módulos + 1)** | **~71** | ✅ Ativo |
-| Legado ativos (6 módulos) | ~44 | ✅ Ativo |
-| Legado desativados (7 módulos) | ~22 | 🔕 Comentados |
-| **Total (aproximado)** | **~140** | |
+```bash
+# ── Commands ──
+curl -s -X POST http://localhost:3333/v1/integration/customer-sync/commands/sync -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","customerCode":"<codigo>"}'
+curl -s -X POST http://localhost:3333/v1/integration/customer-sync/commands/sync-global -H "Content-Type: application/json" -d '{"externalRequestId":"opcional"}'
 
-> ⚠️ Algumas rotas `deprecated` (ex: `/v1/products/stock`, `/v1/sectors/*`, `/v1/plans/*`) existem como redirecionamento para os novos paths canônicos, mas não foram listadas individualmente aqui.
+# ── Read-models (integration) ──
+curl -s http://localhost:3333/v1/integration/customer-sync/commands/<externalRequestId>
+curl -s http://localhost:3333/v1/integration/customer-sync/read/summary
+curl -s http://localhost:3333/v1/integration/customer-sync/read/last-sync
+curl -s http://localhost:3333/v1/integration/customer-sync/read/sync-history
+curl -s http://localhost:3333/v1/integration/customer-sync/read/sync-failures
+
+# ── Read-models (admin) ──
+curl -s http://localhost:3333/v1/admin/read/customers
+curl -s http://localhost:3333/v1/admin/read/customers/<customerCode>
+curl -s http://localhost:3333/v1/admin/read/customers/stats
+```
+
+---
+
+### product-catalog
+
+```bash
+# ── Commands ──
+curl -s -X POST http://localhost:3333/v1/integration/product-catalog/commands/sync -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","productCode":"<codigo>"}'
+curl -s -X POST http://localhost:3333/v1/integration/product-catalog/commands/sync-global -H "Content-Type: application/json" -d '{"externalRequestId":"opcional"}'
+curl -s -X POST http://localhost:3333/v1/admin/product-catalog/refresh-production-ready -H "Content-Type: application/json" -d '{}'
+
+# ── Read-models (integration) ──
+curl -s http://localhost:3333/v1/integration/product-catalog/commands/<externalRequestId>
+curl -s http://localhost:3333/v1/integration/product-catalog/read/summary
+curl -s http://localhost:3333/v1/integration/product-catalog/read/production-ready
+curl -s http://localhost:3333/v1/integration/product-catalog/read/sync-history
+curl -s http://localhost:3333/v1/integration/product-catalog/read/sync-failures
+curl -s http://localhost:3333/v1/integration/product-catalog/read/last-sync
+
+# ── Read-models (admin) ──
+curl -s http://localhost:3333/v1/admin/read/products/catalog
+curl -s http://localhost:3333/v1/admin/read/products/catalog/<productCode>
+curl -s http://localhost:3333/v1/admin/read/products/catalog/stats
+```
+
+---
+
+### product-stock-fetch
+
+```bash
+# ── Commands ──
+curl -s -X POST http://localhost:3333/v1/integration/product-stock-fetch/commands/refresh -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","productId":"<codigo>"}'
+curl -s -X POST http://localhost:3333/v1/integration/product-stock-fetch/commands/sync-global -H "Content-Type: application/json" -d '{"externalRequestId":"opcional"}'
+
+# ── Read-models ──
+curl -s "http://localhost:3333/v1/integration/product-stock-fetch/read/position?productId=<productId>"
+```
+
+---
+
+### product-manager
+
+```bash
+# ── Commands ──
+curl -s -X POST http://localhost:3333/v1/integration/product-manager/commands/create -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","name":"<nome>","code":"<codigo>"}'
+curl -s -X POST http://localhost:3333/v1/integration/product-manager/commands/update -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","code":"<codigo>","name":"<novo_nome>"}'
+curl -s -X POST http://localhost:3333/v1/integration/product-manager/commands/inactivate -H "Content-Type: application/json" -d '{"externalRequestId":"meu-id","code":"<codigo>"}'
+```
+
+
+
+

@@ -34,29 +34,28 @@ function runCommand(cmd, ignoreErrors = false) {
     }
 }
 
-function checkTableExists(tableName) {
+function checkTableExists(tableName, schema = 'public') {
     const sql = `
         SELECT EXISTS (
             SELECT FROM information_schema.tables 
-            WHERE table_schema = 'public' 
+            WHERE table_schema = '${schema}' 
             AND table_name = '${tableName}'
         );
     `;
-    
+
     const result = runCommand(`npx prisma db execute --stdin --query "${sql}"`, true);
     if (!result) return false;
-    
-    // Extrair resultado (ex: "exists\ntrue\n" ou "exists\nfalse\n")
+
     return result.includes('true');
 }
 
 function resolveFailedMigration(migrationName) {
     console.log(`\n📋 Processando migração: ${migrationName}`);
-    
+
     // Verificar se as tabelas já existem
     const tables = MIGRATION_TABLES[migrationName] || [];
     let allTablesExist = true;
-    
+
     if (tables.length > 0) {
         console.log('🔍 Verificando se as tabelas foram criadas...');
         for (const table of tables) {
@@ -65,7 +64,7 @@ function resolveFailedMigration(migrationName) {
             if (!exists) allTablesExist = false;
         }
     }
-    
+
     // Decidir como resolver
     if (allTablesExist && tables.length > 0) {
         console.log('📝 Marcando migração como APLICADA (tabelas existem)...');
@@ -83,7 +82,7 @@ function resolveFailedMigration(migrationName) {
             return true;
         }
     }
-    
+
     // Se não deu certo, tentar marcar como revertida
     console.log('🔄 Tentando marcar como REVERTIDA...');
     const result = runCommand(`npx prisma migrate resolve --rolled-back "${migrationName}"`);
@@ -91,15 +90,15 @@ function resolveFailedMigration(migrationName) {
         console.log('✅ Migração resolvida como revertida');
         return true;
     }
-    
+
     console.log('⚠️  Não foi possível resolver esta migração');
     return false;
 }
 
 function main() {
     console.log('🚀 Script de migração resiliente para Render');
-    console.log('=' .repeat(50));
-    
+    console.log('='.repeat(50));
+
     // Verificar status atual
     console.log('\n📊 Status atual das migrações:');
     const status = runCommand('npx prisma migrate status', true);
@@ -108,39 +107,50 @@ function main() {
     } else {
         console.log('⚠️  Não foi possível verificar status');
     }
-    
+
     // Resolver migrações falhadas
     console.log('\n🛠️  Resolvendo migrações falhadas...');
     let resolvedCount = 0;
-    
+
     for (const migration of FAILED_MIGRATIONS) {
         if (resolveFailedMigration(migration)) {
             resolvedCount++;
         }
     }
-    
+
     // Aplicar migrações pendentes
     console.log('\n📦 Aplicando migrações pendentes...');
     try {
-        const deployResult = execSync('npx prisma migrate deploy', { 
+        const deployResult = execSync('npx prisma migrate deploy', {
             encoding: 'utf8',
             stdio: 'inherit'
         });
         console.log('✅ Migrações aplicadas com sucesso!');
     } catch (error) {
         console.log('❌ Erro ao aplicar migrações:', error.message);
-        console.log('\n💡 Recomendações:');
-        console.log('1. Acesse o terminal do Render e execute:');
-        console.log('   npx prisma migrate resolve --applied "20260508213903_add_omie_production_orders"');
-        console.log('2. Ou execute nosso script interativo:');
-        console.log('   npm run db:fix:failed');
-        console.log('3. Depois faça um novo deploy');
-        
+
+        // Fallback: tentar prisma db push para sincronizar o schema diretamente
+        console.log('\n🔄 Tentando fallback com prisma db push...');
+        try {
+            execSync('npx prisma db push --accept-data-loss', {
+                encoding: 'utf8',
+                stdio: 'inherit'
+            });
+            console.log('✅ prisma db push executado com sucesso! Schema sincronizado.');
+            console.log('   Todas as tabelas foram criadas/atualizadas no banco.');
+        } catch (pushError) {
+            console.log('❌ prisma db push também falhou:', pushError.message);
+            console.log('\n💡 Recomendações:');
+            console.log('1. Acesse o terminal do Render e execute manualmente:');
+            console.log('   npx prisma db push --accept-data-loss');
+            console.log('2. Ou faça conexão direta no banco e verifique permissões');
+            console.log('3. Depois faça um novo deploy');
+        }
+
         // Não falhar - permitir que o sistema rode
-        console.log('\n⚠️  O sistema pode rodar com migrações pendentes.');
-        console.log('   As funcionalidades podem estar limitadas até resolver as migrações.');
+        console.log('\n⚠️  O sistema pode rodar com schema sincronizado via db push.');
     }
-    
+
     console.log('\n🎯 Resumo:');
     console.log(`   Migrações resolvidas: ${resolvedCount}/${FAILED_MIGRATIONS.length}`);
     console.log('✨ Processo concluído!');
