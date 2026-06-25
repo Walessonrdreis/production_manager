@@ -117,7 +117,7 @@ function baselineMigrations() {
         true
     );
 
-    if (checkResult && checkResult.includes('t')) {
+    if (checkResult && /\bt\b/.test(checkResult)) {
         console.log('✅ _prisma_migrations já existe. Baseline não necessário.');
         return true;
     }
