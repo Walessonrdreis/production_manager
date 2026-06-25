@@ -144,37 +144,6 @@ function main() {
                 timeout: 120000 // 2 min timeout
             });
             console.log('✅ prisma db push concluído com sucesso!');
-
-            // =============================================================
-            // Reset PgBoss: dropar tabela version + funções órfãs via DIRECT_URL
-            // =============================================================
-            // Se o PgBoss tem tabela "version" mas funções ausentes (deploy anterior
-            // dropou tabelas com --accept-data-loss), ele pula a migração e falha.
-            // Dropar version + funções força PgBoss a recriar tudo do zero.
-            // =============================================================
-            console.log('🔄 Resetando estado do PgBoss (forçar recriação)...');
-            const directUrl = process.env.DIRECT_URL || process.env.DATABASE_URL || '';
-            const pgbossResetSql = [
-                'DROP TABLE IF EXISTS integration.version CASCADE;',
-                'DROP TABLE IF EXISTS integration.queue CASCADE;',
-                'DROP TABLE IF EXISTS integration.schedule CASCADE;',
-                'DROP TABLE IF EXISTS integration.job CASCADE;',
-                'DROP TABLE IF EXISTS integration.archive CASCADE;',
-                'DROP TABLE IF EXISTS integration.warning CASCADE;',
-                'DROP FUNCTION IF EXISTS integration.create_queue(text, jsonb) CASCADE;',
-                'DROP FUNCTION IF EXISTS integration.create_queue(text) CASCADE;',
-            ].join('\n');
-            const resetFile = '/tmp/reset-pgboss.sql';
-            try {
-                fs.writeFileSync(resetFile, pgbossResetSql, 'utf8');
-                execSync(
-                    `npx prisma db execute --file "${resetFile}" --url "${directUrl}"`,
-                    { encoding: 'utf8', stdio: 'pipe', timeout: 30000 }
-                );
-                console.log('✅ PgBoss resetado — tudo será recriado na inicialização');
-            } catch (resetErr) {
-                console.log('⚠️  Aviso: reset PgBoss:', resetErr.message);
-            }
         } catch (pushError) {
             console.log('⚠️  Fallback 1 (db push) falhou:', pushError.message);
 
@@ -213,6 +182,27 @@ function main() {
         }
 
         console.log('\n⚠️  Fallback executado. O sistema tentará iniciar.');
+    }
+
+    // =========================================================
+    // Garantir que PgBoss use conexão DIRETA (sem PgBouncer)
+    // =========================================================
+    // O server.ts faz import "dotenv/config" que carrega .env.
+    // Escrevemos PG_BOSS_CONNECTION_STRING via DIRECT_URL para
+    // que o PgBoss consiga criar suas tabelas (DDL não passa
+    // pelo PgBouncer porta 6543, apenas pela direta porta 5432).
+    // =========================================================
+    const directUrl = process.env.DIRECT_URL || '';
+    if (directUrl) {
+        try {
+            const envContent = `# Gerado por resilient-migrate.js para PgBoss conectar direto\nPG_BOSS_CONNECTION_STRING="${directUrl}"\n`;
+            fs.writeFileSync('.env', envContent, 'utf8');
+            console.log('🔧 .env gerado com PG_BOSS_CONNECTION_STRING → PgBoss usará DIRECT_URL');
+        } catch (envErr) {
+            console.log('⚠️  Não foi possível gerar .env:', envErr.message);
+        }
+    } else {
+        console.log('⚠️  DIRECT_URL não encontrada. PgBoss usará DATABASE_URL (PgBouncer).');
     }
 
     console.log('\n🎯 Resumo:');
