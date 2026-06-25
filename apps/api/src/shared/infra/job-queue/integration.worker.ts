@@ -79,7 +79,7 @@ export async function startWorker(boss: PgBoss): Promise<void> {
                 const externalRequestId =
                     (job.data as any)?.externalRequestId ?? "unknown";
 
-                logger.info({
+                logger.debug({
                     msg: "job.start",
                     jobId: job.id,
                     type: entry.type,
@@ -92,7 +92,7 @@ export async function startWorker(boss: PgBoss): Promise<void> {
                         data: job.data,
                     });
 
-                    logger.info({
+                    logger.debug({
                         msg: "job.success",
                         jobId: job.id,
                         type: entry.type,

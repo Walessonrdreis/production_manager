@@ -67,7 +67,7 @@ export class SyncAllProductionOrdersUseCase {
                 processedPages += 1;
                 processedItems += pageResult.items.length;
 
-                this.logger.info("Fake no-write page processed", {
+                this.logger.debug("Fake no-write page processed", {
                     externalRequestId: command.externalRequestId,
                     page,
                     items: pageResult.items.length,

@@ -170,7 +170,7 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
                     hooks.add({
                         name: "sync-items",
                         execute: async () => {
-                            logger.info("Enqueuing sync-items after sync-global", { externalRequestId });
+                            logger.debug("Enqueuing sync-items after sync-global", { externalRequestId });
                             await enqueueJob("production-order.sync-items", {
                                 externalRequestId: `${externalRequestId}-items`,
                                 maxOrders: 50,
@@ -212,7 +212,7 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
         "production-order.sync-items",
         async (job) => {
             const { externalRequestId, omieCodes, maxOrders } = job.data ?? {};
-            logger.info("Processing sync-items", { externalRequestId, maxOrders, specificCodes: omieCodes?.length ?? 0 });
+            logger.debug("Processing sync-items", { externalRequestId, maxOrders, specificCodes: omieCodes?.length ?? 0 });
 
             if (isFake) {
                 logger.info("Fake mode: skipping sync-items");
@@ -228,7 +228,7 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
                 maxOrders: maxOrders ?? 50,
             });
 
-            logger.info("Sync-items batch completed", {
+            logger.debug("Sync-items batch completed", {
                 externalRequestId,
                 processed: result.processed,
                 updated: result.updated,
@@ -238,7 +238,7 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
 
             // Se ainda há mais ordens, re-enfileira para processar o próximo lote
             if (result.hasMore) {
-                logger.info("More orders need items, re-enqueuing", { externalRequestId });
+                logger.debug("More orders need items, re-enqueuing", { externalRequestId });
                 await enqueueJob("production-order.sync-items", {
                     externalRequestId: `${externalRequestId}-next`,
                     maxOrders: maxOrders ?? 50,
