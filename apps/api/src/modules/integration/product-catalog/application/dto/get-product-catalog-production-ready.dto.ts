@@ -8,6 +8,7 @@ export type GetProductCatalogProductionReadyQueryDTO = {
   sort?: "description" | "productCode" | "stock" | "lastSyncAt";
   order?: "asc" | "desc";
   withAvailability?: boolean;
+  onlyWithOpenOrders?: boolean;
 };
 
 export type ProductCatalogProductionReadyStatus =

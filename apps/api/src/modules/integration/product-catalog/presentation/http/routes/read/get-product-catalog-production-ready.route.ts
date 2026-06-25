@@ -39,6 +39,7 @@ export async function registerGetProductCatalogProductionReadyRoute(
 
       // ✅ DEFAULT AJUSTADO (ANTES ERA TRUE)
       withAvailability: parseBoolean(query.withAvailability, false),
+      onlyWithOpenOrders: parseBoolean(query.onlyWithOpenOrders, false),
     };
 
     const result = await useCase.execute(params);

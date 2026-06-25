@@ -35,6 +35,7 @@ export type ListProductionReadyParams = {
   sort?: "description" | "productCode" | "stock" | "lastSyncAt";
   order?: "asc" | "desc";
   withAvailability?: boolean;
+  onlyWithOpenOrders?: boolean;
 };
 
 export class ProductCatalogProductionReadyReadModelStore {
@@ -86,6 +87,7 @@ export class ProductCatalogProductionReadyReadModelStore {
       sort = "description",
       order = "asc",
       withAvailability = true,
+      onlyWithOpenOrders = false,
     } = params;
 
     const safeLimit = Math.max(1, Math.min(Number(limit || 100), 500));
@@ -115,6 +117,7 @@ export class ProductCatalogProductionReadyReadModelStore {
         : {}),
       ...(stockWhere ? { stock: stockWhere } : {}),
       ...(withAvailability ? { available: true } : {}),
+      ...(onlyWithOpenOrders ? { hasOpenSalesOrderStage20: true } : {}),
     };
 
     const orderBy =
