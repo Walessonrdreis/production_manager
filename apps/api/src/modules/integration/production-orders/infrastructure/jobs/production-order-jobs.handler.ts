@@ -313,6 +313,52 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
         { concurrency: 2, batchSize: 1 }
     );
 
+    // ── 8. REFRESH_BY_STOCK: Recalcular OPs após sync de estoque ──────
+    // Usa o índice GIN para encontrar OPs abertas com estrutura (BOM)
+    // e enfileira refresh individual para cada uma.
+    // Singleton: evita múltiplas execuções simultâneas.
+
+    registerJobHandler<{ skipIfEmpty?: boolean }>(
+        "production-order.refresh.by-stock",
+        async () => {
+            logger.info("Starting by-stock refresh of production order read model");
+
+            // Busca OPs abertas com materiais (materials_json não vazio)
+            // usando o índice GIN idx_prorm_materials_gin
+            type OpRow = { omie_code: string };
+            const ops = await prisma.$queryRaw<OpRow[]>`
+                SELECT omie_code
+                FROM read_model.production_order_read_model
+                WHERE is_open = true
+                  AND materials_json IS NOT NULL
+                  AND materials_json != '[]'::jsonb
+                  AND jsonb_typeof(materials_json) = 'array'
+            `;
+
+            logger.info("Found open OPs with materials for by-stock refresh", {
+                count: ops.length,
+            });
+
+            let enqueued = 0;
+            for (const op of ops) {
+                const jobId = await enqueueJob("production-order.refresh", {
+                    omieCode: op.omie_code,
+                }, {
+                    retryLimit: 2,
+                    retryBackoff: true,
+                    singletonKey: `prorm-refresh-${op.omie_code}`,
+                });
+                if (jobId) enqueued++;
+            }
+
+            logger.info("By-stock refresh completed", {
+                found: ops.length,
+                enqueued,
+            });
+        },
+        { concurrency: 1, batchSize: 1 }
+    );
+
     logger.info("Production-order PgBoss handlers registered", {
         types: [
             "production-order.create-op",
@@ -322,6 +368,7 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
             "production-order.sync-global",
             "production-order.sync-items",
             "production-order.refresh",
+            "production-order.refresh.by-stock",
         ],
     });
 }

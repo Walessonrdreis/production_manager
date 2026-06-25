@@ -22,6 +22,8 @@ import { FakeProductStockFetchPageGateway } from "../gateways/product-stock-fetc
 import { ProductCatalogProductionReadyReadModelStore } from "@/modules/integration/product-catalog/infrastructure/db/product-catalog-production-ready-read-model.store";
 import { RefreshProductCatalogProductionReadyUseCase } from "@/modules/integration/product-catalog/application/use-cases/refresh-product-catalog-production-ready.usecase";
 
+import { enqueueJob } from "@/shared/infra/job-queue";
+
 function buildUseCase(omieClient: OmieHttpClientPort) {
   const useFake = env.PRODUCT_STOCK_FETCH_GATEWAY === "fake";
 
@@ -73,6 +75,19 @@ export function registerProductStockFetchJobs(omieClient: OmieHttpClientPort) {
         });
 
         runLogger.info("Product stock sync job completed", result);
+
+        // Fase 2: após sync de estoque, enfileira refresh das OPs que têm materiais
+        try {
+          const refreshJobId = await enqueueJob("production-order.refresh.by-stock", {}, {
+            retryLimit: 1,
+            singletonKey: "production-order-refresh-by-stock",
+          });
+          runLogger.debug("By-stock refresh enqueued after stock sync", { jobId: refreshJobId });
+        } catch (err) {
+          runLogger.warn("Failed to enqueue by-stock refresh", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
       } catch (error) {
         runLogger.error("Product stock sync job failed", {
           error: error instanceof Error ? error.message : String(error),
