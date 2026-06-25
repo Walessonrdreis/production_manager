@@ -23,7 +23,7 @@ POST /v1/integration/customer-sync/:customerCode/sync
 ### Sync global
 
 ```
-POST /v1/integration/customer-sync/sync-global
+POST /v1/integration/customer-sync/commands/sync-global
 ```
 
 **Payload:**

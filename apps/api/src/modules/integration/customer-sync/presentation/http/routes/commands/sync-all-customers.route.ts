@@ -25,7 +25,7 @@ function buildExternalRequestId() {
 const logger = getLogger("sync-all-customers.route");
 
 export async function registerSyncAllCustomersRoute(app: FastifyInstance) {
-    app.post("/v1/integration/customer-sync/sync-global", async (request, reply) => {
+    app.post("/v1/integration/customer-sync/commands/sync-global", async (request, reply) => {
         const body = (request.body as SyncAllCustomersRequestDTO | undefined) ?? {};
 
         const externalRequestId =

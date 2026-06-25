@@ -18,7 +18,7 @@ HTTP (Fastify) → UseCase → Gateway (real/fake) → Omie API
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | POST | `/v1/integration/customer-sync/:customerCode/sync` | Sincroniza 1 cliente |
-| POST | `/v1/integration/customer-sync/sync-global` | Sincroniza todos os clientes |
+| POST | `/v1/integration/customer-sync/commands/sync-global` | Sincroniza todos os clientes |
 
 ### Leitura (Admin/API2)
 
@@ -132,7 +132,7 @@ curl -X POST "http://localhost:3333/v1/integration/customer-sync/9428243340/sync
 ### Sync global de clientes
 
 ```bash
-curl -X POST "http://localhost:3333/v1/integration/customer-sync/sync-global" \
+curl -X POST "http://localhost:3333/v1/integration/customer-sync/commands/sync-global" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```

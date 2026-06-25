@@ -4,7 +4,7 @@
 
 export const customerSyncOpenApi = {
     paths: {
-        "/v1/integration/customer-sync/sync-global": {
+        "/v1/integration/customer-sync/commands/sync-global": {
             post: {
                 tags: ["Customer Sync"],
                 summary: "Sync global de clientes",
