@@ -15,7 +15,7 @@ export async function registerGetSalesOrderFailuresRoute(
     const commandStore = new SalesOrderSyncCommandStore(prisma);
 
     app.get(
-        "/v1/integration/sales-order-sync/read/failures"
+        "/v1/integration/sales-order-sync/read/failures",
         async (request, reply) => {
             const { limit, offset } = request.query as {
                 limit?: number;
