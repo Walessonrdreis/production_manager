@@ -81,6 +81,10 @@ const envSchema = z.object({
   ENABLE_OMIE_PRODUCTION_ORDER_READ_MODEL_REFRESH_JOB: envBoolean.default(false),
   OMIE_PRODUCTION_ORDER_READ_MODEL_REFRESH_CRON: z.string().default("*/5 * * * *"),
 
+  // ✅ módulo production-orders (read-model full refresh — Fase 4)
+  ENABLE_OMIE_PRODUCTION_ORDER_READ_MODEL_FULL_REFRESH_JOB: envBoolean.default(false),
+  OMIE_PRODUCTION_ORDER_READ_MODEL_FULL_REFRESH_CRON: z.string().default("0 0 * * *"),
+
   ENABLE_OMIE_PRODUCT_CATALOG_PRODUCTION_READY_REFRESH_JOB: envBoolean.default(false),
   OMIE_PRODUCT_CATALOG_PRODUCTION_READY_REFRESH_CRON: z.string().default("30 */10 * * * *"),
 

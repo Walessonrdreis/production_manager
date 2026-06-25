@@ -315,7 +315,8 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
 
     // ── 8. REFRESH_BY_STOCK: Recalcular OPs após sync de estoque ──────
     // Usa o índice GIN para encontrar OPs abertas com estrutura (BOM)
-    // e enfileira refresh individual para cada uma.
+    // e enfileira refresh em lote (batch).
+    // Fase 3: enfileira batch job com startAfter para debounce.
     // Singleton: evita múltiplas execuções simultâneas.
 
     registerJobHandler<{ skipIfEmpty?: boolean }>(
@@ -335,26 +336,133 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
                   AND jsonb_typeof(materials_json) = 'array'
             `;
 
+            if (ops.length === 0) {
+                logger.info("No open OPs with materials found for by-stock refresh");
+                return;
+            }
+
             logger.info("Found open OPs with materials for by-stock refresh", {
                 count: ops.length,
             });
 
-            let enqueued = 0;
-            for (const op of ops) {
-                const jobId = await enqueueJob("production-order.refresh", {
-                    omieCode: op.omie_code,
-                }, {
-                    retryLimit: 2,
-                    retryBackoff: true,
-                    singletonKey: `prorm-refresh-${op.omie_code}`,
-                });
-                if (jobId) enqueued++;
+            // Fase 3: enfileira um único batch job com debounce de 5s
+            const omieCodes = ops.map((op) => op.omie_code);
+            const jobId = await enqueueJob("production-order.refresh.batch", {
+                omieCodes,
+                source: "by-stock",
+            }, {
+                retryLimit: 1,
+                startAfter: 5, // debounce window: aguarda 5s para agregar
+                singletonKey: "production-order-refresh-batch",
+            });
+
+            logger.info("By-stock refresh completed — batch job enqueued", {
+                found: ops.length,
+                batchJobId: jobId,
+            });
+        },
+        { concurrency: 1, batchSize: 1 }
+    );
+
+    // ── 9. REFRESH_BATCH: Processar múltiplos refreshes em lote ────────
+    // Fase 3: processa várias OPs numa única execução.
+    // - Skip-if-fresh: pula OPs atualizadas nos últimos 60s
+    // - Processa as restantes com Promise.allSettled (concorrência controlada)
+    // - Aceita source para rastrear origem do batch
+
+    registerJobHandler<{ omieCodes: string[]; source?: string }>(
+        "production-order.refresh.batch",
+        async (job) => {
+            const { omieCodes, source } = job.data;
+            const batchSize = omieCodes?.length ?? 0;
+
+            if (batchSize === 0) {
+                logger.info("Batch refresh received empty codes list");
+                return;
             }
 
-            logger.info("By-stock refresh completed", {
-                found: ops.length,
-                enqueued,
+            logger.info("Starting batch refresh", { batchSize, source });
+
+            // ── Skip-if-fresh: verifica lastSyncAt de cada OP ──────────
+            // Pula OPs que já foram atualizadas nos últimos 60 segundos
+            const FRESH_THRESHOLD_MS = 60_000;
+            const cutoff = new Date(Date.now() - FRESH_THRESHOLD_MS);
+
+            type FreshRow = { omie_code: string; last_sync_at: Date | null };
+            const freshRecords = await prisma.$queryRaw<FreshRow[]>`
+                SELECT omie_code, last_sync_at
+                FROM read_model.production_order_read_model
+                WHERE omie_code = ANY(${omieCodes}::text[])
+            `;
+
+            const freshMap = new Map<string, Date | null>(
+                freshRecords.map((r) => [r.omie_code, r.last_sync_at])
+            );
+
+            const toProcess: string[] = [];
+            const skipped: string[] = [];
+
+            for (const code of omieCodes) {
+                const lastSync = freshMap.get(code);
+                if (lastSync && lastSync > cutoff) {
+                    skipped.push(code);
+                } else {
+                    toProcess.push(code);
+                }
+            }
+
+            logger.info("Batch refresh skip-if-fresh", {
+                total: batchSize,
+                toProcess: toProcess.length,
+                skipped: skipped.length,
             });
+
+            if (toProcess.length === 0) {
+                logger.info("Batch refresh — all OPs are fresh, nothing to do");
+                return;
+            }
+
+            // ── Processa lote ──────────────────────────────────────────
+            const store = new ProductionOrderReadModelStore();
+            const useCase = new RefreshProductionOrderReadModelUseCase(store);
+
+            // Concorrência controlada: processa em grupos de 5
+            const CONCURRENCY = 5;
+            const results = { success: 0, failed: 0, errors: [] as string[] };
+
+            for (let i = 0; i < toProcess.length; i += CONCURRENCY) {
+                const chunk = toProcess.slice(i, i + CONCURRENCY);
+                const outcomes = await Promise.allSettled(
+                    chunk.map((code) => useCase.refreshOne(code))
+                );
+
+                for (let j = 0; j < outcomes.length; j++) {
+                    const outcome = outcomes[j];
+                    if (outcome.status === "fulfilled") {
+                        results.success++;
+                    } else {
+                        results.failed++;
+                        results.errors.push(
+                            `${chunk[j]}: ${outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason)}`
+                        );
+                    }
+                }
+            }
+
+            logger.info("Batch refresh completed", {
+                total: batchSize,
+                processed: toProcess.length,
+                success: results.success,
+                failed: results.failed,
+                skipped: skipped.length,
+                source,
+            });
+
+            if (results.errors.length > 0) {
+                logger.warn("Batch refresh errors", {
+                    errors: results.errors.slice(0, 10), // primeiros 10 apenas
+                });
+            }
         },
         { concurrency: 1, batchSize: 1 }
     );
@@ -369,6 +477,7 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
             "production-order.sync-items",
             "production-order.refresh",
             "production-order.refresh.by-stock",
+            "production-order.refresh.batch",
         ],
     });
 }
