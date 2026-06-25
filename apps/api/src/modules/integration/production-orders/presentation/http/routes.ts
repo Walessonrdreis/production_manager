@@ -24,6 +24,7 @@ import { registerGetProductionOrderStatsRoute } from "./routes/read/get-producti
 import { registerGetQueueStatusRoute } from "./routes/read/get-queue-status.route";
 import { registerGetQueueFailuresRoute } from "./routes/read/get-queue-failures.route";
 import { registerGetProductionOrderRefreshRoute } from "./routes/read/get-production-order-refresh.route";
+import { registerGetProductionOrderWithBomRoute } from "./routes/read/get-production-order-with-bom.route";
 
 export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
   // ─── Commands (intenções) ─────────────────────────────────────────
@@ -49,4 +50,7 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
 
   // ─── Refresh (consulta Omie + atualiza espelho) ───────────────────
   await registerGetProductionOrderRefreshRoute(app);
+
+  // ─── BOM Consumption (detalhe + estrutura) ────────────────────────
+  await registerGetProductionOrderWithBomRoute(app);
 }

@@ -1049,6 +1049,9 @@ Se quiser, próximo passo final mesmo:
 ### Sales Order Sync
 - GET /v1/integration/sales-order-sync/sync-status/:externalRequestId
 
+### Production Orders
+- GET /v1/integration/production-orders/read/:omieCode/with-bom
+
 ## 2 - Comandos de integração (POST)
 
 ### Product Catalog

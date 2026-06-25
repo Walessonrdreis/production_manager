@@ -689,6 +689,89 @@ curl.exe -s "http://localhost:3333/v1/integration/read/production-orders/9551864
 
 ---
 
+### 4.7 Detalhe da OP com Estrutura (BOM) e Consumo
+
+```
+GET /v1/integration/production-orders/read/:omieCode/with-bom
+```
+
+Retorna a OP + nome do produto + itens da estrutura (BOM) com cálculo de consumo + itens da OP vindos do Omie.
+
+**Path Parameters:**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `omieCode` | `string` | ✅ Sim | Código numérico da OP no Omie (nCodOP) |
+
+**Comportamento:**
+- Busca a OP pelo `omieCode`
+- Faz a ponte entre `product_code` (código Omie) e a estrutura (`product_structure_item`) via catálogo
+- Calcula: `totalConsumption = OP.quantity * BOM.quantidade`
+- Calcula: `stockAfterConsumption = currentStock - totalConsumption`
+- Se não encontrar estrutura, retorna `bom: []` e tenta os OP items do Omie
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "order": {
+      "omieCode": "9529462060",
+      "orderNumber": null,
+      "productCode": "9116171995",
+      "productName": null,
+      "quantity": "10",
+      "forecastDate": "2026-02-02T00:00:00.000Z",
+      "startDate": "2026-02-02T00:00:00.000Z",
+      "completionDate": "2026-02-02T00:00:00.000Z",
+      "stage": "10",
+      "completed": false,
+      "active": true
+    },
+    "bom": [
+      {
+        "componentCode": "embkgmet",
+        "componentName": "e Embalagem Barra 1KG METALIZADO 18x30x008",
+        "unit": "UN",
+        "quantityPerUnit": "1",
+        "lossPercent": "0",
+        "totalConsumption": "10",
+        "currentStock": "50",
+        "stockAfterConsumption": "40"
+      }
+    ],
+    "opItems": [
+      {
+        "omieItemCode": "detail_9207068440",
+        "productMeshId": "9207068440",
+        "quantity": "10",
+        "useFromStock": "N",
+        "observation": ""
+      }
+    ]
+  }
+}
+```
+
+**Response 404:**
+
+```json
+{
+  "success": false,
+  "error": "NOT_FOUND",
+  "message": "Production order 9999999999 not found"
+}
+```
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/9529462060/with-bom"
+```
+
+---
+
 ## 5. Fluxo de Uso (Exemplo Completo)
 
 ```bash
