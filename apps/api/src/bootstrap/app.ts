@@ -205,8 +205,5 @@ export async function buildApp(): Promise<FastifyInstance> {
   if (env.ENABLE_OMIE_CLIENT_SYNC_JOB) {
     startOmieClientSyncJob(app);
   }
-  // ✅ opcional: sync on startup (sem depender de use cases no bootstrap)
-  if (process.env.OMIE_ORDERS_STAGE_SYNC_ON_STARTUP === "true") {
-    setImmediate(async () => {
-      try {
-  
+  return app;
+}
