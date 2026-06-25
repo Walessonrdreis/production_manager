@@ -10,6 +10,7 @@ import { getLogger } from "@/shared/logger";
 import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
 import { SyncAllProductionOrdersJob } from "./sync-all-production-orders.job";
 import { registerProductionOrderJobHandlers } from "./production-order-jobs.handler";
+import { ProductionOrderReadModelRefreshJob } from "./production-order-read-model-refresh.job";
 
 export function registerProductionOrderJobs(omieClient: OmieHttpClientPort) {
     const logger = getLogger("production-orders:cron");
@@ -39,6 +40,29 @@ export function registerProductionOrderJobs(omieClient: OmieHttpClientPort) {
                 runLogger.info("Finished Production Order sync job");
             } catch (error) {
                 runLogger.error("Production Order sync job failed", error as any);
+            }
+        });
+    }
+
+    // ─── Read-Model Refresh Job ──────────────────────────────────────────
+
+    if (!env.ENABLE_OMIE_PRODUCTION_ORDER_READ_MODEL_REFRESH_JOB) {
+        logger.info("Production Order read-model refresh job is disabled");
+    } else {
+        const schedule = env.OMIE_PRODUCTION_ORDER_READ_MODEL_REFRESH_CRON ?? "*/5 * * * *";
+
+        logger.info("Registering Production Order read-model refresh job", { schedule });
+
+        cron.schedule(schedule, async () => {
+            const runLogger = getLogger("production-orders:cron:read-model-refresh");
+            runLogger.info("Starting Production Order read-model refresh job");
+
+            try {
+                const job = new ProductionOrderReadModelRefreshJob();
+                await job.execute();
+                runLogger.info("Finished Production Order read-model refresh job");
+            } catch (error) {
+                runLogger.error("Production Order read-model refresh job failed", error as any);
             }
         });
     }

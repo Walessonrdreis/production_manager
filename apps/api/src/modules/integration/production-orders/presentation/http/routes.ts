@@ -25,6 +25,8 @@ import { registerGetQueueStatusRoute } from "./routes/read/get-queue-status.rout
 import { registerGetQueueFailuresRoute } from "./routes/read/get-queue-failures.route";
 import { registerGetProductionOrderRefreshRoute } from "./routes/read/get-production-order-refresh.route";
 import { registerGetProductionOrderWithBomRoute } from "./routes/read/get-production-order-with-bom.route";
+import { registerListOpenProductionOrdersRoute } from "./routes/read/list-open-production-orders.route";
+import { registerRefreshProductionOrderReadModelRoute } from "./routes/admin/refresh-production-order-read-model.route";
 
 export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
   // ─── Commands (intenções) ─────────────────────────────────────────
@@ -53,4 +55,10 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
 
   // ─── BOM Consumption (detalhe + estrutura) ────────────────────────
   await registerGetProductionOrderWithBomRoute(app);
+
+  // ─── Read-Model (listagem de OPs abertas) ─────────────────────────
+  await registerListOpenProductionOrdersRoute(app);
+
+  // ─── Admin (refresh do read model) ────────────────────────────────
+  await registerRefreshProductionOrderReadModelRoute(app);
 }

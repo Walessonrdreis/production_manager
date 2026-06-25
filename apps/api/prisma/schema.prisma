@@ -715,6 +715,65 @@ model SalesOrderSummaryReadModel {
   @@schema("read_model")
 }
 
+model ProductionOrderReadModel {
+  id String @id @default(cuid())
+
+  // ─── Identificação ────────────────────────────────────────────────
+  omieCode       String  @unique @db.VarChar(64) @map("omie_code")
+  orderNumber    String? @db.VarChar(32) @map("order_number")
+  productCode    String? @db.VarChar(64) @map("product_code")
+  productName    String? @db.Text @map("product_name")
+  productUnit    String? @db.VarChar(16) @map("product_unit")
+
+  // ─── Quantidades ──────────────────────────────────────────────────
+  quantity Decimal @db.Decimal(18, 4)
+
+  // ─── Estágio / Status ─────────────────────────────────────────────
+  stage             String? @db.VarChar(10)
+  operationalStatus String  @default("pending") @db.VarChar(20) @map("operational_status")
+
+  // ─── Flags calculadas ─────────────────────────────────────────────
+  isOpen               Boolean @default(true)  @map("is_open")
+  isLate               Boolean @default(false) @map("is_late")
+  isReady              Boolean @default(false) @map("is_ready")
+  isBlocked            Boolean @default(false) @map("is_blocked")
+  hasStockIssue        Boolean @default(false) @map("has_stock_issue")
+  hasMissingMaterials  Boolean @default(false) @map("has_missing_materials")
+  hasCriticalMaterial  Boolean @default(false) @map("has_critical_material")
+  hasPartialStock      Boolean @default(false) @map("has_partial_stock")
+
+  // ─── Prioridade ───────────────────────────────────────────────────
+  priority String @default("low") @db.VarChar(10)
+
+  // ─── Datas ────────────────────────────────────────────────────────
+  expectedAt  DateTime? @map("expected_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  daysOverdue Int @default(0) @map("days_overdue")
+
+  // ─── JSONs ────────────────────────────────────────────────────────
+  materialsJson        Json? @map("materials_json")
+  materialsSummaryJson Json? @map("materials_summary_json")
+  readinessJson        Json? @map("readiness_json")
+  alertsJson           Json? @map("alerts_json")
+
+  // ─── Metadados ────────────────────────────────────────────────────
+  lastSyncAt DateTime? @map("last_sync_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt      @map("updated_at")
+
+  @@index([isOpen])
+  @@index([isReady])
+  @@index([isBlocked])
+  @@index([operationalStatus])
+  @@index([priority])
+  @@index([expectedAt])
+  @@index([isLate])
+
+  @@map("production_order_read_model")
+  @@schema("read_model")
+}
+
 model SalesOrderStageTransition {
   id               String   @id @default(cuid())
 
