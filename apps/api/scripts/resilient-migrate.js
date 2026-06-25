@@ -146,15 +146,26 @@ function main() {
             console.log('✅ prisma db push concluído com sucesso!');
 
             // Limpar funções órfãs do PgBoss (caso tabelas tenham sido dropadas em deploy anterior)
+            // Importante: usar DIRECT_URL (conexão direta, sem PgBouncer) pois DDL não funciona via PgBouncer
             console.log('🧹 Limpando funções PgBoss órfãs (se houver)...');
+            const directUrl = process.env.DIRECT_URL || process.env.DATABASE_URL || '';
+            const cleanupSql = `
+                DROP FUNCTION IF EXISTS integration.create_queue(text, jsonb) CASCADE;
+                DROP FUNCTION IF EXISTS integration.create_queue(text) CASCADE;
+            `;
             try {
                 execSync(
-                    `npx prisma db execute --stdin --query "DROP FUNCTION IF EXISTS integration.create_queue(text, jsonb) CASCADE;"`,
-                    { encoding: 'utf8', stdio: 'pipe', timeout: 30000 }
+                    `npx prisma db execute --stdin --query "${cleanupSql}"`,
+                    {
+                        encoding: 'utf8',
+                        stdio: 'pipe',
+                        timeout: 30000,
+                        env: { ...process.env, DATABASE_URL: directUrl }
+                    }
                 );
                 console.log('✅ Funções PgBoss limpas');
-            } catch (_) {
-                // Ignora erro se função não existir
+            } catch (cleanupErr) {
+                console.log('⚠️  Aviso: limpeza de funções PgBoss (pode ser esperado):', cleanupErr.message);
             }
         } catch (pushError) {
             console.log('⚠️  Fallback 1 (db push) falhou:', pushError.message);
