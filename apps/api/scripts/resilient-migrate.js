@@ -130,53 +130,64 @@ function main() {
     } catch (error) {
         console.log('❌ Erro ao aplicar migrações:', error.message);
 
-        // Fallback: criar apenas as tabelas Prisma sem afetar PgBoss
-        console.log('\n🔄 Tentando fallback: criar apenas tabelas Prisma faltantes...');
+        // =========================================================
+        // Fallback 1: prisma db push (cria apenas tabelas faltantes)
+        // =========================================================
+        // db push sem --accept-data-loss NUNCA dropa tabelas não-Prisma
+        // (como as do PgBoss). Cria apenas as tabelas que não existem.
+        // =========================================================
+        console.log('\n🔄 Fallback 1: prisma db push (cria apenas tabelas Prisma faltantes)...');
         try {
-            // Gera SQL apenas das tabelas Prisma que não existem no banco
-            const dbUrl = process.env.DATABASE_URL || '';
-            const diffSql = execSync(
-                `npx prisma migrate diff --from-url "${dbUrl}" --to-schema-datamodel prisma/schema.prisma --script`,
-                { encoding: 'utf8', stdio: 'pipe' }
-            );
-
-            if (!diffSql || diffSql.trim().length === 0) {
-                console.log('✅ Nenhuma tabela Prisma faltante. Schema já está sincronizado.');
-            } else {
-                const tmpFile = '/tmp/prisma-tables.sql';
-                fs.writeFileSync(tmpFile, diffSql);
-                const createCount = (diffSql.match(/CREATE TABLE/i) || []).length;
-                console.log(`📝 Geradas ${createCount} nova(s) tabela(s) para criar`);
-
-                execSync(`npx prisma db execute --file "${tmpFile}"`, {
-                    encoding: 'utf8',
-                    stdio: 'inherit'
-                });
-                console.log('✅ Tabelas Prisma criadas sem afetar tabelas PgBoss!');
-            }
+            execSync('npx prisma db push', {
+                encoding: 'utf8',
+                stdio: 'inherit',
+                timeout: 120000 // 2 min timeout
+            });
+            console.log('✅ prisma db push concluído com sucesso!');
 
             // Limpar funções órfãs do PgBoss (caso tabelas tenham sido dropadas em deploy anterior)
             console.log('🧹 Limpando funções PgBoss órfãs (se houver)...');
             try {
                 execSync(
                     `npx prisma db execute --stdin --query "DROP FUNCTION IF EXISTS integration.create_queue(text, jsonb) CASCADE;"`,
-                    { encoding: 'utf8', stdio: 'pipe' }
+                    { encoding: 'utf8', stdio: 'pipe', timeout: 30000 }
                 );
                 console.log('✅ Funções PgBoss limpas');
             } catch (_) {
                 // Ignora erro se função não existir
             }
-        } catch (diffError) {
-            console.log('⚠️  Fallback via migrate diff falhou:', diffError.message);
-            console.log('\n🔄 Tentando abordagem alternativa: db push sem --accept-data-loss...');
+        } catch (pushError) {
+            console.log('⚠️  Fallback 1 (db push) falhou:', pushError.message);
+
+            // =========================================================
+            // Fallback 2: migrate diff (usa DIRECT_URL para evitar PgBouncer)
+            // =========================================================
+            console.log('\n🔄 Fallback 2: migrate diff (cria SQL apenas das tabelas faltantes)...');
             try {
-                execSync('npx prisma db push', {
-                    encoding: 'utf8',
-                    stdio: 'inherit'
-                });
-                console.log('✅ prisma db push concluído (apenas mudanças seguras)');
-            } catch (pushError) {
-                console.log('❌ Todas as tentativas falharam.');
+                // Usar DIRECT_URL (conexão direta, sem PgBouncer)
+                const dbUrl = process.env.DIRECT_URL || process.env.DATABASE_URL || '';
+                const diffSql = execSync(
+                    `npx prisma migrate diff --from-url "${dbUrl}" --to-schema-datamodel prisma/schema.prisma --script`,
+                    { encoding: 'utf8', stdio: 'pipe', timeout: 60000 }
+                );
+
+                if (!diffSql || diffSql.trim().length === 0) {
+                    console.log('✅ Nenhuma tabela Prisma faltante. Schema já está sincronizado.');
+                } else {
+                    const tmpFile = '/tmp/prisma-tables.sql';
+                    fs.writeFileSync(tmpFile, diffSql);
+                    const createCount = (diffSql.match(/CREATE TABLE/i) || []).length;
+                    console.log(`📝 Geradas ${createCount} nova(s) tabela(s) para criar`);
+
+                    execSync(`npx prisma db execute --file "${tmpFile}"`, {
+                        encoding: 'utf8',
+                        stdio: 'inherit',
+                        timeout: 60000
+                    });
+                    console.log('✅ Tabelas Prisma criadas sem afetar tabelas PgBoss!');
+                }
+            } catch (diffError) {
+                console.log('❌ Fallback 2 (migrate diff) também falhou:', diffError.message);
                 console.log('\n💡 Acesse o banco manualmente e execute:');
                 console.log('   npx prisma db push');
             }
