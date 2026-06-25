@@ -9,7 +9,6 @@
 // ---------------------------------------------------------------------------
 
 import { getLogger } from "@/shared/logger";
-import { sleep } from "@/shared/integration/strategies/retry.strategy";
 import type { PrismaClient, Prisma } from "@prisma/client";
 import type { ProductionOrderConsultGateway } from "../ports/production-order-consult.gateway";
 
@@ -38,12 +37,6 @@ export class SyncProductionOrderItemsUseCase {
         const maxOrders = Math.min(command.maxOrders ?? 50, 100);
         const { externalRequestId } = command;
 
-        logger.info("Starting items sync", {
-            externalRequestId,
-            maxOrders,
-            specificCodes: command.omieCodes?.length ?? 0,
-        });
-
         // ── Buscar ordens que precisam de itens ──────────────────────────
         const where = command.omieCodes
             ? { omieCode: { in: command.omieCodes } }
@@ -66,16 +59,11 @@ export class SyncProductionOrderItemsUseCase {
             return { processed: 0, updated: 0, failed: 0, hasMore: false };
         }
 
-        logger.info("Orders to process", {
-            externalRequestId,
-            count: orders.length,
-        });
-
         // ── Processamento sequencial ──
         // Estritamente 1 chamada por vez para não sobrecarregar a API Omie.
-        // Retorna 50% mais rápido que o original (sem sleep de 500ms entre cada).
         let updated = 0;
         let failed = 0;
+        let processedItems = 0;
 
         for (const order of orders) {
             try {
@@ -133,11 +121,7 @@ export class SyncProductionOrderItemsUseCase {
                 });
 
                 updated++;
-                logger.debug("Order items synced", {
-                    externalRequestId,
-                    omieCode: order.omieCode,
-                    itemsCount: consultResult.items.length,
-                });
+                processedItems += consultResult.items.length;
             } catch (error) {
                 logger.error("Failed to sync items for order", {
                     externalRequestId,
@@ -149,25 +133,17 @@ export class SyncProductionOrderItemsUseCase {
         }
 
         const processed = orders.length;
-
-        // Verificar se há mais ordens pendentes
-        const remainingCount = await this.prisma.omieProductionOrder.count({
-            where: { items: { none: {} } },
-        });
-
-        logger.info("Items sync completed", {
-            externalRequestId,
-            processed,
-            updated,
-            failed,
-            remainingCount,
-        });
+        const hasMore = orders.length >= maxOrders
+            ? await this.prisma.omieProductionOrder.count({
+                where: { items: { none: {} } },
+            }) > 0
+            : false;
 
         return {
             processed,
             updated,
             failed,
-            hasMore: remainingCount > 0,
+            hasMore,
         };
     }
 }

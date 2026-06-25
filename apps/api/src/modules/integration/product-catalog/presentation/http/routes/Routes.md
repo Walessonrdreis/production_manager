@@ -4,7 +4,7 @@
 
 ### Sync de 1 produto
 ```
-POST /v1/integration/product-catalog/:productCode/sync
+POST /v1/integration/product-catalog/commands/sync/:productCode
 ```
 **Payload:**
 ```json
@@ -15,7 +15,7 @@ POST /v1/integration/product-catalog/:productCode/sync
 
 ### Sync global
 ```
-POST /v1/integration/product-catalog/sync-global
+POST /v1/integration/product-catalog/commands/sync-global
 ```
 **Payload:**
 ```json
@@ -31,13 +31,6 @@ POST /v1/admin/product-catalog/refresh-production-ready
 **Payload:**
 ```json
 { "externalRequestId": "opcional" }
-```
-
----
-
-### Liberar lock
-```
-POST /v1/admin/product-catalog/release-lock
 ```
 
 ---
@@ -104,16 +97,9 @@ GET /v1/products/catalog/production-ready
 
 ---
 
-### Status do lock
-```
-GET /v1/admin/product-catalog/lock-status
-```
-
----
-
 ### Status do sync
 ```
-GET /v1/integration/product-catalog/sync-status/:externalRequestId
+GET /v1/integration/product-catalog/read/sync-status/:externalRequestId
 ```
 | Status | Significado |
 |--------|-------------|
@@ -125,21 +111,21 @@ GET /v1/integration/product-catalog/sync-status/:externalRequestId
 
 ### Histórico
 ```
-GET /v1/integration/product-catalog/sync-history?limit=20
+GET /v1/integration/product-catalog/read/sync-history?limit=20
 ```
 
 ---
 
 ### Falhas
 ```
-GET /v1/integration/product-catalog/sync-failures?limit=20
+GET /v1/integration/product-catalog/read/sync-failures?limit=20
 ```
 
 ---
 
 ### Último sync
 ```
-GET /v1/integration/product-catalog/last-sync
+GET /v1/integration/product-catalog/read/last-sync
 ```
 - Fake gateway não escreve dados reais
 - Estrutura completa deve ser consumida pelo módulo product-structure

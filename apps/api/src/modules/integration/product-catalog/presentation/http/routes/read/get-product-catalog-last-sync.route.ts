@@ -8,7 +8,7 @@ export async function registerGetProductCatalogLastSyncRoute(
   const store = new ProductCatalogCommandStore();
 
   app.get(
-    "/v1/integration/product-catalog/last-sync",
+    "/v1/integration/product-catalog/read/last-sync",
     async (_request, reply) => {
       const data = await store.getLatestGlobalSync();
 

@@ -67,7 +67,7 @@ export const productCatalogOpenApi = {
       },
     },
 
-    "/v1/integration/product-catalog/sync-global": {
+    "/v1/integration/product-catalog/commands/sync-global": {
       post: {
         tags: ["Product Catalog"],
         summary: "Executar sync global",
@@ -84,4 +84,13 @@ export const productCatalogOpenApi = {
               },
             },
           },
-       
+        },
+        responses: {
+          202: {
+            description: "Accepted - Comando aceito para processamento",
+          },
+        },
+      },
+    },
+  },
+};

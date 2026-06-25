@@ -6,7 +6,7 @@ export async function registerGetProductCatalogSyncStatusRoute(
   app: FastifyInstance
 ) {
   app.get(
-    "/v1/integration/product-catalog/sync-status/:externalRequestId",
+    "/v1/integration/product-catalog/read/sync-status/:externalRequestId",
     async (request, reply) => {
       const { externalRequestId } = request.params as {
         externalRequestId: string;

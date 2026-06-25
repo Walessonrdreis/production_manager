@@ -148,25 +148,25 @@ Isso é esperado e ajuda a diagnosticar quais sincronizações ainda faltam pree
 
 ### 🔹 Status de sync
 
-GET /v1/integration/product-catalog/sync-status/:externalRequestId
+GET /v1/integration/product-catalog/read/sync-status/:externalRequestId
 
 ---
 
 ### 🔹 Histórico de sync
 
-GET /v1/integration/product-catalog/sync-history
+GET /v1/integration/product-catalog/read/sync-history
 
 ---
 
 ### 🔹 Sync com falha
 
-GET /v1/integration/product-catalog/sync-failures
+GET /v1/integration/product-catalog/read/sync-failures
 
 ---
 
 ### 🔹 Último sync global
 
-GET /v1/integration/product-catalog/last-sync
+GET /v1/integration/product-catalog/read/last-sync
 
 ---
 
@@ -176,13 +176,13 @@ GET /v1/integration/product-catalog/last-sync
 
 ### 🔹 Sync de produto
 
-POST /v1/integration/product-catalog/:productCode/sync
+POST /v1/integration/product-catalog/commands/sync/:productCode
 
 ---
 
 ### 🔹 Sync global
 
-POST /v1/integration/product-catalog/sync-global
+POST /v1/integration/product-catalog/commands/sync-global
 
 ### Comportamento
 
@@ -214,51 +214,6 @@ POST /v1/admin/product-catalog/refresh-production-ready
 ---
 
 ## ⚙️ 3. Jobs / Admin
-
----
-
-### 🔹 Status de lock
-
-```
-GET /v1/admin/product-catalog/lock-status
-```
-
-Indica se há sync global em execução (protege contra concorrência).
-
-#### Exemplo
-
-```bash
-curl "http://localhost:3333/v1/admin/product-catalog/lock-status"
-```
-
-#### Resposta
-
-```json
-{
-  "success": true,
-  "data": {
-    "locked": false,
-    "lockedAt": null,
-    "externalRequestId": null
-  }
-}
-```
-
----
-
-### 🔹 Liberação de lock
-
-```
-POST /v1/admin/product-catalog/release-lock
-```
-
-Remove lock manualmente em caso de falha.
-
-#### Exemplo
-
-```bash
-curl -X POST "http://localhost:3333/v1/admin/product-catalog/release-lock"
-```
 
 ---
 
@@ -321,7 +276,7 @@ Este módulo é responsável por:
 ### Sync de 1 produto
 
 ```bash
-curl -X POST "http://localhost:3333/v1/integration/product-catalog/55P/sync" \
+curl -X POST "http://localhost:3333/v1/integration/product-catalog/commands/sync/55P" \
   -H "Content-Type: application/json" \
   -d '{"externalRequestId": "manual-55p-001"}'
 ```
@@ -329,7 +284,7 @@ curl -X POST "http://localhost:3333/v1/integration/product-catalog/55P/sync" \
 ### Sync global do catálogo
 
 ```bash
-curl -X POST "http://localhost:3333/v1/integration/product-catalog/sync-global" \
+curl -X POST "http://localhost:3333/v1/integration/product-catalog/commands/sync-global" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -357,25 +312,25 @@ curl "http://localhost:3333/v1/products/catalog/production-ready?onlyActive=true
 ### Status de um comando
 
 ```bash
-curl "http://localhost:3333/v1/integration/product-catalog/sync-status/meu-request-id-123"
+curl "http://localhost:3333/v1/integration/product-catalog/read/sync-status/meu-request-id-123"
 ```
 
 ### Último sync global
 
 ```bash
-curl "http://localhost:3333/v1/integration/product-catalog/last-sync"
+curl "http://localhost:3333/v1/integration/product-catalog/read/last-sync"
 ```
 
 ### Histórico de comandos
 
 ```bash
-curl "http://localhost:3333/v1/integration/product-catalog/sync-history?limit=5"
+curl "http://localhost:3333/v1/integration/product-catalog/read/sync-history?limit=5"
 ```
 
 ### Falhas de sincronização
 
 ```bash
-curl "http://localhost:3333/v1/integration/product-catalog/sync-failures?limit=5"
+curl "http://localhost:3333/v1/integration/product-catalog/read/sync-failures?limit=5"
 ```
 
 ---

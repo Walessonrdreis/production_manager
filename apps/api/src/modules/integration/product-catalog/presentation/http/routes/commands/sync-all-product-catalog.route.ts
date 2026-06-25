@@ -20,7 +20,7 @@ import { RealProductCatalogFetchPageGateway } from "../../../../infrastructure/g
 const logger = getLogger("sync-all-product-catalog.route");
 
 export async function registerSyncAllProductCatalogRoute(app: FastifyInstance) {
-  app.post("/v1/integration/product-catalog/sync-global", async (request, reply) => {
+  app.post("/v1/integration/product-catalog/commands/sync-global", async (request, reply) => {
     const body = (request.body as SyncAllProductCatalogRequestDTO | undefined) ?? {};
 
     const externalRequestId =
