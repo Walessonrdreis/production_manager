@@ -7,7 +7,7 @@
 
 export const salesOrderSyncOpenApi = {
     paths: {
-        "/v1/integration/sales-order-sync/sync-global": {
+        "/v1/integration/sales-order-sync/commands/sync-global": {
             post: {
                 tags: ["Sales Order Sync"],
                 summary: "Sync global de pedidos de venda",
@@ -120,38 +120,6 @@ export const salesOrderSyncOpenApi = {
                             },
                         },
                     },
-                },
-            },
-        },
-
-        "/v1/integration/sales-order-sync/commands/sync-global": {
-            post: {
-                tags: ["Sales Order Sync"],
-                summary: "Sync global de pedidos (alias canônico)",
-                description:
-                    "Alias canônico de /v1/integration/sales-order-sync/sync-global. Mesmo comportamento.",
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                required: ["externalRequestId"],
-                                properties: {
-                                    externalRequestId: { type: "string" },
-                                    pageSize: { type: "number", default: 100 },
-                                    maxPages: { type: "number", default: 1000 },
-                                },
-                            },
-                            example: {
-                                externalRequestId: "sales-order-sync-20260624-001",
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    202: { description: "Comando aceito" },
-                    400: { description: "Erro de validação" },
                 },
             },
         },

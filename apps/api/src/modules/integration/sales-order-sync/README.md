@@ -218,7 +218,7 @@ curl "http://localhost:3333/v1/integration/sales-order-sync/sync-status/sales-or
 ### 🔹 Sync global de pedidos
 
 ```
-POST /v1/integration/sales-order-sync/sync-global
+POST /v1/integration/sales-order-sync/commands/sync-global
 ```
 
 #### Payload
@@ -244,7 +244,7 @@ POST /v1/integration/sales-order-sync/sync-global
 #### Exemplo de uso
 
 ```bash
-curl -X POST "http://localhost:3333/v1/integration/sales-order-sync/sync-global" \
+curl -X POST "http://localhost:3333/v1/integration/sales-order-sync/commands/sync-global" \
   -H "Content-Type: application/json" \
   -d '{"pageSize": 100}'
 ```

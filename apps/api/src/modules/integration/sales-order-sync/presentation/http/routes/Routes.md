@@ -4,7 +4,7 @@
 
 ### Sync global
 ```
-POST /v1/integration/sales-order-sync/sync-global
+POST /v1/integration/sales-order-sync/commands/sync-global
 ```
 **Payload:**
 ```json

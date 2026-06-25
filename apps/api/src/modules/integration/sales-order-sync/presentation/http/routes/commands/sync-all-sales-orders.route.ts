@@ -27,7 +27,7 @@ export async function registerSyncAllSalesOrdersRoute(
   app: FastifyInstance
 ) {
   app.post(
-    "/v1/integration/sales-order-sync/sync-global",
+    "/v1/integration/sales-order-sync/commands/sync-global",
     async (request, reply) => {
       // ✅ Validação via schema Zod — externalRequestId é obrigatório
       const parsed = SyncAllSalesOrdersRequestSchema.parse(request.body);
@@ -129,102 +129,4 @@ export async function registerSyncAllSalesOrdersRoute(
     }
   );
 
-  // ── Alias canônico ───────────────────────────────────────────────
-  app.post(
-    "/v1/integration/sales-order-sync/commands/sync-global",
-    async (request, reply) => {
-      const parsed = SyncAllSalesOrdersRequestSchema.parse(request.body);
-      const { externalRequestId, pageSize, maxPages } = parsed;
-
-      const omieClient = (app as any).omieClient as
-        | OmieHttpClientPort
-        | undefined;
-
-      if (!omieClient && env.SALES_ORDER_SYNC_GATEWAY === "real") {
-        logger.error("omieClient not available on Fastify app instance", {
-          externalRequestId,
-        });
-
-        return reply.code(500).send({
-          success: false,
-          error: {
-            code: "OMIE_CLIENT_NOT_AVAILABLE",
-            message:
-              "omieClient não foi encontrado no app. Verifique o bootstrap.",
-          },
-        });
-      }
-
-      const fetchPageGateway =
-        env.SALES_ORDER_SYNC_GATEWAY === "real"
-          ? new RealSalesOrderFetchPageGateway(
-            omieClient as OmieHttpClientPort
-          )
-          : new FakeSalesOrderFetchPageGateway();
-
-      const refreshProductCatalogUseCase =
-        new RefreshProductCatalogProductionReadyUseCase(
-          new ProductCatalogProductionReadyReadModelStore()
-        );
-
-      const refreshSalesOrderSummaryUseCase =
-        new RefreshSalesOrderSummaryReadModelUseCase(
-          new SalesOrderSummaryReadModelStore(),
-          new SalesOrderStageTransitionStore()
-        );
-
-      const syncStateStore = new PrismaSyncStateStore(prisma.salesOrderSyncState, "GLOBAL");
-      const useCase = new SyncAllSalesOrdersUseCase(
-        fetchPageGateway,
-        new SalesOrderSyncIntegrationStore(prisma),
-        new SalesOrderSyncCommandStore(prisma),
-        syncStateStore,
-        refreshProductCatalogUseCase,
-        refreshSalesOrderSummaryUseCase,
-        {
-          noWrite: env.SALES_ORDER_SYNC_GATEWAY === "fake",
-        }
-      );
-
-      const { lastSyncAt } = await syncStateStore.getState();
-
-      logger.info("Triggering sales-order global sync", {
-        externalRequestId,
-        gatewayMode: env.SALES_ORDER_SYNC_GATEWAY,
-        pageSize: pageSize ?? 100,
-        maxPages: maxPages ?? 1000,
-        lastSyncAt,
-      });
-
-      void useCase
-        .execute({
-          externalRequestId,
-          pageSize,
-          maxPages,
-          source: "API2",
-        })
-        .then((result) => {
-          logger.info("Sales-order global sync finished", {
-            externalRequestId,
-            result,
-          });
-        })
-        .catch((error) => {
-          logger.error("Sales-order global sync failed", {
-            externalRequestId,
-            error,
-          });
-        });
-
-      return reply.code(202).send({
-        success: true,
-        data: {
-          status: "ACCEPTED",
-          externalRequestId,
-          resourceId: "__GLOBAL__",
-          lastSyncAt,
-        },
-      });
-    }
-  );
 }
