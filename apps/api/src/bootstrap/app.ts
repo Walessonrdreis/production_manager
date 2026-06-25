@@ -20,7 +20,6 @@ import { startJobQueue, startWorker } from "@/shared/infra/job-queue";
 // jobs (nova arquitetura)
 import { startStockRefreshJob } from "@/modules/legacy/products/infrastructure/jobs/stock-refresh.job";
 import { startOmieProductSyncJob } from "@/modules/legacy/products/infrastructure/jobs/omie-product-sync.job";
-import { startOmieOrdersStage20SyncJob } from "@/modules/legacy/omie-sales-orders/infrastructure/jobs/omie-orders-stage20.job";
 import { startOmieProductionOrdersSyncJob } from "@/modules/legacy/omie-production-orders/infrastructure/jobs/omie-production-orders-sync.job";
 import { startOmieClientSyncJob } from "@/modules/legacy/client/infrastructure/jobs/sync-omie-clients.job";
 
@@ -199,10 +198,6 @@ export async function buildApp(): Promise<FastifyInstance> {
     startOmieProductSyncJob(app);
   }
 
-  if (env.OMIE_ORDERS_STAGE_SYNC) {
-    startOmieOrdersStage20SyncJob(app);
-  }
-
   if (env.OMIE_PRODUCTION_ORDERS_SYNC) {
     startOmieProductionOrdersSyncJob(app);
   }
@@ -214,20 +209,4 @@ export async function buildApp(): Promise<FastifyInstance> {
   if (process.env.OMIE_ORDERS_STAGE_SYNC_ON_STARTUP === "true") {
     setImmediate(async () => {
       try {
-        const res = await app.inject({
-          method: "POST",
-          url: "/v1/admin/omie/orders/stage20/sync",
-        });
-
-        app.log.info(
-          { statusCode: res.statusCode, body: res.body },
-          "[Startup] Stage20 orders sync triggered"
-        );
-      } catch (err) {
-        app.log.error({ err }, "[Startup] Stage20 orders sync failed");
-      }
-    });
-  }
-
-  return app;
-}
+  

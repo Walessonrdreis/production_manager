@@ -7,8 +7,6 @@ import { sendOk } from "@/shared/http/response";
 // ---------------------------------------------------------------------------
 import { registerClientModule } from "../modules/legacy/client/register";
 import { createProductsModule } from "@/modules/legacy/products";
-import { createOmieSalesOrdersModule } from "@/modules/legacy/omie-sales-orders";
-import { registerOmieSalesOrdersModule } from "@/modules/legacy/omie-sales-orders/register";
 import { createOmieProductionOrdersModule } from "@/modules/legacy/omie-production-orders";
 import { registerOmieProductionOrdersModule } from "@/modules/legacy/omie-production-orders/register";
 import { registerSalesProductionIntegrationModule } from "@/modules/legacy/sales-production-integration/register";
@@ -71,9 +69,6 @@ export async function registerRoutes(app: FastifyInstance) {
   // await registerPlansModule(app);
   await registerProductStructureModule(app);
 
-  await registerOmieSalesOrdersModule(app);
-  const omieSalesOrders = createOmieSalesOrdersModule(app);
-
   await registerOmieProductionOrdersModule(app);
   const omieProductionOrders = createOmieProductionOrdersModule(app);
 
@@ -95,6 +90,5 @@ export async function registerRoutes(app: FastifyInstance) {
   // registerSyncModule(app);
   // registerProductionQueueModule(app);
 
-  void omieSalesOrders;
   void omieProductionOrders;
 }
