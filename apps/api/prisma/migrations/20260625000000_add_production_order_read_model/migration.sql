@@ -6,7 +6,7 @@ CREATE TABLE "production_order_read_model" (
     "product_code" VARCHAR(64),
     "product_name" TEXT,
     "product_unit" VARCHAR(16),
-    "quantity" DECIMAL(18,4) NOT NULL,
+    "quantity" DECIMAL(18, 4) NOT NULL,
     "stage" VARCHAR(10),
     "operational_status" VARCHAR(20) NOT NULL DEFAULT 'pending',
     "is_open" BOOLEAN NOT NULL DEFAULT true,
@@ -29,30 +29,29 @@ CREATE TABLE "production_order_read_model" (
     "last_sync_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-
     CONSTRAINT "production_order_read_model_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "production_order_read_model_omie_code_key" ON "production_order_read_model"("omie_code");
+CREATE UNIQUE INDEX "production_order_read_model_omie_code_key" ON "production_order_read_model" ("omie_code");
 
 -- CreateIndex
-CREATE INDEX "production_order_read_model_is_open_idx" ON "production_order_read_model"("is_open");
+CREATE INDEX "production_order_read_model_is_open_idx" ON "production_order_read_model" ("is_open");
 
 -- CreateIndex
-CREATE INDEX "production_order_read_model_is_ready_idx" ON "production_order_read_model"("is_ready");
+CREATE INDEX "production_order_read_model_is_ready_idx" ON "production_order_read_model" ("is_ready");
 
 -- CreateIndex
-CREATE INDEX "production_order_read_model_is_blocked_idx" ON "production_order_read_model"("is_blocked");
+CREATE INDEX "production_order_read_model_is_blocked_idx" ON "production_order_read_model" ("is_blocked");
 
 -- CreateIndex
-CREATE INDEX "production_order_read_model_operational_status_idx" ON "production_order_read_model"("operational_status");
+CREATE INDEX "production_order_read_model_operational_status_idx" ON "production_order_read_model" ("operational_status");
 
 -- CreateIndex
-CREATE INDEX "production_order_read_model_priority_idx" ON "production_order_read_model"("priority");
+CREATE INDEX "production_order_read_model_priority_idx" ON "production_order_read_model" ("priority");
 
 -- CreateIndex
-CREATE INDEX "production_order_read_model_expected_at_idx" ON "production_order_read_model"("expected_at");
+CREATE INDEX "production_order_read_model_expected_at_idx" ON "production_order_read_model" ("expected_at");
 
 -- CreateIndex
-CREATE INDEX "production_order_read_model_is_late_idx" ON "production_order_read_model"("is_late");
+CREATE INDEX "production_order_read_model_is_late_idx" ON "production_order_read_model" ("is_late");
