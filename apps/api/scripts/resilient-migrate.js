@@ -126,56 +126,31 @@ CREATE TABLE IF NOT EXISTS integration._prisma_migrations (
 }
 
 function main() {
-    console.log('🚀 Script de migração resiliente para Render');
+    console.log('🚀 Script de migração para Render');
     console.log('='.repeat(50));
 
     // =========================================================
-    // Estado-dirigido: detecta situação do banco antes de agir
-    // =========================================================
-    // 1. Baseline: garante que _prisma_migrations existe
-    //    - Se não existe, cria com todas as 54 migrações como aplicadas
-    //    - Se já existe (deploys subsequentes), retorna imediatamente
+    // 1. Baseline: garante _prisma_migrations existe
+    //    Se não existe, cria com todas as migrações como aplicadas
+    //    Se já existe (deploys subsequentes), retorna imediatamente
     // =========================================================
     baselineMigrations();
 
     // =========================================================
-    // 2. Migrate deploy: aplica migrações pendentes
-    //    - Após o baseline, o banco tem _prisma_migrations → deploy funciona
-    //    - Se falhar (ex: migration nova conflitando), db push como fallback
+    // 2. db push: sincroniza schema Prisma com o banco
+    //    Sem --accept-data-loss → NUNCA dropa tabelas não-Prisma
+    //    (PgBoss, etc.). Cria apenas tabelas faltantes.
     // =========================================================
-    console.log('\n📦 Aplicando migrações pendentes...');
-    try {
-        execSync('npx prisma migrate deploy', {
-            encoding: 'utf8',
-            stdio: 'inherit'
-        });
-        console.log('✅ Migrações aplicadas com sucesso!');
-    } catch (error) {
-        console.log('❌ Erro ao aplicar migrações:', error.message);
-
-        // =========================================================
-        // Fallback: prisma db push (cria apenas tabelas faltantes)
-        // =========================================================
-        // db push sem --accept-data-loss NUNCA dropa tabelas não-Prisma
-        // (como as do PgBoss). Cria apenas as tabelas que não existem.
-        // =========================================================
-        console.log('\n🔄 Fallback: prisma db push (cria apenas tabelas Prisma faltantes)...');
-        try {
-            execSync('npx prisma db push', {
-                encoding: 'utf8',
-                stdio: 'inherit',
-                timeout: 120000
-            });
-            console.log('✅ prisma db push concluído com sucesso!');
-        } catch (pushError) {
-            console.log('⚠️  db push falhou:', pushError.message);
-        }
-
-        console.log('\n⚠️  Fallback executado. O sistema tentará iniciar.');
-    }
+    console.log('\n📦 Sincronizando schema com prisma db push...');
+    execSync('npx prisma db push', {
+        encoding: 'utf8',
+        stdio: 'inherit',
+        timeout: 120000
+    });
+    console.log('✅ prisma db push concluído com sucesso!');
 
     // =========================================================
-    // Garantir que PgBoss use conexão DIRETA (sem PgBouncer)
+    // 3. Garantir que PgBoss use conexão DIRETA (sem PgBouncer)
     // =========================================================
     const directUrl = process.env.DIRECT_URL || '';
     if (directUrl) {
