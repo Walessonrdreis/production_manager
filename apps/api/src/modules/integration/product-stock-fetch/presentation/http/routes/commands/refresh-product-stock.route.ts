@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Command Route: RefreshProductStockRoute
-// POST /v1/integration/product-stock-fetch/refresh
+// POST /v1/integration/product-stock-fetch/commands/refresh
 // Retorna 202 Accepted com externalRequestId para idempotência.
 // ---------------------------------------------------------------------------
 
@@ -28,7 +28,7 @@ const RefreshProductStockSchema = z.object({
 });
 
 export async function registerRefreshProductStockRoute(app: FastifyInstance) {
-    app.post("/v1/integration/product-stock-fetch/refresh", async (request, reply) => {
+    app.post("/v1/integration/product-stock-fetch/commands/refresh", async (request, reply) => {
         const parsed = RefreshProductStockSchema.safeParse(request.body);
         if (!parsed.success) {
             return reply.code(400).send({

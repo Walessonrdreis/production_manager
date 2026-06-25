@@ -113,7 +113,7 @@ GET /v1/admin/read/sales-orders/open-items
 
 ### Status do sync
 ```
-GET /v1/integration/sales-order-sync/sync-status/:externalRequestId
+GET /v1/integration/sales-order-sync/commands/:externalRequestId
 ```
 | Status | Significado |
 |--------|-------------|

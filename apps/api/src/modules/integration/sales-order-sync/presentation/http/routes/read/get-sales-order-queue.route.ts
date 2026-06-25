@@ -15,7 +15,7 @@ export async function registerGetSalesOrderQueueRoute(
     const commandStore = new SalesOrderSyncCommandStore(prisma);
 
     app.get(
-        "/v1/integration/sales-order-sync/queue",
+        "/v1/integration/sales-order-sync/read/queue",
         async (request, reply) => {
             const { limit, offset } = request.query as {
                 limit?: number;

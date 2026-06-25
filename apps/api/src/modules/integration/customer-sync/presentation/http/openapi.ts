@@ -51,7 +51,7 @@ export const customerSyncOpenApi = {
             },
         },
 
-        "/v1/integration/customer-sync/sync": {
+        "/v1/integration/customer-sync/commands/sync": {
             post: {
                 tags: ["Customer Sync"],
                 summary: "Sincronizar um cliente específico",
@@ -78,7 +78,7 @@ export const customerSyncOpenApi = {
             },
         },
 
-        "/v1/integration/customer-sync/stats": {
+        "/v1/integration/customer-sync/read/stats": {
             get: {
                 tags: ["Customer Sync"],
                 summary: "Estatísticas do espelho de clientes",
@@ -89,7 +89,7 @@ export const customerSyncOpenApi = {
             },
         },
 
-        "/v1/integration/customer-sync/summary": {
+        "/v1/integration/customer-sync/read/summary": {
             get: {
                 tags: ["Customer Sync"],
                 summary: "Sumário dos clientes",
@@ -120,7 +120,7 @@ export const customerSyncOpenApi = {
             },
         },
 
-        "/v1/integration/customer-sync/sync-status/{id}": {
+        "/v1/integration/customer-sync/commands/{externalRequestId}": {
             get: {
                 tags: ["Customer Sync"],
                 summary: "Status de sincronização",
@@ -140,7 +140,7 @@ export const customerSyncOpenApi = {
             },
         },
 
-        "/v1/integration/customer-sync/sync-history": {
+        "/v1/integration/customer-sync/read/sync-history": {
             get: {
                 tags: ["Customer Sync"],
                 summary: "Histórico de sincronizações",
@@ -151,7 +151,7 @@ export const customerSyncOpenApi = {
             },
         },
 
-        "/v1/integration/customer-sync/sync-failures": {
+        "/v1/integration/customer-sync/read/sync-failures": {
             get: {
                 tags: ["Customer Sync"],
                 summary: "Falhas de sincronização",
@@ -162,7 +162,7 @@ export const customerSyncOpenApi = {
             },
         },
 
-        "/v1/integration/customer-sync/last-sync": {
+        "/v1/integration/customer-sync/read/last-sync": {
             get: {
                 tags: ["Customer Sync"],
                 summary: "Última sincronização",

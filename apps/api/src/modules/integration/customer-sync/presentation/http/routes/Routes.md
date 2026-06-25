@@ -5,12 +5,12 @@
 ### Sync de 1 cliente
 
 ```
-POST /v1/integration/customer-sync/:customerCode/sync
+POST /v1/integration/customer-sync/commands/sync
 ```
 
 **Payload:**
 ```json
-{ "externalRequestId": "opcional" }
+{ "externalRequestId": "opcional", "customerCode": "obrigatorio" }
 ```
 
 **Resposta (202):**
@@ -74,7 +74,7 @@ GET /v1/admin/read/customers/stats
 ### Sumário (API2)
 
 ```
-GET /v1/customers/summary
+GET /v1/integration/customer-sync/read/summary
 ```
 
 ---
@@ -82,7 +82,7 @@ GET /v1/customers/summary
 ### Status do sync
 
 ```
-GET /v1/integration/customer-sync/sync-status/:externalRequestId
+GET /v1/integration/customer-sync/commands/:externalRequestId
 ```
 
 | Status | Significado |
@@ -96,7 +96,7 @@ GET /v1/integration/customer-sync/sync-status/:externalRequestId
 ### Histórico de comandos
 
 ```
-GET /v1/integration/customer-sync/sync-history?limit=20
+GET /v1/integration/customer-sync/read/sync-history?limit=20
 ```
 
 ---
@@ -104,7 +104,7 @@ GET /v1/integration/customer-sync/sync-history?limit=20
 ### Falhas de sincronização
 
 ```
-GET /v1/integration/customer-sync/sync-failures?limit=20
+GET /v1/integration/customer-sync/read/sync-failures?limit=20
 ```
 
 ---
@@ -112,5 +112,5 @@ GET /v1/integration/customer-sync/sync-failures?limit=20
 ### Último sync global
 
 ```
-GET /v1/integration/customer-sync/last-sync
+GET /v1/integration/customer-sync/read/last-sync
 ```

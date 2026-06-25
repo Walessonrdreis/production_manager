@@ -17,7 +17,7 @@ HTTP (Fastify) → UseCase → Gateway (real/fake) → Omie API
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| POST | `/v1/integration/customer-sync/:customerCode/sync` | Sincroniza 1 cliente |
+| POST | `/v1/integration/customer-sync/commands/sync` | Sincroniza 1 cliente (customerCode no body) |
 | POST | `/v1/integration/customer-sync/commands/sync-global` | Sincroniza todos os clientes |
 
 ### Leitura (Admin/API2)
@@ -27,7 +27,7 @@ HTTP (Fastify) → UseCase → Gateway (real/fake) → Omie API
 | GET | `/v1/admin/read/customers` | Lista/busca clientes (paginado) |
 | GET | `/v1/admin/read/customers/:customerCode` | Busca 1 cliente por código |
 | GET | `/v1/admin/read/customers/stats` | Estatísticas (total, ativos, inativos) |
-| GET | `/v1/customers/summary` | Sumário de clientes ativos |
+| GET | `/v1/integration/customer-sync/read/summary` | Sumário de clientes ativos |
 
 #### Query params — GET /v1/admin/read/customers
 
@@ -42,10 +42,10 @@ HTTP (Fastify) → UseCase → Gateway (real/fake) → Omie API
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| GET | `/v1/integration/customer-sync/sync-status/:externalRequestId` | Status de um comando |
-| GET | `/v1/integration/customer-sync/sync-history` | Histórico de comandos |
-| GET | `/v1/integration/customer-sync/sync-failures` | Falhas de sincronização |
-| GET | `/v1/integration/customer-sync/last-sync` | Último sync global |
+| GET | `/v1/integration/customer-sync/commands/:externalRequestId` | Status de um comando |
+| GET | `/v1/integration/customer-sync/read/sync-history` | Histórico de comandos |
+| GET | `/v1/integration/customer-sync/read/sync-failures` | Falhas de sincronização |
+| GET | `/v1/integration/customer-sync/read/last-sync` | Último sync global |
 
 ## Variáveis de Ambiente
 
@@ -124,9 +124,9 @@ customer-sync/
 ### Sync de 1 cliente
 
 ```bash
-curl -X POST "http://localhost:3333/v1/integration/customer-sync/9428243340/sync" \
+curl -X POST "http://localhost:3333/v1/integration/customer-sync/commands/sync" \
   -H "Content-Type: application/json" \
-  -d '{"externalRequestId": "manual-cliente-001"}'
+  -d '{"externalRequestId": "manual-cliente-001", "customerCode": "9428243340"}'
 ```
 
 ### Sync global de clientes
@@ -158,17 +158,17 @@ curl "http://localhost:3333/v1/admin/read/customers/stats"
 ### Sumário para API2
 
 ```bash
-curl "http://localhost:3333/v1/customers/summary"
+curl "http://localhost:3333/v1/integration/customer-sync/read/summary"
 ```
 
 ### Status de um comando
 
 ```bash
-curl "http://localhost:3333/v1/integration/customer-sync/sync-status/meu-request-id-123"
+curl "http://localhost:3333/v1/integration/customer-sync/commands/meu-request-id-123"
 ```
 
 ### Último sync global
 
 ```bash
-curl "http://localhost:3333/v1/integration/customer-sync/last-sync"
+curl "http://localhost:3333/v1/integration/customer-sync/read/last-sync"
 ```

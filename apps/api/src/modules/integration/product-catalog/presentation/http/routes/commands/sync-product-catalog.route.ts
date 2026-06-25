@@ -15,9 +15,8 @@ import type {
 } from "../../../../application/dto/sync-product-catalog.dto";
 
 export async function registerSyncProductCatalogRoute(app: FastifyInstance) {
-  app.post("/v1/integration/product-catalog/commands/sync/:productCode", async (request, reply) => {
-    const { productCode } = request.params as { productCode: string };
-    const body = request.body as SyncProductCatalogRequestDTO;
+  app.post("/v1/integration/product-catalog/commands/sync", async (request, reply) => {
+    const { externalRequestId, productCode } = request.body as SyncProductCatalogRequestDTO;
 
     const omieClient = (app as any).omieClient as OmieHttpClientPort;
 
@@ -36,7 +35,7 @@ export async function registerSyncProductCatalogRoute(app: FastifyInstance) {
     );
 
     const result = await useCase.execute({
-      externalRequestId: body.externalRequestId,
+      externalRequestId,
       productCode,
       source: "API2",
     });

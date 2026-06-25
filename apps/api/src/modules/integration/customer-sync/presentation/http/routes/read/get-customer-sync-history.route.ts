@@ -13,7 +13,7 @@ export async function registerGetCustomerSyncHistoryRoute(
         : new CustomerCommandStore();
 
     app.get(
-        "/v1/integration/customer-sync/sync-history",
+        "/v1/integration/customer-sync/read/sync-history",
         async (request, reply) => {
             const query = request.query as Record<string, unknown>;
             const limit = parseNumber(query.limit, 20);

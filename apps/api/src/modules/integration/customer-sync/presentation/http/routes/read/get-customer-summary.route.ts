@@ -7,7 +7,7 @@ import { fakeOmieCustomerStore } from "../../../../infrastructure/db/fake-stores
 export async function registerGetCustomerSummaryRoute(
     app: FastifyInstance
 ) {
-    app.get("/v1/customers/summary", async (_request, reply) => {
+    app.get("/v1/integration/customer-sync/read/summary", async (_request, reply) => {
         if (env.CUSTOMER_SYNC_GATEWAY === "fake") {
             const result = await fakeOmieCustomerStore.list({ activeOnly: true });
             const data = result.data.map((r) =>

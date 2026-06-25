@@ -8,7 +8,7 @@ export async function registerGetCustomerLastSyncRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/integration/customer-sync/last-sync",
+        "/v1/integration/customer-sync/read/last-sync",
         async (_request, reply) => {
             if (env.CUSTOMER_SYNC_GATEWAY === "fake") {
                 const all = await fakeCustomerCommandStore.listRecent(1);

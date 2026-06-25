@@ -16,9 +16,8 @@ import type {
 } from "../../../../application/dto/sync-customer.dto";
 
 export async function registerSyncCustomerRoute(app: FastifyInstance) {
-    app.post("/v1/integration/customer-sync/:customerCode/sync", async (request, reply) => {
-        const { customerCode } = request.params as { customerCode: string };
-        const body = request.body as SyncCustomerRequestDTO;
+    app.post("/v1/integration/customer-sync/commands/sync", async (request, reply) => {
+        const { externalRequestId, customerCode } = request.body as SyncCustomerRequestDTO;
 
         const omieClient = (app as any).omieClient as OmieHttpClientPort;
 
@@ -42,7 +41,7 @@ export async function registerSyncCustomerRoute(app: FastifyInstance) {
         );
 
         const result = await useCase.execute({
-            externalRequestId: body.externalRequestId,
+            externalRequestId,
             customerCode,
             source: "API2",
         });

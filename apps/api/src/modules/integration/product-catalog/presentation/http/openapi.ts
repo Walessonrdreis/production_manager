@@ -1,6 +1,6 @@
 export const productCatalogOpenApi = {
   paths: {
-    "/v1/products/catalog/production-ready": {
+    "/v1/integration/product-catalog/read/production-ready": {
       get: {
         tags: ["Product Catalog"],
         summary: "Catálogo pronto para produção",

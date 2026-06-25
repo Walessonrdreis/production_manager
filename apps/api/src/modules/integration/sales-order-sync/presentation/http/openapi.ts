@@ -209,7 +209,7 @@ export const salesOrderSyncOpenApi = {
             },
         },
 
-        "/v1/integration/sales-order-sync/queue": {
+        "/v1/integration/sales-order-sync/read/queue": {
             get: {
                 tags: ["Sales Order Sync"],
                 summary: "Fila de comandos pendentes",
@@ -220,7 +220,7 @@ export const salesOrderSyncOpenApi = {
             },
         },
 
-        "/v1/integration/sales-order-sync/failures": {
+        "/v1/integration/sales-order-sync/read/failures": {
             get: {
                 tags: ["Sales Order Sync"],
                 summary: "Falhas recentes",
@@ -231,7 +231,7 @@ export const salesOrderSyncOpenApi = {
             },
         },
 
-        "/v1/integration/sales-order-sync/sync-status/{externalRequestId}": {
+        "/v1/integration/sales-order-sync/commands/{externalRequestId}": {
             get: {
                 tags: ["Sales Order Sync"],
                 summary: "Consultar status de sync",

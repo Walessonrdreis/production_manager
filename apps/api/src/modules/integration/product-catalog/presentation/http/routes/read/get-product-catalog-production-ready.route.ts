@@ -11,7 +11,7 @@ export async function registerGetProductCatalogProductionReadyRoute(
 ) {
   const useCase = new GetProductCatalogProductionReadyUseCase();
 
-  app.get("/v1/products/catalog/production-ready", async (request, reply) => {
+  app.get("/v1/integration/product-catalog/read/production-ready", async (request, reply) => {
     const query = request.query as Record<string, unknown>;
 
     const params = {

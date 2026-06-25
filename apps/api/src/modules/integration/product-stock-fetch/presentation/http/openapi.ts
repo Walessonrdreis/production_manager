@@ -51,7 +51,7 @@ export const productStockFetchOpenApi = {
             },
         },
 
-        "/v1/integration/product-stock-fetch/refresh": {
+        "/v1/integration/product-stock-fetch/commands/refresh": {
             post: {
                 tags: ["Product Stock Fetch"],
                 summary: "Atualizar posição de estoque de um produto",
@@ -79,7 +79,7 @@ export const productStockFetchOpenApi = {
             },
         },
 
-        "/v1/integration/product-stock-fetch/position/{productId}": {
+        "/v1/integration/product-stock-fetch/read/position": {
             get: {
                 tags: ["Product Stock Fetch"],
                 summary: "Consultar posição de estoque",
@@ -87,7 +87,7 @@ export const productStockFetchOpenApi = {
                 parameters: [
                     {
                         name: "productId",
-                        in: "path",
+                        in: "query",
                         required: true,
                         schema: { type: "string" },
                         description: "Código do produto no Omie",

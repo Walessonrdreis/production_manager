@@ -12,14 +12,14 @@
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| POST | `/v1/integration/product-stock-fetch/refresh` | Atualiza estoque de um produto (202 Accepted) |
+| POST | `/v1/integration/product-stock-fetch/commands/refresh` | Atualiza estoque de um produto (202 Accepted) |
 | POST | `/v1/integration/product-stock-fetch/commands/sync-global` | Sync completo de todos os estoques (202 Accepted) |
 
 ### Read
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| GET | `/v1/integration/product-stock-fetch/position?productId=...` | Consulta posição de estoque no Omie |
+| GET | `/v1/integration/product-stock-fetch/read/position?productId=...` | Consulta posição de estoque no Omie |
 
 ---
 

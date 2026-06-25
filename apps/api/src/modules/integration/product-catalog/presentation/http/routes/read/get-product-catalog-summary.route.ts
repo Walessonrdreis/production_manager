@@ -6,7 +6,7 @@ export async function registerGetProductCatalogSummaryRoute(
 ) {
   const useCase = new GetProductCatalogSummaryUseCase();
 
-  app.get("/v1/products/catalog/summary", async (_request, reply) => {
+  app.get("/v1/integration/product-catalog/read/summary", async (_request, reply) => {
     const data = await useCase.execute();
 
     return reply.send({

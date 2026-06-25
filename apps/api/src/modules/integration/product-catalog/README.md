@@ -42,7 +42,7 @@ GET /v1/admin/read/products/catalog/stats
 
 ### 🔹 Catálogo resumido (leve)
 
-GET /v1/products/catalog/summary
+GET /v1/integration/product-catalog/read/summary
 
 - Payload enxuto
 - Uso simples pela API2
@@ -51,7 +51,7 @@ GET /v1/products/catalog/summary
 
 ### 🔹 Catálogo pronto para produção
 
-GET /v1/products/catalog/production-ready
+GET /v1/integration/product-catalog/read/production-ready
 
 ### Descrição
 
@@ -264,7 +264,7 @@ Este módulo é responsável por:
 
 ## ⚠️ Importante
 
-- API2 deve consumir preferencialmente `/v1/products/catalog/production-ready`
+- API2 deve consumir preferencialmente `/v1/integration/product-catalog/read/production-ready`
 - Estrutura completa NÃO está embutida no catálogo
 - O endpoint production-ready só fica “rico” quando os espelhos auxiliares estiverem atualizados
 - Mesmo com dados incompletos, o endpoint continua retornando produtos para facilitar debug e observabilidade
@@ -306,7 +306,7 @@ curl "http://localhost:3333/v1/admin/read/products/catalog?q=chocolate&activeOnl
 ### Production-ready com disponibilidade
 
 ```bash
-curl "http://localhost:3333/v1/products/catalog/production-ready?onlyActive=true&onlyInStock=true&limit=20"
+curl "http://localhost:3333/v1/integration/product-catalog/read/production-ready?onlyActive=true&onlyInStock=true&limit=20"
 ```
 
 ### Status de um comando

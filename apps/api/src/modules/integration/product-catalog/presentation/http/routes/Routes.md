@@ -4,11 +4,11 @@
 
 ### Sync de 1 produto
 ```
-POST /v1/integration/product-catalog/commands/sync/:productCode
+POST /v1/integration/product-catalog/commands/sync
 ```
 **Payload:**
 ```json
-{ "externalRequestId": "opcional" }
+{ "externalRequestId": "opcional", "productCode": "obrigatorio" }
 ```
 
 ---
@@ -73,7 +73,7 @@ GET /v1/admin/read/products/catalog/stats
 
 ### Catálogo resumido (API2)
 ```
-GET /v1/products/catalog/summary
+GET /v1/integration/product-catalog/read/summary
 ```
 Campos: `productCode`, `description`, `sku`, `active`, `family`, `unit`, `lastSyncAt`
 
@@ -81,7 +81,7 @@ Campos: `productCode`, `description`, `sku`, `active`, `family`, `unit`, `lastSy
 
 ### Production-ready (API2)
 ```
-GET /v1/products/catalog/production-ready
+GET /v1/integration/product-catalog/read/production-ready
 ```
 | Parâmetro | Tipo | Descrição |
 |-----------|------|-----------|
@@ -99,7 +99,7 @@ GET /v1/products/catalog/production-ready
 
 ### Status do sync
 ```
-GET /v1/integration/product-catalog/read/sync-status/:externalRequestId
+GET /v1/integration/product-catalog/commands/:externalRequestId
 ```
 | Status | Significado |
 |--------|-------------|

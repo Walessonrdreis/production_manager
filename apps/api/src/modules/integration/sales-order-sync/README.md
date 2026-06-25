@@ -185,13 +185,13 @@ curl "http://localhost:3333/v1/admin/read/sales-orders/open-items?q=chocolate&li
 ### 🔹 Status de sync
 
 ```
-GET /v1/integration/sales-order-sync/sync-status/:externalRequestId
+GET /v1/integration/sales-order-sync/commands/:externalRequestId
 ```
 
 #### Exemplo de uso
 
 ```bash
-curl "http://localhost:3333/v1/integration/sales-order-sync/sync-status/sales-order-sync-1745000000000-abc123"
+curl "http://localhost:3333/v1/integration/sales-order-sync/commands/sales-order-sync-1745000000000-abc123"
 ```
 
 #### Resposta

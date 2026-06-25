@@ -1,5 +1,6 @@
 export type SyncProductCatalogRequestDTO = {
   externalRequestId: string;
+  productCode: string;
 };
 
 export type SyncProductCatalogResponseDTO = {

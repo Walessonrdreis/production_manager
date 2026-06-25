@@ -8,7 +8,7 @@ export async function registerGetCustomerSyncStatusRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/integration/customer-sync/sync-status/:externalRequestId",
+        "/v1/integration/customer-sync/commands/:externalRequestId",
         async (request, reply) => {
             const { externalRequestId } = request.params as {
                 externalRequestId: string;

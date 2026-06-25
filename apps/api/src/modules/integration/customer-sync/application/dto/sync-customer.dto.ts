@@ -1,5 +1,6 @@
 export type SyncCustomerRequestDTO = {
     externalRequestId: string;
+    customerCode: string;
 };
 
 export type SyncCustomerResponseDTO = {
