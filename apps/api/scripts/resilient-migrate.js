@@ -144,6 +144,37 @@ function main() {
                 timeout: 120000 // 2 min timeout
             });
             console.log('✅ prisma db push concluído com sucesso!');
+
+            // =============================================================
+            // Reset PgBoss: dropar tabela version + funções órfãs via DIRECT_URL
+            // =============================================================
+            // Se o PgBoss tem tabela "version" mas funções ausentes (deploy anterior
+            // dropou tabelas com --accept-data-loss), ele pula a migração e falha.
+            // Dropar version + funções força PgBoss a recriar tudo do zero.
+            // =============================================================
+            console.log('🔄 Resetando estado do PgBoss (forçar recriação)...');
+            const directUrl = process.env.DIRECT_URL || process.env.DATABASE_URL || '';
+            const pgbossResetSql = [
+                'DROP TABLE IF EXISTS integration.version CASCADE;',
+                'DROP TABLE IF EXISTS integration.queue CASCADE;',
+                'DROP TABLE IF EXISTS integration.schedule CASCADE;',
+                'DROP TABLE IF EXISTS integration.job CASCADE;',
+                'DROP TABLE IF EXISTS integration.archive CASCADE;',
+                'DROP TABLE IF EXISTS integration.warning CASCADE;',
+                'DROP FUNCTION IF EXISTS integration.create_queue(text, jsonb) CASCADE;',
+                'DROP FUNCTION IF EXISTS integration.create_queue(text) CASCADE;',
+            ].join('\n');
+            const resetFile = '/tmp/reset-pgboss.sql';
+            try {
+                fs.writeFileSync(resetFile, pgbossResetSql, 'utf8');
+                execSync(
+                    `npx prisma db execute --file "${resetFile}" --url "${directUrl}"`,
+                    { encoding: 'utf8', stdio: 'pipe', timeout: 30000 }
+                );
+                console.log('✅ PgBoss resetado — tudo será recriado na inicialização');
+            } catch (resetErr) {
+                console.log('⚠️  Aviso: reset PgBoss:', resetErr.message);
+            }
         } catch (pushError) {
             console.log('⚠️  Fallback 1 (db push) falhou:', pushError.message);
 
