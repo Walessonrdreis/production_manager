@@ -65,7 +65,12 @@ export class ProductionOrderSyncStore {
 
             for (const it of items) {
                 await tx.omieProductionOrderItem.upsert({
-                    where: { omieItemCode: it.omieItemCode },
+                    where: {
+                        omieItemCode_omieProductionOrderId: {
+                            omieItemCode: it.omieItemCode,
+                            omieProductionOrderId: savedOrder.id,
+                        },
+                    },
                     create: {
                         omieItemCode: it.omieItemCode,
                         omieProductionOrderId: savedOrder.id,

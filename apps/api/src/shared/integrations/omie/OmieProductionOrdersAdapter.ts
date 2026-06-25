@@ -77,7 +77,7 @@ export function mapProductionOrder(order: any): {
 
   const omieCode = String(identificacao.nCodOP ?? '')
   const internalCode = identificacao.cCodIntOP ? String(identificacao.cCodIntOP) : null
-  const orderNumber = outrasInf.cNumOP ? String(outrasInf.cNumOP) : null
+  const orderNumber = identificacao.cNumOP ? String(identificacao.cNumOP) : null
 
   const mappedOrder: OmieProductionOrder = {
     omieCode,
