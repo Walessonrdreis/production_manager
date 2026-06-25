@@ -109,6 +109,11 @@ if (!parsed.success) {
   throw new Error("Invalid environment configuration");
 }
 
+/** Garantir que PgBoss use DIRECT_URL (DDL não passa pelo PgBouncer porta 6543) */
+if (!parsed.data.PG_BOSS_CONNECTION_STRING && parsed.data.DIRECT_URL) {
+  parsed.data.PG_BOSS_CONNECTION_STRING = parsed.data.DIRECT_URL;
+}
+
 /**
  * Ambiente tipado e seguro
  */

@@ -44,7 +44,7 @@ export async function startJobQueue(): Promise<PgBoss> {
 
     bossInstance = new PgBoss({
         connectionString,
-        schema: "integration",
+        schema: "job_queue",
         migrate: true,
         createSchema: true,
     });
