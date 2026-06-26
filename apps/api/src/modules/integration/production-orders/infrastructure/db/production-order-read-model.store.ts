@@ -39,6 +39,7 @@ export type ProductionOrderReadModelRecord = {
     omieCode: string;
     orderNumber: string | null;
     productCode: string | null;
+    productOmieId: string | null;
     productName: string | null;
     productUnit: string | null;
     quantity: number;
@@ -91,6 +92,7 @@ export class ProductionOrderReadModelStore {
                     omieCode: r.omieCode,
                     orderNumber: r.orderNumber,
                     productCode: r.productCode,
+                    productOmieId: r.productOmieId,
                     productName: r.productName,
                     productUnit: r.productUnit,
                     quantity: Number(r.quantity),
@@ -129,6 +131,7 @@ export class ProductionOrderReadModelStore {
                 omieCode: record.omieCode,
                 orderNumber: record.orderNumber,
                 productCode: record.productCode,
+                productOmieId: record.productOmieId,
                 productName: record.productName,
                 productUnit: record.productUnit,
                 quantity: Number(record.quantity),
@@ -157,6 +160,7 @@ export class ProductionOrderReadModelStore {
             update: {
                 orderNumber: record.orderNumber,
                 productCode: record.productCode,
+                productOmieId: record.productOmieId,
                 productName: record.productName,
                 productUnit: record.productUnit,
                 quantity: Number(record.quantity),

@@ -52,6 +52,7 @@ model ProductStock {
   id             String   @id @default(uuid()) @db.Uuid
 
   omieCode       String   @db.VarChar(64) @map("omie_code")
+  productOmieId  String?  @db.VarChar(64) @map("product_omie_id")
   stockQuantity  Decimal  @db.Decimal(18, 4) @map("stock_quantity")
   minimumStock   Decimal  @db.Decimal(18, 4) @map("minimum_stock")
 
@@ -101,6 +102,7 @@ model OmieOrderItem {
   omieOrderId        String   @map("omie_order_id")
 
   omieProductCode    String?  @db.VarChar(64) @map("omie_product_code")
+  productOmieId      String?  @db.VarChar(64) @map("product_omie_id")
   sku                String?  @db.VarChar(128)
 
   description        String   @db.Text
@@ -414,10 +416,12 @@ model OmieProductionOrder {
   id                     String   @id @default(uuid())
 
   omieCode               String   @db.VarChar(64) @map("omie_code")
+  omieId                 String?  @db.VarChar(64) @map("omie_id")
   internalCode           String?  @db.VarChar(64) @map("internal_code")
   orderNumber            String?  @db.VarChar(32) @map("order_number")
 
   productCode            String?  @db.VarChar(64) @map("product_code")
+  productOmieId          String?  @db.VarChar(64) @map("product_omie_id")
   productIntegrationCode String?  @db.VarChar(128) @map("product_integration_code")
 
   quantity               String   @db.VarChar(32)
@@ -549,6 +553,7 @@ model ProductionOrderIntegration {
   omieProductionOrderId   String?  @db.VarChar(64) @map("omie_production_order_id")
 
   productId               String   @db.VarChar(64) @map("product_id")
+  productOmieId           String?  @db.VarChar(64) @map("product_omie_id")
   quantity                Int
 
   status                  ProductionOrderIntegrationStatus
@@ -637,6 +642,7 @@ model ProductCatalogProductionReadyReadModel {
   id String @id @default(cuid())
 
   productCode String @unique @db.VarChar(64) @map("product_code")
+  productOmieId String? @db.VarChar(64) @map("product_omie_id")
   omieCode String? @db.VarChar(64) @map("omie_code")
 
   description String @db.Text
@@ -722,6 +728,7 @@ model ProductionOrderReadModel {
   omieCode       String  @unique @db.VarChar(64) @map("omie_code")
   orderNumber    String? @db.VarChar(32) @map("order_number")
   productCode    String? @db.VarChar(64) @map("product_code")
+  productOmieId  String? @db.VarChar(64) @map("product_omie_id")
   productName    String? @db.Text @map("product_name")
   productUnit    String? @db.VarChar(16) @map("product_unit")
 
@@ -989,6 +996,7 @@ model ProductStockCommand {
 
   externalRequestId String @unique @map("external_request_id")
   productId         String @map("product_id")
+  productOmieId    String? @db.VarChar(64) @map("product_omie_id")
 
   commandType ProductStockCommandType @map("command_type")
   status      ProductStockCommandStatus @default(ACCEPTED)
