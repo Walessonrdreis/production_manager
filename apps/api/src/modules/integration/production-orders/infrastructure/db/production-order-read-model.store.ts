@@ -16,7 +16,8 @@ export type MaterialItem = {
     totalRequired: number;
     currentStock: number;
     projectedStock: number;
-    status: "MISSING" | "CRITICAL" | "PARTIAL" | "OK";
+    status: "MISSING" | "CRITICAL" | "PARTIAL" | "OK" | "NO_STOCK_DATA";
+    stockResolution?: "bridge" | "fallback_internal" | "not_found";
 };
 
 export type MaterialsSummary = {
@@ -25,6 +26,7 @@ export type MaterialsSummary = {
     criticalCount: number;
     partialCount: number;
     okCount: number;
+    noStockDataCount: number;
 };
 
 export type ReadinessInfo = {

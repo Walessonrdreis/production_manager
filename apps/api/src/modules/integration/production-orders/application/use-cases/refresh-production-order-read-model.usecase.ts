@@ -36,6 +36,17 @@ function round(value: number, decimals = DECIMAL_PRECISION): number {
     return Math.round(value * factor) / factor;
 }
 
+// ─── Helper: extrair codigo numerico Omie do rawPayload ───────────────
+// O Omie retorna codigo_produto como numero (9427871245), mas pode vir
+// como string em alguns endpoints. Esta funcao normaliza para string.
+
+function extractNumericOmieCode(raw: Record<string, unknown> | null): string | null {
+    if (!raw) return null;
+    const v = raw.codigo_produto ?? raw.codigoProduto ?? null;
+    if (v === null || v === undefined) return null;
+    return String(v);
+}
+
 // ─── Tipos internos ───────────────────────────────────────────────────
 
 type OpRow = {
@@ -72,15 +83,30 @@ type StockRow = {
     stockQuantity: number;
 };
 
-// ─── Mapa produto: OmieCode → internalCode ────────────────────────────
-// A OP usa código Omie (numérico), a estrutura usa código interno (ex: "100kg").
-// Usamos o catálogo como ponte entre os dois mundos.
-
+// ─── Bridge: mapeamento entre os dois mundos ──────────────────────────
+// Omie product API retorna dois identificadores:
+//   "codigo": "42avkg"      → codigo visivel (omieCode)
+//   "codigo_produto": 9116172021 → ID numerico (omieId)
+//
+// A OP usa productCode = ID numerico (ex: "9116172083").
+// A estrutura (BOM) usa codigo visivel (ex: "42avkg").
+//
+// Maps:
+//   omieToInternal:  omieCode  (visivel) → omieId (numerico)
+//                    ex: "42avkg" → "9116172021"
+//
+//   internalToOmie:  omieId    (numerico) → omieCode (visivel)
+//                    ex: "9116172021" → "42avkg"
+// -----------------------------------------------------------------------
 type CatalogBridge = {
-    omieToInternal: Map<string, string>;  // "9116171995" → "100kg"
-    internalToOmie: Map<string, string>;  // "100kg" → "9116171995"
-    productNameMap: Map<string, string>;  // "9116171995" → "100% cacau 1 Kg"
-    productUnitMap: Map<string, string>;  // "9116171995" → "KG"
+    /** omieCode (visivel) → omieId (numerico) */
+    omieToInternal: Map<string, string>;
+    /** omieId (numerico) → omieCode (visivel) */
+    internalToOmie: Map<string, string>;
+    /** omieCode (visivel) → nome do produto */
+    productNameMap: Map<string, string>;
+    /** omieCode (visivel) → unidade */
+    productUnitMap: Map<string, string>;
 };
 
 async function buildCatalogBridge(): Promise<CatalogBridge> {
@@ -99,12 +125,7 @@ async function buildCatalogBridge(): Promise<CatalogBridge> {
 
     for (const p of products) {
         const raw = p.rawPayload as Record<string, unknown> | null;
-        const internalCode =
-            typeof raw?.codigo_produto === "string"
-                ? raw.codigo_produto
-                : typeof raw?.codigoProduto === "string"
-                    ? raw.codigoProduto
-                    : null;
+        const internalCode = extractNumericOmieCode(raw);
 
         if (internalCode && p.omieCode) {
             omieToInternal.set(p.omieCode, internalCode);
@@ -114,8 +135,8 @@ async function buildCatalogBridge(): Promise<CatalogBridge> {
         if (p.omieCode) {
             productNameMap.set(p.omieCode, p.description ?? "");
             const unit =
-                typeof raw?.unidade === "string"
-                    ? raw.unidade
+                raw?.unidade != null
+                    ? String(raw.unidade)
                     : null;
             productUnitMap.set(p.omieCode, unit ?? "");
         }
@@ -124,12 +145,48 @@ async function buildCatalogBridge(): Promise<CatalogBridge> {
     return { omieToInternal, internalToOmie, productNameMap, productUnitMap };
 }
 
+// ─── Resolução de chave de estoque ────────────────────────────────────
+// O estoque está indexado por codigo numerico Omie (ex: "9116172062"), mas
+// a estrutura (BOM) usa codigo visivel (ex: "100kg"). Esta função faz a
+// ponte usando o catalogo.
+//
+// ProductStock.omieCode     = codigo numerico Omie (ex: "9116172062")
+// ProductStructureItem      = usa codigo visivel (ex: "100kg")
+//
+// Maps:
+//   omieToInternal:  visivel → numerico  (omieCode → omieId)
+//   internalToOmie:  numerico → visivel  (omieId → omieCode)
+//
+// Portanto, converter codigo visivel (componentCode) → numerico (stockMap)
+// usa internalToOmie.get(componentCode).
+// -----------------------------------------------------------------------
+function resolveStockLookupKey(
+    componentCode: string,
+    bridge: CatalogBridge,
+    stockMap: Map<string, number>
+): { omieCode: string; resolution: "bridge" | "fallback_internal" | "not_found" } | null {
+    // 1. Bridge: codigo visivel (componentCode) → codigo numerico via internalToOmie
+    const omieCode = bridge.internalToOmie.get(componentCode);
+    if (omieCode && stockMap.has(omieCode)) {
+        return { omieCode, resolution: "bridge" };
+    }
+
+    // 2. Fallback: tentar usar o codigo interno diretamente como chave de estoque
+    if (stockMap.has(componentCode)) {
+        return { omieCode: componentCode, resolution: "fallback_internal" };
+    }
+
+    // 3. Nao encontrado → sem dados de estoque para este material
+    return null;
+}
+
 // ─── Status do material ────────────────────────────────────────────────
 
 function calculateMaterialStatus(
-    currentStock: number,
+    currentStock: number | null,
     totalRequired: number
 ): MaterialItem["status"] {
+    if (currentStock === null) return "NO_STOCK_DATA";
     if (currentStock <= 0) return "MISSING";
     if (currentStock < totalRequired * 0.1) return "CRITICAL";
     if (currentStock < totalRequired) return "PARTIAL";
@@ -142,9 +199,10 @@ function calculateFlags(materials: MaterialItem[]) {
     const hasMissingMaterials = materials.some((m) => m.status === "MISSING");
     const hasCriticalMaterial = materials.some((m) => m.status === "CRITICAL");
     const hasPartialStock = materials.some((m) => m.status === "PARTIAL");
-    const hasStockIssue = hasMissingMaterials || hasCriticalMaterial || hasPartialStock;
+    const hasNoStockData = materials.some((m) => m.status === "NO_STOCK_DATA");
+    const hasStockIssue = hasMissingMaterials || hasCriticalMaterial || hasPartialStock || hasNoStockData;
 
-    return { hasMissingMaterials, hasCriticalMaterial, hasPartialStock, hasStockIssue };
+    return { hasMissingMaterials, hasCriticalMaterial, hasPartialStock, hasStockIssue, hasNoStockData };
 }
 
 // ─── Readiness ─────────────────────────────────────────────────────────
@@ -169,6 +227,10 @@ function calculateReadiness(
         } else if (m.status === "PARTIAL") {
             warnings.push(
                 `Componente '${m.componentName || m.componentCode}' com estoque parcial (${m.currentStock} ${m.unit || ""} para ${m.totalRequired} ${m.unit || ""} necessários)`
+            );
+        } else if (m.status === "NO_STOCK_DATA") {
+            blockingReasons.push(
+                `Dados de estoque não encontrados para componente '${m.componentName || m.componentCode}'`
             );
         }
     }
@@ -218,6 +280,8 @@ function buildAlerts(
             alerts.push(
                 `${m.componentName || m.componentCode} parcial — ${m.currentStock} ${m.unit || ""} de ${m.totalRequired} ${m.unit || ""}`
             );
+        } else if (m.status === "NO_STOCK_DATA") {
+            alerts.push(`${m.componentName || m.componentCode} — sem dados de estoque`);
         }
     }
 
@@ -228,9 +292,10 @@ function buildAlerts(
 
 const STATUS_ORDER: Record<MaterialItem["status"], number> = {
     MISSING: 0,
-    CRITICAL: 1,
-    PARTIAL: 2,
-    OK: 3,
+    NO_STOCK_DATA: 1,
+    CRITICAL: 2,
+    PARTIAL: 3,
+    OK: 4,
 };
 
 function sortMaterials(materials: MaterialItem[]): MaterialItem[] {
@@ -291,6 +356,7 @@ export function buildProductionOrderReadModel(
                 criticalCount: 0,
                 partialCount: 0,
                 okCount: 0,
+                noStockDataCount: 0,
             },
             readinessJson: {
                 canStartProduction: false,
@@ -310,8 +376,29 @@ export function buildProductionOrderReadModel(
         const lossPercent = item.percentualPerda ? Number(item.percentualPerda) : 0;
         const lossMultiplier = 1 + lossPercent / 100;
         const totalRequired = round(quantityPerUnit * opQuantity * lossMultiplier);
-        const currentStock = round(stockMap.get(item.codProdutoComponente) ?? 0);
-        const projectedStock = round(currentStock - totalRequired);
+
+        // Resolve a chave de estoque com fallback em camadas
+        const stockLookup = resolveStockLookupKey(
+            item.codProdutoComponente,
+            bridge,
+            stockMap
+        );
+
+        let currentStock: number | null;
+        let stockResolution: MaterialItem["stockResolution"] | undefined;
+
+        if (stockLookup === null) {
+            // Nenhum mapeamento encontrado → sem dados de estoque
+            currentStock = null;
+            stockResolution = "not_found";
+        } else {
+            currentStock = round(stockMap.get(stockLookup.omieCode) ?? 0);
+            stockResolution = stockLookup.resolution;
+        }
+
+        const projectedStock = currentStock !== null
+            ? round(currentStock - totalRequired)
+            : 0;
         const status = calculateMaterialStatus(currentStock, totalRequired);
 
         return {
@@ -321,9 +408,10 @@ export function buildProductionOrderReadModel(
             quantityPerUnit,
             lossPercent: lossPercent > 0 ? lossPercent : null,
             totalRequired,
-            currentStock,
+            currentStock: currentStock ?? 0,
             projectedStock,
             status,
+            stockResolution,
         };
     });
 
@@ -382,6 +470,7 @@ export function buildProductionOrderReadModel(
         criticalCount: materials.filter((m) => m.status === "CRITICAL").length,
         partialCount: materials.filter((m) => m.status === "PARTIAL").length,
         okCount: materials.filter((m) => m.status === "OK").length,
+        noStockDataCount: materials.filter((m) => m.status === "NO_STOCK_DATA").length,
     };
 
     // ─── 10. Output final ─────────────────────────────────────────────
@@ -468,7 +557,8 @@ export class RefreshProductionOrderReadModelUseCase {
 
         logger.info("Processing production orders", { total: ops.length });
 
-        // 5. Mapa de produtos: omieCode → { description, unit }
+        // 5. Mapa de produtos: omieCode (visivel) → { description, unit }
+        //    (usando p.omieCode como chave, que corresponde ao codigo visivel)
         const products = await prisma.omieProduct.findMany({
             select: {
                 omieCode: true,
@@ -481,10 +571,10 @@ export class RefreshProductionOrderReadModelUseCase {
             if (!p.omieCode) continue;
             const raw = p.rawPayload as Record<string, unknown> | null;
             const unit =
-                typeof raw?.unidade === "string"
-                    ? raw.unidade
-                    : typeof raw?.unid_produto === "string"
-                        ? raw.unid_produto
+                raw?.unidade != null
+                    ? String(raw.unidade)
+                    : raw?.unid_produto != null
+                        ? String(raw.unid_produto)
                         : "";
             productMap.set(p.omieCode, {
                 description: p.description ?? "",
@@ -497,7 +587,10 @@ export class RefreshProductionOrderReadModelUseCase {
 
         for (const op of ops) {
             try {
-                const product = productMap.get(op.productCode ?? "") ?? null;
+                // op.productCode e' numerico (omieId), productMap e' chaveado por omieCode (visivel)
+                // usar bridge.internalToOmie para converter numerico → visivel
+                const visibleCode = bridge.internalToOmie.get(op.productCode ?? "");
+                const product = visibleCode ? (productMap.get(visibleCode) ?? null) : null;
                 const record = buildProductionOrderReadModel(
                     {
                         omieCode: op.omieCode,
@@ -516,7 +609,7 @@ export class RefreshProductionOrderReadModelUseCase {
                         ? { omieCode: op.productCode ?? "", description: product.description, unit: product.unit }
                         : null,
                     structureMap.get(
-                        bridge.omieToInternal.get(op.productCode ?? "") ?? ""
+                        bridge.internalToOmie.get(op.productCode ?? "") ?? ""
                     ) ?? [],
                     stockMap,
                     bridge
@@ -591,22 +684,22 @@ export class RefreshProductionOrderReadModelUseCase {
         const structureItems = allStructureItems.filter(
             (item) =>
                 item.codProdutoPai ===
-                (bridge.omieToInternal.get(op.productCode ?? "") ?? "")
+                (bridge.internalToOmie.get(op.productCode ?? "") ?? "")
         ) as any as StructureItemRow[];
 
         const productInfo = op.productCode
-            ? await prisma.omieProduct.findUnique({
-                where: { omieCode: op.productCode },
+            ? await prisma.omieProduct.findFirst({
+                where: { omieId: op.productCode },
                 select: { description: true, rawPayload: true },
             })
             : null;
 
         const raw = productInfo?.rawPayload as Record<string, unknown> | null;
         const unit =
-            typeof raw?.unidade === "string"
-                ? raw.unidade
-                : typeof raw?.unid_produto === "string"
-                    ? raw.unid_produto
+            raw?.unidade != null
+                ? String(raw.unidade)
+                : raw?.unid_produto != null
+                    ? String(raw.unid_produto)
                     : null;
 
         const record = buildProductionOrderReadModel(

@@ -9,6 +9,7 @@
 - **"crie os passos"** ou **"crie os passos de implementação"**: responda via chat listando os passos, sem codificar.
 - **"Vamos conversar"** ou frases semelhantes: responda **apenas via chat**, sem codificar nada. Ajude a construir ideias, melhorias e validações seguindo padrões de projetos e boas práticas. Só code quando for dito **"pode codar"**.
 - Enquanto **não** for dito **"pode codar"**, não gere nenhum código — mantenha o diálogo de construção de ideias.
+- Quando encontrar um bug no sistema, descreva o problema e sugira soluções, mas **não** implemente correções até que seja dito **"pode codar"**.
 
 ### Modo Codificação
 
