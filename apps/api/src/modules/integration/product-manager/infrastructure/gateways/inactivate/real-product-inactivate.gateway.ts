@@ -79,7 +79,12 @@ export class RealProductInactivateGateway implements ProductInactivateGateway {
 
             // Atualiza espelho local
             await prisma.omieProduct.updateMany({
-                where: { omieCode: command.productCode },
+                where: {
+                    OR: [
+                        { omieCode: command.productCode },
+                        { omieId: command.productCode },
+                    ],
+                },
                 data: {
                     active: false,
                     rawPayload: response as Record<string, unknown>,

@@ -88,7 +88,12 @@ export class RealProductUpdateGateway implements ProductUpdateGateway {
             updateData.rawPayload = response as Record<string, unknown>;
 
             await prisma.omieProduct.updateMany({
-                where: { omieCode: command.productCode },
+                where: {
+                    OR: [
+                        { omieCode: command.productCode },
+                        { omieId: command.productCode },
+                    ],
+                },
                 data: updateData as any,
             });
 

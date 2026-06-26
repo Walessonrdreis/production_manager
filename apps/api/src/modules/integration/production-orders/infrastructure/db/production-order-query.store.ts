@@ -65,7 +65,12 @@ export class ProductionOrderQueryStore {
         const where: Record<string, unknown> = {};
         if (filters?.completed !== undefined) where.completed = filters.completed;
         if (filters?.active !== undefined) where.active = filters.active;
-        if (filters?.productCode) where.productCode = filters.productCode;
+        if (filters?.productCode) {
+            where.OR = [
+                { productCode: filters.productCode },
+                { productOmieId: filters.productCode },
+            ];
+        }
 
         const [items, total] = await this.prisma.$transaction([
             this.prisma.omieProductionOrder.findMany({

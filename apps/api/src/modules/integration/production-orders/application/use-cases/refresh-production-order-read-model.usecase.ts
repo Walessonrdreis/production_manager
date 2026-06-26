@@ -113,6 +113,7 @@ async function buildCatalogBridge(): Promise<CatalogBridge> {
     const products = await prisma.omieProduct.findMany({
         select: {
             omieCode: true,
+            omieId: true,
             description: true,
             rawPayload: true,
         },
@@ -124,19 +125,19 @@ async function buildCatalogBridge(): Promise<CatalogBridge> {
     const productUnitMap = new Map<string, string>();
 
     for (const p of products) {
-        const raw = p.rawPayload as Record<string, unknown> | null;
-        const internalCode = extractNumericOmieCode(raw);
+        const productOmieId = p.omieId;
 
-        if (internalCode && p.omieCode) {
-            omieToInternal.set(p.omieCode, internalCode);
-            internalToOmie.set(internalCode, p.omieCode);
+        if (productOmieId && p.omieCode) {
+            omieToInternal.set(p.omieCode, productOmieId);
+            internalToOmie.set(productOmieId, p.omieCode);
         }
 
         if (p.omieCode) {
             productNameMap.set(p.omieCode, p.description ?? "");
+            const pRaw = p.rawPayload as Record<string, unknown> | null;
             const unit =
-                raw?.unidade != null
-                    ? String(raw.unidade)
+                pRaw?.unidade != null
+                    ? String(pRaw.unidade)
                     : null;
             productUnitMap.set(p.omieCode, unit ?? "");
         }
@@ -146,32 +147,28 @@ async function buildCatalogBridge(): Promise<CatalogBridge> {
 }
 
 // ─── Resolução de chave de estoque ────────────────────────────────────
-// O estoque está indexado por codigo numerico Omie (ex: "9116172062"), mas
-// a estrutura (BOM) usa codigo visivel (ex: "100kg"). Esta função faz a
-// ponte usando o catalogo.
-//
-// ProductStock.omieCode     = codigo numerico Omie (ex: "9116172062")
-// ProductStructureItem      = usa codigo visivel (ex: "100kg")
+// A estrutura (BOM) usa codigo visivel (ex: "icekg").
+// stockMap é chaveado por productOmieId (numerico, ex: "9116172062").
 //
 // Maps:
 //   omieToInternal:  visivel → numerico  (omieCode → omieId)
 //   internalToOmie:  numerico → visivel  (omieId → omieCode)
 //
 // Portanto, converter codigo visivel (componentCode) → numerico (stockMap)
-// usa internalToOmie.get(componentCode).
+// usa omieToInternal.get(componentCode).
 // -----------------------------------------------------------------------
 function resolveStockLookupKey(
     componentCode: string,
     bridge: CatalogBridge,
     stockMap: Map<string, number>
 ): { omieCode: string; resolution: "bridge" | "fallback_internal" | "not_found" } | null {
-    // 1. Bridge: codigo visivel (componentCode) → codigo numerico via internalToOmie
-    const omieCode = bridge.internalToOmie.get(componentCode);
-    if (omieCode && stockMap.has(omieCode)) {
-        return { omieCode, resolution: "bridge" };
+    // 1. Bridge: codigo visivel (componentCode) → codigo numerico via omieToInternal
+    const numericCode = bridge.omieToInternal.get(componentCode);
+    if (numericCode && stockMap.has(numericCode)) {
+        return { omieCode: numericCode, resolution: "bridge" };
     }
 
-    // 2. Fallback: tentar usar o codigo interno diretamente como chave de estoque
+    // 2. Fallback: tentar usar o codigo visivel diretamente como chave de estoque
     if (stockMap.has(componentCode)) {
         return { omieCode: componentCode, resolution: "fallback_internal" };
     }
@@ -524,11 +521,12 @@ export class RefreshProductionOrderReadModelUseCase {
         const stocks = await prisma.productStock.findMany({
             select: {
                 omieCode: true,
+                productOmieId: true,
                 stockQuantity: true,
             },
         });
         const stockMap = new Map<string, number>(
-            stocks.map((s) => [s.omieCode, round(Number(s.stockQuantity) || 0)])
+            stocks.map((s) => [String(s.productOmieId), round(Number(s.stockQuantity) || 0)])
         );
 
         // 3. Mapa de estrutura: internalCode → items[]
@@ -667,10 +665,10 @@ export class RefreshProductionOrderReadModelUseCase {
         const bridge = await buildCatalogBridge();
 
         const stocks = await prisma.productStock.findMany({
-            select: { omieCode: true, stockQuantity: true },
+            select: { omieCode: true, productOmieId: true, stockQuantity: true },
         });
         const stockMap = new Map<string, number>(
-            stocks.map((s) => [s.omieCode, round(Number(s.stockQuantity) || 0)])
+            stocks.map((s) => [String(s.productOmieId), round(Number(s.stockQuantity) || 0)])
         );
 
         const allStructureItems = await prisma.productStructureItem.findMany({
