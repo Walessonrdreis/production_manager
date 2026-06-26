@@ -312,7 +312,6 @@ export function buildProductionOrderReadModel(
     bridge: CatalogBridge
 ): ProductionOrderReadModelRecord {
     const opQuantity = round(parseFloat(op.quantity) || 0);
-    const omieCode = op.productOmieId ?? "";
 
     // ─── GUARD: Sem estrutura → NO_STRUCTURE ──────────────────────────
     // Se o produto não possui BOM, a OP não pode ser produzida.
@@ -326,7 +325,7 @@ export function buildProductionOrderReadModel(
         return {
             omieCode: op.omieCode,
             orderNumber: op.orderNumber,
-            productCode: op.productOmieId,
+            productCode: bridge.internalToOmie.get(op.productOmieId) ?? null,
             productOmieId: op.productOmieId,
             productName: product?.description ?? null,
             productUnit: product?.unit ?? null,
@@ -475,7 +474,7 @@ export function buildProductionOrderReadModel(
     return {
         omieCode: op.omieCode,
         orderNumber: op.orderNumber,
-        productCode: op.productOmieId,
+        productCode: bridge.internalToOmie.get(op.productOmieId) ?? null,
         productOmieId: op.productOmieId,
         productName: product?.description ?? null,
         productUnit: product?.unit ?? null,
