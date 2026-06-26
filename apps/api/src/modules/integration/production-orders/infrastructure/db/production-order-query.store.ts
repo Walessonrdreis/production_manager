@@ -156,4 +156,24 @@ export class ProductionOrderQueryStore {
 
         return { total, active, completed, withOrderNumber };
     }
+
+    // ─── Incompletos (backfill) ────────────────────────────────────────
+
+    /**
+     * Retorna lista de omieCodes de registros incompletos.
+     * Usado pelo passo de backfill pós-sync (Change Detection ≠ Completeness).
+     */
+    async listIncompleteOmieCodes(
+        limit = 100
+    ): Promise<string[]> {
+        const records = await this.prisma.omieProductionOrder.findMany({
+            where: {
+                orderNumber: null,
+            },
+            select: { omieCode: true },
+            take: limit,
+        });
+
+        return records.map((r) => r.omieCode);
+    }
 }

@@ -96,7 +96,7 @@ export class RealProductionOrderSyncPageGateway
                     outrasInf.hAlteracao
                 );
                 if (updatedSince && updatedAt && updatedAt <= updatedSince) {
-                    return null; // Item não modificado desde o último sync
+                    if (isProductionOrderComplete(entry)) return null; // Skip seguro: não mudou e está completo
                 }
 
                 return {
@@ -148,4 +148,13 @@ function parseOmieDateTime(dateStr?: string | null, timeStr?: string | null): Da
 
     const date = new Date(`${isoDate}T00:00:00`);
     return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Verifica se uma OP está completa (change detection ≠ completeness).
+ * Padrão oficial: is<Entity>Complete()
+ * Permite backfill automático de campos que evoluíram no schema.
+ */
+function isProductionOrderComplete(entry: any): boolean {
+    return entry?.identificacao?.cNumOP != null;
 }

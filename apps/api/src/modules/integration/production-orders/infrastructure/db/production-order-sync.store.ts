@@ -9,6 +9,7 @@
 import type { PrismaClient, Prisma } from "@prisma/client";
 import { mapProductionOrder } from "@/shared/integrations/omie/OmieProductionOrdersAdapter";
 import type { ProductionOrderSyncPageItem } from "../../application/ports/production-order-sync-page.gateway";
+import type { ProductionOrderConsultResult } from "../../application/ports/production-order-consult.gateway";
 
 export class ProductionOrderSyncStore {
     constructor(private readonly prisma: PrismaClient) { }
@@ -178,6 +179,94 @@ export class ProductionOrderSyncStore {
                         },
                     });
                 }
+            }
+        });
+    }
+
+    /**
+     * Persiste o resultado de uma consulta individual (ConsultarOrdemProducao).
+     * O resultado já vem pré-mapeado pelo adapter, usamos os campos
+     * diretamente sem chamar mapProductionOrder novamente.
+     *
+     * Usado pelo passo de backfill pós-sync para registros incompletos.
+     */
+    async saveFromConsultResult(item: ProductionOrderConsultResult): Promise<void> {
+        await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+            const savedOrder = await tx.omieProductionOrder.upsert({
+                where: { omieCode: item.omieCode },
+                create: {
+                    omieCode: item.omieCode,
+                    internalCode: item.internalCode,
+                    orderNumber: item.orderNumber,
+                    productCode: item.productCode,
+                    productIntegrationCode: item.productIntegrationCode,
+                    quantity: item.quantity,
+                    forecastDate: item.forecastDate
+                        ? new Date(item.forecastDate)
+                        : null,
+                    startDate: item.startDate ? new Date(item.startDate) : null,
+                    completionDate: item.completionDate
+                        ? new Date(item.completionDate)
+                        : null,
+                    stage: item.stage,
+                    projectCode: item.projectCode,
+                    completed: item.completed,
+                    active: item.active,
+                    rawPayload: item.rawPayload as Prisma.InputJsonValue,
+                    lastSyncAt: new Date(),
+                },
+                update: {
+                    internalCode: item.internalCode,
+                    orderNumber: item.orderNumber,
+                    productCode: item.productCode,
+                    productIntegrationCode: item.productIntegrationCode,
+                    quantity: item.quantity,
+                    forecastDate: item.forecastDate
+                        ? new Date(item.forecastDate)
+                        : null,
+                    startDate: item.startDate ? new Date(item.startDate) : null,
+                    completionDate: item.completionDate
+                        ? new Date(item.completionDate)
+                        : null,
+                    stage: item.stage,
+                    projectCode: item.projectCode,
+                    completed: item.completed,
+                    active: item.active,
+                    rawPayload: item.rawPayload as Prisma.InputJsonValue,
+                    lastSyncAt: new Date(),
+                },
+                select: { id: true },
+            });
+
+            for (const it of item.items) {
+                await tx.omieProductionOrderItem.upsert({
+                    where: {
+                        omieItemCode_omieProductionOrderId: {
+                            omieItemCode: it.omieItemCode,
+                            omieProductionOrderId: savedOrder.id,
+                        },
+                    },
+                    create: {
+                        omieItemCode: it.omieItemCode,
+                        omieProductionOrderId: savedOrder.id,
+                        productMeshId: it.productMeshId,
+                        useFromStock: it.useFromStock,
+                        quantity: it.quantity,
+                        stockLocationCode: it.stockLocationCode,
+                        observation: it.observation,
+                        rawPayload: item.rawPayload as Prisma.InputJsonValue,
+                        lastSyncAt: new Date(),
+                    },
+                    update: {
+                        productMeshId: it.productMeshId,
+                        useFromStock: it.useFromStock,
+                        quantity: it.quantity,
+                        stockLocationCode: it.stockLocationCode,
+                        observation: it.observation,
+                        rawPayload: item.rawPayload as Prisma.InputJsonValue,
+                        lastSyncAt: new Date(),
+                    },
+                });
             }
         });
     }

@@ -8,8 +8,10 @@
 
 import { getLogger } from "@/shared/logger";
 import type { ProductionOrderSyncPageGateway } from "../ports/production-order-sync-page.gateway";
+import type { ProductionOrderConsultGateway } from "../ports/production-order-consult.gateway";
 import { ProductionOrderCommandStore } from "../../infrastructure/db/production-order-command.store";
 import { ProductionOrderSyncStore } from "../../infrastructure/db/production-order-sync.store";
+import type { PrismaClient } from "@prisma/client";
 import { fetchPageWithRetry, sleep } from "@/shared/integration/strategies/retry.strategy";
 import type { SyncStateStoreContract } from "@/shared/integration/strategies/types";
 import { SyncHooksRunner } from "@/shared/integration/strategies/sync-hooks";
@@ -138,7 +140,12 @@ export async function executeSyncAllProductionOrders(
     commandStore: ProductionOrderCommandStore,
     syncStateStore: SyncStateStoreContract,
     command: SyncAllProductionOrdersCommand,
-    hooks?: SyncHooksRunner
+    hooks?: SyncHooksRunner,
+    backfillConfig?: {
+        consultGateway: ProductionOrderConsultGateway;
+        prisma: PrismaClient;
+        maxBackfill?: number;
+    }
 ): Promise<void> {
     const logger = getLogger("SyncAllProductionOrdersExecutor");
     const pageSize = Math.max(1, Math.min(Number(command.pageSize || 100), 500));
@@ -217,4 +224,89 @@ export async function executeSyncAllProductionOrders(
         processedPages,
         processedItems,
     });
+
+    // ── Backfill: varre registros incompletos no banco e consulta Omie ──
+    // Change Detection ≠ Data Completeness
+    // Registros que não foram retornados pela Omie no sync incremental
+    // (filtrados por dDtConclusaoDe) nunca passam pelo isComplete().
+    // Precisamos buscá-los individualmente via ConsultarOrdemProducao.
+    if (backfillConfig) {
+        const { consultGateway, prisma: prismaClient } = backfillConfig;
+        const maxBackfill = backfillConfig.maxBackfill ?? 200;
+
+        logger.info("Starting backfill for incomplete production orders", {
+            externalRequestId,
+            maxBackfill,
+        });
+
+        try {
+            // 1. Busca registros locais que estão incompletos (order_number IS NULL)
+            const incompleteRecords = await prismaClient.omieProductionOrder.findMany({
+                where: { orderNumber: null },
+                select: { omieCode: true },
+                take: maxBackfill,
+            });
+
+            if (incompleteRecords.length === 0) {
+                logger.info("No incomplete records found for backfill", {
+                    externalRequestId,
+                });
+            } else {
+                logger.info("Backfill: consulting incomplete records individually", {
+                    externalRequestId,
+                    total: incompleteRecords.length,
+                });
+
+                let backfilledCount = 0;
+                let errorCount = 0;
+
+                for (let i = 0; i < incompleteRecords.length; i++) {
+                    const { omieCode } = incompleteRecords[i];
+                    try {
+                        const consultResult = await consultGateway.consult(omieCode);
+                        if (consultResult) {
+                            await syncStore.saveFromConsultResult(consultResult);
+                            backfilledCount++;
+                        }
+                    } catch (err) {
+                        errorCount++;
+                        logger.warn("Backfill: consult failed for OP", {
+                            externalRequestId,
+                            omieCode,
+                            error: String(err),
+                        });
+                    }
+
+                    // Progress log a cada 20 registros
+                    if ((i + 1) % 20 === 0) {
+                        logger.info("Backfill progress", {
+                            externalRequestId,
+                            processed: i + 1,
+                            total: incompleteRecords.length,
+                            backfilled: backfilledCount,
+                            errors: errorCount,
+                        });
+                    }
+
+                    // Rate-limit entre consultas individuais
+                    if (i < incompleteRecords.length - 1) {
+                        await sleep(300);
+                    }
+                }
+
+                logger.info("Backfill completed", {
+                    externalRequestId,
+                    total: incompleteRecords.length,
+                    backfilled: backfilledCount,
+                    errors: errorCount,
+                });
+            }
+        } catch (err) {
+            // Erro no backfill não quebra o sync — apenas loga
+            logger.error("Backfill failed with unexpected error", {
+                externalRequestId,
+                error: String(err),
+            });
+        }
+    }
 }

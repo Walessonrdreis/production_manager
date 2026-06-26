@@ -221,6 +221,8 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
                     });
                 }
 
+                const consultGateway = new RealProductionOrderConsultGateway(omieClient);
+
                 await executeSyncAllProductionOrders(
                     fetchPageGateway,
                     new ProductionOrderSyncStore(prisma),
@@ -232,7 +234,12 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
                         maxPages: maxPages ?? 1000,
                         source: "JOB",
                     },
-                    hooks
+                    hooks,
+                    {
+                        consultGateway,
+                        prisma,
+                        maxBackfill: 200,
+                    }
                 );
             } else {
                 // Modo fake: apenas marca como confirmado
