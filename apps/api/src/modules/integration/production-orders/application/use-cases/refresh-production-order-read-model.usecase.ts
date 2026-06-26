@@ -252,6 +252,58 @@ export function buildProductionOrderReadModel(
     const opQuantity = round(parseFloat(op.quantity) || 0);
     const omieCode = op.productCode ?? "";
 
+    // ─── GUARD: Sem estrutura → NO_STRUCTURE ──────────────────────────
+    // Se o produto não possui BOM, a OP não pode ser produzida.
+    // Early return para evitar falso positivo ("ready" sem estrutura).
+    if (!structureItems || structureItems.length === 0) {
+        const expectedAt = op.forecastDate;
+        const startedAt = op.startDate;
+        const completedAt = op.completionDate;
+        const isOpen = op.active && !op.completed;
+
+        return {
+            omieCode: op.omieCode,
+            orderNumber: op.orderNumber,
+            productCode: op.productCode,
+            productName: product?.description ?? null,
+            productUnit: product?.unit ?? null,
+            quantity: opQuantity,
+            stage: op.stage,
+            operationalStatus: "NO_STRUCTURE",
+            isOpen,
+            isLate: false,
+            isReady: false,
+            isBlocked: isOpen,
+            hasStockIssue: true,
+            hasMissingMaterials: true,
+            hasCriticalMaterial: false,
+            hasPartialStock: false,
+            hasStructure: false,
+            priority: "low",
+            expectedAt,
+            startedAt,
+            completedAt,
+            daysOverdue: 0,
+            materialsJson: [],
+            materialsSummaryJson: {
+                totalComponents: 0,
+                missingCount: 0,
+                criticalCount: 0,
+                partialCount: 0,
+                okCount: 0,
+            },
+            readinessJson: {
+                canStartProduction: false,
+                blockingReasons: ["Produto não possui estrutura definida"],
+                warnings: [],
+            },
+            alertsJson: ["Produto sem estrutura — não é possível produzir"],
+            lastSyncAt: op.lastSyncAt,
+        };
+    }
+
+    const hasStructure = true;
+
     // ─── 1. Montagem dos materiais ────────────────────────────────────
     const materials: MaterialItem[] = structureItems.map((item) => {
         const quantityPerUnit = round(Number(item.quantidade) || 0);
@@ -350,6 +402,7 @@ export function buildProductionOrderReadModel(
         hasMissingMaterials: flags.hasMissingMaterials,
         hasCriticalMaterial: flags.hasCriticalMaterial,
         hasPartialStock: flags.hasPartialStock,
+        hasStructure: hasStructure,
         priority,
         expectedAt,
         startedAt,

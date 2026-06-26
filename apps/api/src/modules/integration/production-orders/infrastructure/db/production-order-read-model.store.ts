@@ -50,6 +50,7 @@ export type ProductionOrderReadModelRecord = {
     hasMissingMaterials: boolean;
     hasCriticalMaterial: boolean;
     hasPartialStock: boolean;
+    hasStructure: boolean;
     priority: string;
     expectedAt: Date | null;
     startedAt: Date | null;
@@ -101,6 +102,7 @@ export class ProductionOrderReadModelStore {
                     hasMissingMaterials: r.hasMissingMaterials,
                     hasCriticalMaterial: r.hasCriticalMaterial,
                     hasPartialStock: r.hasPartialStock,
+                    hasStructure: r.hasStructure,
                     priority: r.priority,
                     expectedAt: r.expectedAt,
                     startedAt: r.startedAt,
@@ -138,6 +140,7 @@ export class ProductionOrderReadModelStore {
                 hasMissingMaterials: record.hasMissingMaterials,
                 hasCriticalMaterial: record.hasCriticalMaterial,
                 hasPartialStock: record.hasPartialStock,
+                hasStructure: record.hasStructure,
                 priority: record.priority,
                 expectedAt: record.expectedAt,
                 startedAt: record.startedAt,
@@ -165,6 +168,7 @@ export class ProductionOrderReadModelStore {
                 hasMissingMaterials: record.hasMissingMaterials,
                 hasCriticalMaterial: record.hasCriticalMaterial,
                 hasPartialStock: record.hasPartialStock,
+                hasStructure: record.hasStructure,
                 priority: record.priority,
                 expectedAt: record.expectedAt,
                 startedAt: record.startedAt,

@@ -741,6 +741,7 @@ model ProductionOrderReadModel {
   hasMissingMaterials  Boolean @default(false) @map("has_missing_materials")
   hasCriticalMaterial  Boolean @default(false) @map("has_critical_material")
   hasPartialStock      Boolean @default(false) @map("has_partial_stock")
+  hasStructure         Boolean @default(false) @map("has_structure")
 
   // ─── Prioridade ───────────────────────────────────────────────────
   priority String @default("low") @db.VarChar(10)
