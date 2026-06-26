@@ -19,7 +19,7 @@ export type ProductionOrderListResult = {
     omieCode: string;
     internalCode: string | null;
     orderNumber: string | null;
-    productCode: string | null;
+    productOmieId: string | null;
     productIntegrationCode: string | null;
     quantity: string;
     forecastDate: string | null;
@@ -66,10 +66,7 @@ export class ProductionOrderQueryStore {
         if (filters?.completed !== undefined) where.completed = filters.completed;
         if (filters?.active !== undefined) where.active = filters.active;
         if (filters?.productCode) {
-            where.OR = [
-                { productCode: filters.productCode },
-                { productOmieId: filters.productCode },
-            ];
+            where.productOmieId = filters.productCode;
         }
 
         const [items, total] = await this.prisma.$transaction([
@@ -90,7 +87,7 @@ export class ProductionOrderQueryStore {
                 omieCode: item.omieCode,
                 internalCode: item.internalCode,
                 orderNumber: item.orderNumber,
-                productCode: item.productCode,
+                productOmieId: item.productOmieId,
                 productIntegrationCode: item.productIntegrationCode,
                 quantity: item.quantity,
                 forecastDate: item.forecastDate?.toISOString() ?? null,
@@ -125,7 +122,7 @@ export class ProductionOrderQueryStore {
             omieCode: record.omieCode,
             internalCode: record.internalCode,
             orderNumber: record.orderNumber,
-            productCode: record.productCode,
+            productOmieId: record.productOmieId,
             productIntegrationCode: record.productIntegrationCode,
             quantity: record.quantity,
             forecastDate: record.forecastDate?.toISOString() ?? null,

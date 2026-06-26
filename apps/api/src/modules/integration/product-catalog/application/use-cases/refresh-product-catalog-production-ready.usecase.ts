@@ -80,7 +80,7 @@ export class RefreshProductCatalogProductionReadyUseCase {
 
         prisma.productStock.findMany({
           select: {
-            omieCode: true,
+            productOmieId: true,
             stockQuantity: true,
             minimumStock: true,
           },
@@ -99,11 +99,11 @@ export class RefreshProductCatalogProductionReadyUseCase {
         }),
 
         prisma.omieProductionOrder.groupBy({
-          by: ["productCode"],
+          by: ["productOmieId"],
           where: {
             active: true,
             completed: false,
-            productCode: {
+            productOmieId: {
               not: null,
             },
           },
@@ -164,7 +164,7 @@ export class RefreshProductCatalogProductionReadyUseCase {
       }
     >(
       stocks.map((stock: StockRow) => [
-        stock.omieCode,
+        stock.productOmieId,
         {
           stock: Number(stock.stockQuantity),
           minimumStock: Number(stock.minimumStock),
@@ -198,7 +198,7 @@ export class RefreshProductCatalogProductionReadyUseCase {
     // Mapa de estoque dos componentes (por código do componente — internal ID)
     const componentStockMap = new Map<string, { stock: number; minimumStock: number }>(
       stocks.map((stock: StockRow) => [
-        stock.omieCode,
+        stock.productOmieId,
         {
           stock: Number(stock.stockQuantity),
           minimumStock: Number(stock.minimumStock),
@@ -218,10 +218,10 @@ export class RefreshProductCatalogProductionReadyUseCase {
       productionOrders
         .filter(
           (row: ProductionOrderRow): row is ProductionOrderRow & {
-            productCode: string;
-          } => typeof row.productCode === "string" && row.productCode.length > 0
+            productOmieId: string;
+          } => typeof row.productOmieId === "string" && row.productOmieId.length > 0
         )
-        .map((row) => [row.productCode, row._count._all])
+        .map((row) => [row.productOmieId, row._count._all])
     );
 
     const openSalesOrderStage20Map = new Map<string, number>();

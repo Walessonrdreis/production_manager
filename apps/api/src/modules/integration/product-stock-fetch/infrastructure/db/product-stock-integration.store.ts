@@ -19,9 +19,9 @@ export class ProductStockIntegrationStore {
         });
 
         return prisma.productStock.upsert({
-            where: { omieCode: productId },
+            where: { productOmieId: productId },
             create: {
-                omieCode: productId,
+                productOmieId: productId,
                 stockQuantity: data.stockQuantity,
                 minimumStock: data.minimumStock ?? 0,
             },
@@ -34,7 +34,7 @@ export class ProductStockIntegrationStore {
 
     async findByProductId(productId: string) {
         return prisma.productStock.findUnique({
-            where: { omieCode: productId },
+            where: { productOmieId: productId },
         });
     }
 
@@ -46,9 +46,9 @@ export class ProductStockIntegrationStore {
         return prisma.$transaction(
             items.map((item) =>
                 prisma.productStock.upsert({
-                    where: { omieCode: item.productId },
+                    where: { productOmieId: item.productId },
                     create: {
-                        omieCode: item.productId,
+                        productOmieId: item.productId,
                         stockQuantity: item.stockQuantity,
                         minimumStock: item.minimumStock ?? 0,
                     },

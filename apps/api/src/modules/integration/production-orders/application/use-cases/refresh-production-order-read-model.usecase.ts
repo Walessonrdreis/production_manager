@@ -52,7 +52,7 @@ function extractNumericOmieCode(raw: Record<string, unknown> | null): string | n
 type OpRow = {
     omieCode: string;
     orderNumber: string | null;
-    productCode: string | null;
+    productOmieId: string | null;
     quantity: string;
     forecastDate: Date | null;
     startDate: Date | null;
@@ -312,7 +312,7 @@ export function buildProductionOrderReadModel(
     bridge: CatalogBridge
 ): ProductionOrderReadModelRecord {
     const opQuantity = round(parseFloat(op.quantity) || 0);
-    const omieCode = op.productCode ?? "";
+    const omieCode = op.productOmieId ?? "";
 
     // ─── GUARD: Sem estrutura → NO_STRUCTURE ──────────────────────────
     // Se o produto não possui BOM, a OP não pode ser produzida.
@@ -326,8 +326,8 @@ export function buildProductionOrderReadModel(
         return {
             omieCode: op.omieCode,
             orderNumber: op.orderNumber,
-            productCode: op.productCode,
-            productOmieId: op.productCode,
+            productCode: op.productOmieId,
+            productOmieId: op.productOmieId,
             productName: product?.description ?? null,
             productUnit: product?.unit ?? null,
             quantity: opQuantity,
@@ -475,8 +475,8 @@ export function buildProductionOrderReadModel(
     return {
         omieCode: op.omieCode,
         orderNumber: op.orderNumber,
-        productCode: op.productCode,
-        productOmieId: op.productCode,
+        productCode: op.productOmieId,
+        productOmieId: op.productOmieId,
         productName: product?.description ?? null,
         productUnit: product?.unit ?? null,
         quantity: opQuantity,
@@ -520,7 +520,6 @@ export class RefreshProductionOrderReadModelUseCase {
         // 2. Mapa de estoque: internalCode → stockQuantity
         const stocks = await prisma.productStock.findMany({
             select: {
-                omieCode: true,
                 productOmieId: true,
                 stockQuantity: true,
             },
@@ -587,15 +586,15 @@ export class RefreshProductionOrderReadModelUseCase {
 
         for (const op of ops) {
             try {
-                // op.productCode e' numerico (omieId), productMap e' chaveado por omieCode (visivel)
+                // op.productOmieId e' numerico (omieId), productMap e' chaveado por omieCode (visivel)
                 // usar bridge.internalToOmie para converter numerico → visivel
-                const visibleCode = bridge.internalToOmie.get(op.productCode ?? "");
+                const visibleCode = bridge.internalToOmie.get(op.productOmieId ?? "");
                 const product = visibleCode ? (productMap.get(visibleCode) ?? null) : null;
                 const record = buildProductionOrderReadModel(
                     {
                         omieCode: op.omieCode,
                         orderNumber: op.orderNumber,
-                        productCode: op.productCode,
+                        productOmieId: op.productOmieId,
                         quantity: op.quantity,
                         forecastDate: op.forecastDate,
                         startDate: op.startDate,
@@ -606,10 +605,10 @@ export class RefreshProductionOrderReadModelUseCase {
                         lastSyncAt: op.lastSyncAt,
                     },
                     product
-                        ? { omieCode: op.productCode ?? "", description: product.description, unit: product.unit }
+                        ? { omieCode: op.productOmieId ?? "", description: product.description, unit: product.unit }
                         : null,
                     structureMap.get(
-                        bridge.internalToOmie.get(op.productCode ?? "") ?? ""
+                        bridge.internalToOmie.get(op.productOmieId ?? "") ?? ""
                     ) ?? [],
                     stockMap,
                     bridge
@@ -665,7 +664,7 @@ export class RefreshProductionOrderReadModelUseCase {
         const bridge = await buildCatalogBridge();
 
         const stocks = await prisma.productStock.findMany({
-            select: { omieCode: true, productOmieId: true, stockQuantity: true },
+            select: { productOmieId: true, stockQuantity: true },
         });
         const stockMap = new Map<string, number>(
             stocks.map((s) => [String(s.productOmieId), round(Number(s.stockQuantity) || 0)])
@@ -684,12 +683,12 @@ export class RefreshProductionOrderReadModelUseCase {
         const structureItems = allStructureItems.filter(
             (item) =>
                 item.codProdutoPai ===
-                (bridge.internalToOmie.get(op.productCode ?? "") ?? "")
+                (bridge.internalToOmie.get(op.productOmieId ?? "") ?? "")
         ) as any as StructureItemRow[];
 
-        const productInfo = op.productCode
+        const productInfo = op.productOmieId
             ? await prisma.omieProduct.findFirst({
-                where: { omieId: op.productCode },
+                where: { omieId: op.productOmieId },
                 select: { description: true, rawPayload: true },
             })
             : null;
@@ -706,7 +705,7 @@ export class RefreshProductionOrderReadModelUseCase {
             {
                 omieCode: op.omieCode,
                 orderNumber: op.orderNumber,
-                productCode: op.productCode,
+                productOmieId: op.productOmieId,
                 quantity: op.quantity,
                 forecastDate: op.forecastDate,
                 startDate: op.startDate,
@@ -718,7 +717,7 @@ export class RefreshProductionOrderReadModelUseCase {
             },
             productInfo
                 ? {
-                    omieCode: op.productCode ?? "",
+                    omieCode: op.productOmieId ?? "",
                     description: productInfo.description,
                     unit,
                 }

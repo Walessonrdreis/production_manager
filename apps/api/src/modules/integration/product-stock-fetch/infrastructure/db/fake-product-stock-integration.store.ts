@@ -5,7 +5,7 @@
 import { getLogger } from "@/shared/logger";
 
 type StockRecord = {
-    omieCode: string;
+    productOmieId: string;
     stockQuantity: number;
     minimumStock: number;
     updatedAt: Date;
@@ -26,7 +26,7 @@ export class FakeProductStockIntegrationStore {
     ) {
         const existing = this.data.get(productId);
         const record: StockRecord = {
-            omieCode: productId,
+            productOmieId: productId,
             stockQuantity: data.stockQuantity,
             minimumStock: data.minimumStock ?? existing?.minimumStock ?? 0,
             updatedAt: new Date(),
@@ -45,7 +45,7 @@ export class FakeProductStockIntegrationStore {
         const records = items.map((item) => {
             const existing = this.data.get(item.productId);
             const record: StockRecord = {
-                omieCode: item.productId,
+                productOmieId: item.productId,
                 stockQuantity: item.stockQuantity,
                 minimumStock: item.minimumStock ?? existing?.minimumStock ?? 0,
                 updatedAt: new Date(),

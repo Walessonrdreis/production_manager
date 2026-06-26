@@ -24,7 +24,7 @@ export class ProductionOrderSyncStore {
                     omieCode: order.omieCode,
                     internalCode: order.internalCode,
                     orderNumber: order.orderNumber,
-                    productCode: order.productCode,
+                    productOmieId: order.productCode,
                     productIntegrationCode: order.productIntegrationCode,
                     quantity: order.quantity,
                     forecastDate: order.forecastDate
@@ -44,7 +44,7 @@ export class ProductionOrderSyncStore {
                 update: {
                     internalCode: order.internalCode,
                     orderNumber: order.orderNumber,
-                    productCode: order.productCode,
+                    productOmieId: order.productCode,
                     productIntegrationCode: order.productIntegrationCode,
                     quantity: order.quantity,
                     forecastDate: order.forecastDate
@@ -114,7 +114,7 @@ export class ProductionOrderSyncStore {
                         omieCode: order.omieCode,
                         internalCode: order.internalCode,
                         orderNumber: order.orderNumber,
-                        productCode: order.productCode,
+                        productOmieId: order.productCode,
                         productIntegrationCode: order.productIntegrationCode,
                         quantity: order.quantity,
                         forecastDate: order.forecastDate
@@ -134,7 +134,7 @@ export class ProductionOrderSyncStore {
                     update: {
                         internalCode: order.internalCode,
                         orderNumber: order.orderNumber,
-                        productCode: order.productCode,
+                        productOmieId: order.productCode,
                         productIntegrationCode: order.productIntegrationCode,
                         quantity: order.quantity,
                         forecastDate: order.forecastDate
@@ -198,7 +198,7 @@ export class ProductionOrderSyncStore {
                     omieCode: item.omieCode,
                     internalCode: item.internalCode,
                     orderNumber: item.orderNumber,
-                    productCode: item.productCode,
+                    productOmieId: item.productCode,
                     productIntegrationCode: item.productIntegrationCode,
                     quantity: item.quantity,
                     forecastDate: item.forecastDate
@@ -218,7 +218,7 @@ export class ProductionOrderSyncStore {
                 update: {
                     internalCode: item.internalCode,
                     orderNumber: item.orderNumber,
-                    productCode: item.productCode,
+                    productOmieId: item.productCode,
                     productIntegrationCode: item.productIntegrationCode,
                     quantity: item.quantity,
                     forecastDate: item.forecastDate
