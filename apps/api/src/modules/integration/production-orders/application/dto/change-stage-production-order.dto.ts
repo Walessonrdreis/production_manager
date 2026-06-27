@@ -6,6 +6,6 @@
 
 export type ProcessChangeStageProductionOrderData = {
     externalRequestId: string;
-    omieCode: string;
+    omieId: string;
     stage: string;
 };

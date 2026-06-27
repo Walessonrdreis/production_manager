@@ -50,7 +50,7 @@ function extractNumericOmieCode(raw: Record<string, unknown> | null): string | n
 // ─── Tipos internos ───────────────────────────────────────────────────
 
 type OpRow = {
-    omieCode: string;
+    omieId: string;
     orderNumber: string | null;
     productOmieId: string | null;
     quantity: string;
@@ -323,7 +323,7 @@ export function buildProductionOrderReadModel(
         const isOpen = op.active && !op.completed;
 
         return {
-            omieCode: op.omieCode,
+            omieId: op.omieId,
             orderNumber: op.orderNumber,
             productCode: bridge.internalToOmie.get(op.productOmieId) ?? null,
             productOmieId: op.productOmieId,
@@ -472,7 +472,7 @@ export function buildProductionOrderReadModel(
 
     // ─── 10. Output final ─────────────────────────────────────────────
     return {
-        omieCode: op.omieCode,
+        omieId: op.omieId,
         orderNumber: op.orderNumber,
         productCode: bridge.internalToOmie.get(op.productOmieId) ?? null,
         productOmieId: op.productOmieId,
@@ -591,7 +591,7 @@ export class RefreshProductionOrderReadModelUseCase {
                 const product = visibleCode ? (productMap.get(visibleCode) ?? null) : null;
                 const record = buildProductionOrderReadModel(
                     {
-                        omieCode: op.omieCode,
+                        omieId: op.omieId,
                         orderNumber: op.orderNumber,
                         productOmieId: op.productOmieId,
                         quantity: op.quantity,
@@ -615,7 +615,7 @@ export class RefreshProductionOrderReadModelUseCase {
                 records.push(record);
             } catch (err) {
                 logger.warn("Failed to build read model for OP", {
-                    omieCode: op.omieCode,
+                    omieId: op.omieId,
                     error: err instanceof Error ? err.message : String(err),
                 });
             }
@@ -649,15 +649,15 @@ export class RefreshProductionOrderReadModelUseCase {
 
     // ─── Refresh de uma OP específica ─────────────────────────────────
 
-    async refreshOne(omieCode: string) {
-        logger.info("Refreshing single production order", { omieCode });
+    async refreshOne(omieId: string) {
+        logger.info("Refreshing single production order", { omieId });
 
         const op = await prisma.omieProductionOrder.findUnique({
-            where: { omieCode },
+            where: { omieId },
         });
 
         if (!op) {
-            throw new Error(`Production order ${omieCode} not found`);
+            throw new Error(`Production order ${omieId} not found`);
         }
 
         const bridge = await buildCatalogBridge();
@@ -702,7 +702,7 @@ export class RefreshProductionOrderReadModelUseCase {
 
         const record = buildProductionOrderReadModel(
             {
-                omieCode: op.omieCode,
+                omieId: op.omieId,
                 orderNumber: op.orderNumber,
                 productOmieId: op.productOmieId,
                 quantity: op.quantity,
@@ -729,7 +729,7 @@ export class RefreshProductionOrderReadModelUseCase {
         await this.readModelStore.upsertOne(record);
 
         logger.info("Single production order refresh completed", {
-            omieCode,
+            omieId,
             operationalStatus: record.operationalStatus,
             priority: record.priority,
         });

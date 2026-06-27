@@ -20,7 +20,7 @@ export async function registerCancelProductionOrderRoute(app: FastifyInstance) {
 
             const result = await useCase.execute({
                 externalRequestId: validatedData.externalRequestId,
-                omieCode: validatedData.omieCode,
+                omieId: validatedData.omieId,
                 reason: validatedData.reason,
             });
 

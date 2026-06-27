@@ -10,7 +10,7 @@ import { enqueueJob } from "@/shared/infra/job-queue";
 
 export type EnqueueChangeStageProductionOrderCommand = {
     externalRequestId: string;
-    omieCode: string;
+    omieId: string;
     stage: string;
 };
 
@@ -31,7 +31,7 @@ export class EnqueueChangeStageProductionOrderUseCase {
 
         await enqueueJob("production-order.change-stage", {
             externalRequestId: command.externalRequestId,
-            omieCode: command.omieCode,
+            omieId: command.omieId,
             stage: command.stage,
         }, {
             retryLimit: 5,

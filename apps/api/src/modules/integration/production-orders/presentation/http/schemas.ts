@@ -71,7 +71,7 @@ export const NotFoundErrorResponseSchema = z.object({
 // ─── Update Production Order ────────────────────────────────────────────
 export const UpdateProductionOrderRequestSchema = z.object({
   externalRequestId: z.string(),
-  omieCode: z.string(),
+  omieId: z.string(),
   quantity: z.number().positive().optional(),
   forecastDate: z.string().datetime().optional(),
   notes: z.string().optional(),
@@ -80,14 +80,14 @@ export const UpdateProductionOrderRequestSchema = z.object({
 // ─── Cancel Production Order ────────────────────────────────────────────
 export const CancelProductionOrderRequestSchema = z.object({
   externalRequestId: z.string(),
-  omieCode: z.string(),
+  omieId: z.string(),
   reason: z.string().optional(),
 });
 
 // ─── Change Stage ───────────────────────────────────────────────────────
 export const ChangeProductionOrderStageRequestSchema = z.object({
   externalRequestId: z.string(),
-  omieCode: z.string(),
+  omieId: z.string(),
   stage: z.string(),
 });
 

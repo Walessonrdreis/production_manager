@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Refresh Production Order from Omie (Read + Sync)
 // ---------------------------------------------------------------------------
-// GET /v1/integration/production-orders/read/:omieCode/refresh
+// GET /v1/integration/production-orders/read/:omieId/refresh
 // Consulta a OP no Omie (ConsultarOrdemProducao), atualiza o espelho local
 // e retorna os dados frescos.
 // Síncrona (sem fila) — o usuário quer o dado agora.
@@ -20,16 +20,16 @@ const logger = getLogger("get-production-order-refresh.route");
 
 export async function registerGetProductionOrderRefreshRoute(app: FastifyInstance) {
     app.get(
-        "/v1/integration/production-orders/read/:omieCode/refresh",
+        "/v1/integration/production-orders/read/:omieId/refresh",
         async (request, reply) => {
             try {
-                const { omieCode } = request.params as { omieCode: string };
+                const { omieId } = request.params as { omieId: string };
 
-                if (!omieCode || isNaN(Number(omieCode))) {
+                if (!omieId || isNaN(Number(omieId))) {
                     return reply.code(400).send({
                         success: false,
                         error: "VALIDATION_ERROR",
-                        message: "Invalid omieCode — must be a numeric string",
+                        message: "Invalid omieId — must be a numeric string",
                     });
                 }
 
@@ -53,13 +53,13 @@ export async function registerGetProductionOrderRefreshRoute(app: FastifyInstanc
                         })
                     );
 
-                const freshData = await consultGateway.consult(omieCode);
+                const freshData = await consultGateway.consult(omieId);
 
                 if (!freshData) {
                     return reply.code(404).send({
                         success: false,
                         error: "NOT_FOUND",
-                        message: `Production order ${omieCode} not found in Omie`,
+                        message: `Production order ${omieId} not found in Omie`,
                     });
                 }
 
@@ -67,7 +67,7 @@ export async function registerGetProductionOrderRefreshRoute(app: FastifyInstanc
                 if (!isFake) {
                     const syncStore = new ProductionOrderSyncStore(prisma);
                     await syncStore.save({
-                        omieCode: freshData.omieCode,
+                        omieId: freshData.omieId,
                         number: freshData.orderNumber ?? "",
                         internalCode: freshData.internalCode,
                         productCode: Number(freshData.productCode ?? 0),

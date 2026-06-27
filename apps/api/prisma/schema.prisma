@@ -413,8 +413,7 @@ model CustomerSyncState {
 model OmieProductionOrder {
   id                     String   @id @default(uuid())
 
-  omieCode               String   @db.VarChar(64) @map("omie_code")
-  omieId                 String?  @db.VarChar(64) @map("omie_id")
+  omieId                 String   @db.VarChar(64) @map("omie_id")
   internalCode           String?  @db.VarChar(64) @map("internal_code")
   orderNumber            String?  @db.VarChar(32) @map("order_number")
 
@@ -438,7 +437,7 @@ model OmieProductionOrder {
 
   items                  OmieProductionOrderItem[]
 
-  @@unique([omieCode])
+  @@unique([omieId])
   @@index([productIntegrationCode])
   @@index([completed])
   @@index([forecastDate])
@@ -721,7 +720,7 @@ model ProductionOrderReadModel {
   id String @id @default(cuid())
 
   // ─── Identificação ────────────────────────────────────────────────
-  omieCode       String  @unique @db.VarChar(64) @map("omie_code")
+  omieId         String  @unique @db.VarChar(64) @map("omie_id")
   orderNumber    String? @db.VarChar(32) @map("order_number")
   productCode    String? @db.VarChar(64) @map("product_code")
   productOmieId  String? @db.VarChar(64) @map("product_omie_id")

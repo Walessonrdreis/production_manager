@@ -39,7 +39,7 @@ export class RealProductionOrderChangeStageGateway implements ProductionOrderCha
             app_secret: env.OMIE_APP_SECRET,
             param: [
                 {
-                    nCodigoOP: Number(command.omieCode),
+                    nCodigoOP: Number(command.omieId),
                     cEtapa: command.stage,
                 },
             ],

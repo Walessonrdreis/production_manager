@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 export type ProductionOrderSummaryItem = {
-    omieCode: string;
+    omieId: string;
     orderNumber: string | null;
     productCode: string | null;
     quantity: string;
@@ -39,7 +39,7 @@ export type ProductionOrderDetailSummary = ProductionOrderSummaryItem & {
  * Converte um registro Prisma de OmieProductionOrder em um resumo compacto.
  */
 export function mapProductionOrderToSummary(record: {
-    omieCode: string;
+    omieId: string;
     orderNumber: string | null;
     productCode: string | null;
     quantity: string;
@@ -61,7 +61,7 @@ export function mapProductionOrderToSummary(record: {
     }>;
 }): ProductionOrderSummaryItem {
     return {
-        omieCode: record.omieCode,
+        omieId: record.omieId,
         orderNumber: record.orderNumber,
         productCode: record.productCode,
         quantity: record.quantity,

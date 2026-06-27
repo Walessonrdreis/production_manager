@@ -15,12 +15,12 @@ export class ProcessCancelProductionOrderUseCase {
     ) { }
 
     async execute(data: ProcessCancelProductionOrderData): Promise<void> {
-        const { externalRequestId, omieCode, reason } = data;
+        const { externalRequestId, omieId, reason } = data;
 
         if (!this.options.isFake) {
             const result = await this.cancelGateway.cancelProductionOrder({
                 externalRequestId,
-                omieCode,
+                omieId,
                 reason,
             });
 
@@ -34,7 +34,7 @@ export class ProcessCancelProductionOrderUseCase {
             externalRequestId,
             commandType: "CANCEL_OP",
             source: "JOB",
-            payload: { omieCode, reason },
+            payload: { omieId, reason },
         });
         await this.commandStore.markConfirmed(externalRequestId);
     }

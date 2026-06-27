@@ -7,7 +7,7 @@ export class FakeProductionOrderChangeStageGateway implements ProductionOrderCha
     ): Promise<{ externalRequestId: string; status: "ACCEPTED" }> {
         console.log("[OP][FAKE][CHANGE_STAGE] changeStage", {
             externalRequestId: command.externalRequestId,
-            omieCode: command.omieCode,
+            omieId: command.omieId,
             stage: command.stage,
         });
 

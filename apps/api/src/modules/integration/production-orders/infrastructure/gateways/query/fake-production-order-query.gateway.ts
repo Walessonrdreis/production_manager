@@ -24,12 +24,12 @@ export class FakeProductionOrderQueryGateway implements ProductionOrderQueryGate
     return store.listProductionOrders(page, limit, _filters);
   }
 
-  async getProductionOrderByCode(omieCode: string) {
-    console.log("[OP][FAKE][QUERY] getProductionOrderByCode", { omieCode });
+  async getProductionOrderByCode(omieId: string) {
+    console.log("[OP][FAKE][QUERY] getProductionOrderByCode", { omieId });
     const { prisma } = await import("@/shared/db/prisma");
     const { ProductionOrderQueryStore } = await import("../../db/production-order-query.store");
     const store = new ProductionOrderQueryStore(prisma);
-    return store.getProductionOrderByCode(omieCode);
+    return store.getProductionOrderByCode(omieId);
   }
 
   async getProductionOrderStats() {

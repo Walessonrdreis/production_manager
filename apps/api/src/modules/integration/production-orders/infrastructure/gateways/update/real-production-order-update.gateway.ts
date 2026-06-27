@@ -40,7 +40,7 @@ export class RealProductionOrderUpdateGateway implements ProductionOrderUpdateGa
             param: [
                 {
                     identificacao: {
-                        cCodigoOP: Number(command.omieCode),
+                        cCodigoOP: Number(command.omieId),
                         dDtPrevisao: command.forecastDate,
                         nQtde: command.quantity,
                     },

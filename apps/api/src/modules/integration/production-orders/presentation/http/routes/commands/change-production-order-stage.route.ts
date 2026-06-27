@@ -20,7 +20,7 @@ export async function registerChangeProductionOrderStageRoute(app: FastifyInstan
 
             const result = await useCase.execute({
                 externalRequestId: validatedData.externalRequestId,
-                omieCode: validatedData.omieCode,
+                omieId: validatedData.omieId,
                 stage: validatedData.stage,
             });
 

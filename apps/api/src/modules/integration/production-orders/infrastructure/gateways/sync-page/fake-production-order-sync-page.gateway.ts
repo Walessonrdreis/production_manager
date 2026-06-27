@@ -34,7 +34,7 @@ export class FakeProductionOrderSyncPageGateway
             const now = new Date();
             const updatedAt = new Date(now.getTime() - num * 3600000); // horas diferentes
             return {
-                omieCode: `${1000000 + num}`,
+                omieId: `${1000000 + num}`,
                 number: `${2025}/${String(1000 + num).padStart(5, "0")}`,
                 internalCode: `FAKE-OP-${String(num).padStart(4, "0")}`,
                 productCode: 900000 + num,

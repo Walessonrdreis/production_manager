@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Get Production Order Detail with BOM Consumption
 // ---------------------------------------------------------------------------
-// GET /v1/integration/production-orders/read/:omieCode/with-bom
+// GET /v1/integration/production-orders/read/:omieId/with-bom
 // Retorna OP + nome do produto + itens da estrutura com consumo previsto
 // e impacto no estoque dos componentes.
 // ---------------------------------------------------------------------------
@@ -13,15 +13,15 @@ export async function registerGetProductionOrderWithBomRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/integration/production-orders/read/:omieCode/with-bom",
+        "/v1/integration/production-orders/read/:omieId/with-bom",
         async (request, reply) => {
             try {
-                const { omieCode } = request.params as { omieCode: string };
+                const { omieId } = request.params as { omieId: string };
 
                 // 1. Buscar a OP com o nome do produto
                 const op = await prisma.$queryRawUnsafe<
                     Array<{
-                        omie_code: string;
+                        omie_id: string;
                         order_number: string | null;
                         quantity: string;
                         forecast_date: Date | null;
@@ -30,13 +30,13 @@ export async function registerGetProductionOrderWithBomRoute(
                         stage: string | null;
                         completed: boolean;
                         active: boolean;
-                        product_code: string | null;
+                        product_omie_id: string | null;
                         product_name: string | null;
                         last_sync_at: Date;
                     }>
                 >(
                     `SELECT
-            op.omie_code,
+            op.omie_id,
             op.order_number,
             op.quantity,
             op.forecast_date,
@@ -45,30 +45,30 @@ export async function registerGetProductionOrderWithBomRoute(
             op.stage,
             op.completed,
             op.active,
-            op.product_code,
+            op.product_omie_id,
             p.description AS product_name,
             op.last_sync_at
           FROM integration.omie_production_order op
-          LEFT JOIN integration.omie_product p ON p.omie_code = op.product_code
-          WHERE op.omie_code = $1
+          LEFT JOIN integration.omie_product p ON p.omie_id = op.product_omie_id
+          WHERE op.omie_id = $1
           LIMIT 1`,
-                    omieCode
+                    omieId
                 );
 
                 if (!op || op.length === 0) {
                     return reply.code(404).send({
                         success: false,
                         error: "NOT_FOUND",
-                        message: `Production order ${omieCode} not found`,
+                        message: `Production order ${omieId} not found`,
                     });
                 }
 
                 const order = op[0];
-                const productCode = order.product_code;
+                const productOmieId = order.product_omie_id;
                 const opQuantity = parseFloat(order.quantity) || 0;
 
                 // 2. Buscar os itens da estrutura (BOM) com estoque atual
-                //    O product_code na OP é o código Omie (ex: "9116171995"),
+                //    O product_omie_id na OP é o ID numérico Omie (ex: "9116171995"),
                 //    mas a product_structure usa código interno (ex: "100kg").
                 //    Tentamos matching direto e também via o read-model de catálogo.
                 interface BomRow {
@@ -84,7 +84,7 @@ export async function registerGetProductionOrderWithBomRoute(
 
                 let bomItems: BomRow[] = [];
 
-                if (productCode) {
+                if (productOmieId) {
                     // Tenta match direto (código interno) e via catálogo (código Omie)
                     bomItems = await prisma.$queryRawUnsafe<BomRow[]>(
                         `SELECT
@@ -97,12 +97,12 @@ export async function registerGetProductionOrderWithBomRoute(
               ps.stock_quantity::numeric AS current_stock,
               (COALESCE(ps.stock_quantity::numeric, 0) - (CAST($1 AS numeric) * psi.quantidade::numeric)) AS stock_after_consumption
             FROM integration.product_structure_item psi
-            LEFT JOIN integration.product_stock ps ON ps.omie_code = psi.cod_produto_componente
+            LEFT JOIN integration.product_stock ps ON ps.product_omie_id = psi.cod_produto_componente
             WHERE psi.cod_produto_pai = $2
                OR psi.cod_produto_pai = (SELECT product_code FROM read_model.product_catalog_production_ready_read_model WHERE omie_code = $2 LIMIT 1)
             ORDER BY psi.descr_produto_componente`,
                         opQuantity,
-                        productCode
+                        productOmieId
                     );
                 }
 
@@ -124,18 +124,18 @@ export async function registerGetProductionOrderWithBomRoute(
             oi.observation
           FROM integration.omie_production_order_item oi
           WHERE oi.omie_production_order_id = (
-            SELECT id FROM integration.omie_production_order WHERE omie_code = $1 LIMIT 1
+            SELECT id FROM integration.omie_production_order WHERE omie_id = $1 LIMIT 1
           )`,
-                    omieCode
+                    omieId
                 );
 
                 return reply.code(200).send({
                     success: true,
                     data: {
                         order: {
-                            omieCode: order.omie_code,
+                            omieId: order.omie_id,
                             orderNumber: order.order_number,
-                            productCode: order.product_code,
+                            productOmieId: order.product_omie_id,
                             productName: order.product_name,
                             quantity: order.quantity,
                             forecastDate: order.forecast_date,

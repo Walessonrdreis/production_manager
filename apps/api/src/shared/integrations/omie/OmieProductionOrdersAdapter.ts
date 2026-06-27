@@ -3,7 +3,7 @@
 import { brDateToISO, isSim } from './omie.utils'
 
 export interface OmieProductionOrder {
-  omieCode: string
+  omieId: string
   internalCode?: string | null
   orderNumber?: string | null
   productCode?: string | null
@@ -75,12 +75,12 @@ export function mapProductionOrder(order: any): {
   const infAdicionais = order?.infAdicionais ?? {}
   const outrasInf = order?.outrasInf ?? {}
 
-  const omieCode = String(identificacao.nCodOP ?? '')
+  const omieId = String(identificacao.nCodOP ?? '')
   const internalCode = identificacao.cCodIntOP ? String(identificacao.cCodIntOP) : null
   const orderNumber = identificacao.cNumOP ? String(identificacao.cNumOP) : null
 
   const mappedOrder: OmieProductionOrder = {
-    omieCode,
+    omieId,
     internalCode,
     orderNumber,
     productCode: identificacao.nCodProduto ? String(identificacao.nCodProduto) : null,
@@ -105,7 +105,7 @@ export function mapProductionOrder(order: any): {
 
     items.push({
       omieItemCode,
-      omieProductionOrderId: omieCode,
+      omieProductionOrderId: omieId,
       productMeshId: item.nIdProdutoMalha ?? null,
       useFromStock: item.cUtilizarDoEstoque ?? null,
       rawPayload: item,
@@ -120,7 +120,7 @@ export function mapProductionOrder(order: any): {
 
     items.push({
       omieItemCode,
-      omieProductionOrderId: omieCode,
+      omieProductionOrderId: omieId,
       productMeshId: item.nIdProdutoMalha ?? null,
       useFromStock: item.cUtilizarDoEstoque ?? null,
       quantity: item.nQtde != null ? String(item.nQtde) : null,
@@ -143,7 +143,7 @@ export function extractProductionOrderSummary(order: any) {
   const outrasInf = order?.outrasInf ?? {}
 
   return {
-    omieCode: String(identificacao.nCodOP ?? ''),
+    omieId: String(identificacao.nCodOP ?? ''),
     internalCode: identificacao.cCodIntOP ? String(identificacao.cCodIntOP) : null,
     orderNumber: outrasInf.cNumOP ? String(outrasInf.cNumOP) : null,
     productCode: identificacao.nCodProduto ? String(identificacao.nCodProduto) : null,

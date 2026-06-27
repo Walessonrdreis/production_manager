@@ -6,6 +6,6 @@
 
 export type ProcessCancelProductionOrderData = {
     externalRequestId: string;
-    omieCode: string;
+    omieId: string;
     reason?: string;
 };

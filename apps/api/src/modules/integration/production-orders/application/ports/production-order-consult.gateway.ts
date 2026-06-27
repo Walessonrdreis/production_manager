@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 export type ProductionOrderConsultResult = {
-    omieCode: string;
+    omieId: string;
     internalCode: string | null;
     orderNumber: string | null;
     productCode: string | null;
@@ -32,5 +32,5 @@ export type ProductionOrderConsultResult = {
 };
 
 export interface ProductionOrderConsultGateway {
-    consult(omieCode: string): Promise<ProductionOrderConsultResult | null>;
+    consult(omieId: string): Promise<ProductionOrderConsultResult | null>;
 }

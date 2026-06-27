@@ -243,7 +243,7 @@ export async function executeSyncAllProductionOrders(
             // 1. Busca registros locais que estão incompletos (order_number IS NULL)
             const incompleteRecords = await prismaClient.omieProductionOrder.findMany({
                 where: { orderNumber: null },
-                select: { omieCode: true },
+                select: { omieId: true },
                 take: maxBackfill,
             });
 
@@ -261,9 +261,9 @@ export async function executeSyncAllProductionOrders(
                 let errorCount = 0;
 
                 for (let i = 0; i < incompleteRecords.length; i++) {
-                    const { omieCode } = incompleteRecords[i];
+                    const { omieId } = incompleteRecords[i];
                     try {
-                        const consultResult = await consultGateway.consult(omieCode);
+                        const consultResult = await consultGateway.consult(omieId);
                         if (consultResult) {
                             await syncStore.saveFromConsultResult(consultResult);
                             backfilledCount++;
@@ -272,7 +272,7 @@ export async function executeSyncAllProductionOrders(
                         errorCount++;
                         logger.warn("Backfill: consult failed for OP", {
                             externalRequestId,
-                            omieCode,
+                            omieId,
                             error: String(err),
                         });
                     }

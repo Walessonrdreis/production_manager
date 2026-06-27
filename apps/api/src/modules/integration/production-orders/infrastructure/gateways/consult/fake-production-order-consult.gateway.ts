@@ -9,19 +9,19 @@ import type { ProductionOrderConsultGateway, ProductionOrderConsultResult } from
 
 export class FakeProductionOrderConsultGateway
     implements ProductionOrderConsultGateway {
-    async consult(omieCode: string): Promise<ProductionOrderConsultResult | null> {
-        console.log("[OP][FAKE][CONSULT] consult", { omieCode });
+    async consult(omieId: string): Promise<ProductionOrderConsultResult | null> {
+        console.log("[OP][FAKE][CONSULT] consult", { omieId });
 
         const { prisma } = await import("@/shared/db/prisma");
         const record = await prisma.omieProductionOrder.findUnique({
-            where: { omieCode },
+            where: { omieId },
             include: { items: true },
         });
 
         if (!record) return null;
 
         return {
-            omieCode: record.omieCode,
+            omieId: record.omieId,
             internalCode: record.internalCode,
             orderNumber: record.orderNumber,
             productCode: record.productCode,

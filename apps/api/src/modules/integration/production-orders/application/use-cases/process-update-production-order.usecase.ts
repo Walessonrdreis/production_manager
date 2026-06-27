@@ -15,12 +15,12 @@ export class ProcessUpdateProductionOrderUseCase {
     ) { }
 
     async execute(data: ProcessUpdateProductionOrderData): Promise<void> {
-        const { externalRequestId, omieCode, quantity, forecastDate, notes } = data;
+        const { externalRequestId, omieId, quantity, forecastDate, notes } = data;
 
         if (!this.options.isFake) {
             const result = await this.updateGateway.updateProductionOrder({
                 externalRequestId,
-                omieCode,
+                omieId,
                 quantity,
                 forecastDate,
                 notes,
@@ -36,7 +36,7 @@ export class ProcessUpdateProductionOrderUseCase {
             externalRequestId,
             commandType: "UPDATE_OP",
             source: "JOB",
-            payload: { omieCode, quantity, forecastDate, notes },
+            payload: { omieId, quantity, forecastDate, notes },
         });
         await this.commandStore.markConfirmed(externalRequestId);
     }

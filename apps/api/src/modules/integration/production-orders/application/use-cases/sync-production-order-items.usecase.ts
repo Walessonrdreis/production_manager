@@ -17,7 +17,7 @@ const logger = getLogger("SyncProductionOrderItemsUseCase");
 export type SyncProductionOrderItemsCommand = {
     externalRequestId: string;
     /** Se omitido, busca ordens sem itens. Máximo 50 por execução. */
-    omieCodes?: string[];
+    omieIds?: string[];
     /** Máximo de ordens para processar nesta execução (default: 50) */
     maxOrders?: number;
 };
@@ -38,8 +38,8 @@ export class SyncProductionOrderItemsUseCase {
         const { externalRequestId } = command;
 
         // ── Buscar ordens que precisam de itens ──────────────────────────
-        const where = command.omieCodes
-            ? { omieCode: { in: command.omieCodes } }
+        const where = command.omieIds
+            ? { omieId: { in: command.omieIds } }
             : {
                 items: { none: {} },
             };
@@ -49,7 +49,7 @@ export class SyncProductionOrderItemsUseCase {
             take: maxOrders,
             select: {
                 id: true,
-                omieCode: true,
+                omieId: true,
             },
             orderBy: { lastSyncAt: "asc" },
         });
@@ -68,13 +68,13 @@ export class SyncProductionOrderItemsUseCase {
         for (const order of orders) {
             try {
                 const consultResult = await this.consultGateway.consult(
-                    order.omieCode,
+                    order.omieId,
                 );
 
                 if (!consultResult) {
                     logger.warn("Consult returned null, skipping", {
                         externalRequestId,
-                        omieCode: order.omieCode,
+                        omieId: order.omieId,
                     });
                     failed++;
                     continue;
@@ -125,7 +125,7 @@ export class SyncProductionOrderItemsUseCase {
             } catch (error) {
                 logger.error("Failed to sync items for order", {
                     externalRequestId,
-                    omieCode: order.omieCode,
+                    omieId: order.omieId,
                     error: error instanceof Error ? error.message : String(error),
                 });
                 failed++;

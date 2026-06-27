@@ -20,7 +20,7 @@ export async function registerUpdateProductionOrderRoute(app: FastifyInstance) {
 
             const result = await useCase.execute({
                 externalRequestId: validatedData.externalRequestId,
-                omieCode: validatedData.omieCode,
+                omieId: validatedData.omieId,
                 quantity: validatedData.quantity,
                 forecastDate: validatedData.forecastDate,
                 notes: validatedData.notes,

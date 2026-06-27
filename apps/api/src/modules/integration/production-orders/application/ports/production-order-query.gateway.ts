@@ -29,7 +29,7 @@ export type ProductionOrderQueryGateway = {
     ): Promise<{ items: ProductionOrderListResult[]; total: number; page: number; limit: number }>;
 
     /** Detalhe da OP + itens por omieCode */
-    getProductionOrderByCode(omieCode: string): Promise<ProductionOrderDetailResult | null>;
+    getProductionOrderByCode(omieId: string): Promise<ProductionOrderDetailResult | null>;
 
     /** Estatísticas do espelho local */
     getProductionOrderStats(): Promise<ProductionOrderStatsResult>;

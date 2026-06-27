@@ -39,7 +39,7 @@ export class RealProductionOrderCancelGateway implements ProductionOrderCancelGa
             app_secret: env.OMIE_APP_SECRET,
             param: [
                 {
-                    nCodigoOP: Number(command.omieCode),
+                    nCodigoOP: Number(command.omieId),
                     cMotivo: command.reason ?? "Cancelado via Production Manager",
                 },
             ],

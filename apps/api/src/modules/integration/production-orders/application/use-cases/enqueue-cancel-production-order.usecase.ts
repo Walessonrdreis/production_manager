@@ -10,7 +10,7 @@ import { enqueueJob } from "@/shared/infra/job-queue";
 
 export type EnqueueCancelProductionOrderCommand = {
     externalRequestId: string;
-    omieCode: string;
+    omieId: string;
     reason?: string;
 };
 
@@ -31,7 +31,7 @@ export class EnqueueCancelProductionOrderUseCase {
 
         await enqueueJob("production-order.cancel-op", {
             externalRequestId: command.externalRequestId,
-            omieCode: command.omieCode,
+            omieId: command.omieId,
             reason: command.reason,
         }, {
             retryLimit: 5,

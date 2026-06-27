@@ -130,13 +130,13 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
         async (job) => {
             await updateUseCase.execute(job.data);
             // Fase 1: refresh incremental do read model
-            if (job.data.omieCode) {
+            if (job.data.omieId) {
                 await enqueueJob("production-order.refresh", {
-                    omieCode: job.data.omieCode,
+                    omieId: job.data.omieId,
                 }, {
                     retryLimit: 2,
                     retryBackoff: true,
-                    singletonKey: `prorm-refresh-${job.data.omieCode}`,
+                    singletonKey: `prorm-refresh-${job.data.omieId}`,
                 });
             }
         },
@@ -150,13 +150,13 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
         async (job) => {
             await cancelUseCase.execute(job.data);
             // Fase 1: refresh incremental do read model
-            if (job.data.omieCode) {
+            if (job.data.omieId) {
                 await enqueueJob("production-order.refresh", {
-                    omieCode: job.data.omieCode,
+                    omieId: job.data.omieId,
                 }, {
                     retryLimit: 2,
                     retryBackoff: true,
-                    singletonKey: `prorm-refresh-${job.data.omieCode}`,
+                    singletonKey: `prorm-refresh-${job.data.omieId}`,
                 });
             }
         },
@@ -170,13 +170,13 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
         async (job) => {
             await changeStageUseCase.execute(job.data);
             // Fase 1: refresh incremental do read model
-            if (job.data.omieCode) {
+            if (job.data.omieId) {
                 await enqueueJob("production-order.refresh", {
-                    omieCode: job.data.omieCode,
+                    omieId: job.data.omieId,
                 }, {
                     retryLimit: 2,
                     retryBackoff: true,
-                    singletonKey: `prorm-refresh-${job.data.omieCode}`,
+                    singletonKey: `prorm-refresh-${job.data.omieId}`,
                 });
             }
         },
@@ -256,8 +256,8 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
     registerJobHandler<any>(
         "production-order.sync-items",
         async (job) => {
-            const { externalRequestId, omieCodes, maxOrders } = job.data ?? {};
-            logger.debug("Processing sync-items", { externalRequestId, maxOrders, specificCodes: omieCodes?.length ?? 0 });
+            const { externalRequestId, omieIds, maxOrders } = job.data ?? {};
+            logger.debug("Processing sync-items", { externalRequestId, maxOrders, specificCodes: omieIds?.length ?? 0 });
 
             if (isFake) {
                 logger.info("Fake mode: skipping sync-items");
@@ -269,7 +269,7 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
 
             const result = await useCase.execute({
                 externalRequestId,
-                omieCodes,
+                omieIds,
                 maxOrders: maxOrders ?? 50,
             });
 

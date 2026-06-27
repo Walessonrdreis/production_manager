@@ -8,7 +8,7 @@
 
 export type CancelProductionOrderCommand = {
     externalRequestId: string;
-    omieCode: string;
+    omieId: string;
     reason?: string;
 };
 

@@ -100,7 +100,7 @@ export class RealProductionOrderSyncPageGateway
                 }
 
                 return {
-                    omieCode: order.omieCode,
+                    omieId: order.omieId,
                     number: String(identificacao.cNumOP ?? ""),
                     internalCode: order.internalCode,
                     productCode: Number(identificacao.nCodProduto ?? 0),

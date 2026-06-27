@@ -19,9 +19,9 @@ export class ProductionOrderSyncStore {
 
         await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             const savedOrder = await tx.omieProductionOrder.upsert({
-                where: { omieCode: order.omieCode },
+                where: { omieId: order.omieId },
                 create: {
-                    omieCode: order.omieCode,
+                    omieId: order.omieId,
                     internalCode: order.internalCode,
                     orderNumber: order.orderNumber,
                     productOmieId: order.productCode,
@@ -109,9 +109,9 @@ export class ProductionOrderSyncStore {
                 const { order, items: orderItems } = mapProductionOrder(item.raw);
 
                 const savedOrder = await tx.omieProductionOrder.upsert({
-                    where: { omieCode: order.omieCode },
+                    where: { omieId: order.omieId },
                     create: {
-                        omieCode: order.omieCode,
+                        omieId: order.omieId,
                         internalCode: order.internalCode,
                         orderNumber: order.orderNumber,
                         productOmieId: order.productCode,
@@ -193,9 +193,9 @@ export class ProductionOrderSyncStore {
     async saveFromConsultResult(item: ProductionOrderConsultResult): Promise<void> {
         await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             const savedOrder = await tx.omieProductionOrder.upsert({
-                where: { omieCode: item.omieCode },
+                where: { omieId: item.omieId },
                 create: {
-                    omieCode: item.omieCode,
+                    omieId: item.omieId,
                     internalCode: item.internalCode,
                     orderNumber: item.orderNumber,
                     productOmieId: item.productCode,

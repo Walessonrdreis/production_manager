@@ -6,7 +6,7 @@
 
 export type ProductionOrderSyncPageItem = {
     /** nCodOP (Omie) */
-    omieCode: string;
+    omieId: string;
     /** cNumOP (Omie) — ex: "2025/01535" */
     number: string;
     /** cCodIntOP — código de integração */

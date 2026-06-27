@@ -8,7 +8,7 @@
 
 export type UpdateProductionOrderCommand = {
     externalRequestId: string;
-    omieCode: string;
+    omieId: string;
     quantity?: number;
     forecastDate?: string;
     notes?: string;

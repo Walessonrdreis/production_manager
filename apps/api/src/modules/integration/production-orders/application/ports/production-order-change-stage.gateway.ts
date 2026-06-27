@@ -8,7 +8,7 @@
 
 export type ChangeProductionOrderStageCommand = {
     externalRequestId: string;
-    omieCode: string;
+    omieId: string;
     stage: string;
 };
 

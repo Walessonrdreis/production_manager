@@ -36,7 +36,7 @@ export type ReadinessInfo = {
 };
 
 export type ProductionOrderReadModelRecord = {
-    omieCode: string;
+    omieId: string;
     orderNumber: string | null;
     productCode: string | null;
     productOmieId: string | null;
@@ -89,7 +89,7 @@ export class ProductionOrderReadModelStore {
 
             await tx.productionOrderReadModel.createMany({
                 data: records.map((r) => ({
-                    omieCode: r.omieCode,
+                    omieId: r.omieId,
                     orderNumber: r.orderNumber,
                     productCode: r.productCode,
                     productOmieId: r.productOmieId,
@@ -126,9 +126,9 @@ export class ProductionOrderReadModelStore {
 
     async upsertOne(record: ProductionOrderReadModelRecord) {
         await prisma.productionOrderReadModel.upsert({
-            where: { omieCode: record.omieCode },
+            where: { omieId: record.omieId },
             create: {
-                omieCode: record.omieCode,
+                omieId: record.omieId,
                 orderNumber: record.orderNumber,
                 productCode: record.productCode,
                 productOmieId: record.productOmieId,
@@ -242,11 +242,11 @@ export class ProductionOrderReadModelStore {
         };
     }
 
-    // ─── Buscar por omieCode ────────────────────────────────────────────
+    // ─── Buscar por omieId ────────────────────────────────────────────
 
-    async getByOmieCode(omieCode: string) {
+    async getByOmieCode(omieId: string) {
         return prisma.productionOrderReadModel.findUnique({
-            where: { omieCode },
+            where: { omieId },
         });
     }
 }

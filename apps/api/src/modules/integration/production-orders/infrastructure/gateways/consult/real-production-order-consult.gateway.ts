@@ -20,7 +20,7 @@ export class RealProductionOrderConsultGateway
     implements ProductionOrderConsultGateway {
     constructor(private readonly omieClient: OmieClientWithCircuitBreaker) { }
 
-    async consult(omieCode: string): Promise<ProductionOrderConsultResult | null> {
+    async consult(omieId: string): Promise<ProductionOrderConsultResult | null> {
         if (!this.omieClient) {
             throw new Error("OMIE_CLIENT_NOT_CONFIGURED");
         }
@@ -29,7 +29,7 @@ export class RealProductionOrderConsultGateway
             call: OMIE_ENDPOINTS.PRODUCTION_ORDER_CONSULT.call,
             app_key: env.OMIE_APP_KEY,
             app_secret: env.OMIE_APP_SECRET,
-            param: [{ nCodOP: Number(omieCode) }],
+            param: [{ nCodOP: Number(omieId) }],
         };
 
         let apiResponse;
@@ -68,14 +68,14 @@ export class RealProductionOrderConsultGateway
         // que retorna um array "ordemProducao" (plural).
         const ordemProducao = response?.ordemProducao ?? response;
         if (!ordemProducao || !ordemProducao.identificacao) {
-            console.warn("[OP][CONSULT] No ordemProducao found for", omieCode);
+            console.warn("[OP][CONSULT] No ordemProducao found for", omieId);
             return null;
         }
 
         const { order, items } = mapProductionOrder(ordemProducao);
 
         return {
-            omieCode: order.omieCode,
+            omieId: order.omieId,
             internalCode: order.internalCode,
             orderNumber: order.orderNumber,
             productCode: order.productCode,

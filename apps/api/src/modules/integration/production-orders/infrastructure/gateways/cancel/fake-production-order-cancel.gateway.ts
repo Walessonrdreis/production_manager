@@ -7,7 +7,7 @@ export class FakeProductionOrderCancelGateway implements ProductionOrderCancelGa
     ): Promise<{ externalRequestId: string; status: "ACCEPTED" }> {
         console.log("[OP][FAKE][CANCEL] cancel", {
             externalRequestId: command.externalRequestId,
-            omieCode: command.omieCode,
+            omieId: command.omieId,
             reason: command.reason,
         });
 

@@ -45,9 +45,9 @@ export class RealProductionOrderQueryGateway implements ProductionOrderQueryGate
         return this.store.listProductionOrders(page, limit, filters);
     }
 
-    async getProductionOrderByCode(omieCode: string) {
-        console.log("[OP][REAL][QUERY] getProductionOrderByCode", { omieCode });
-        return this.store.getProductionOrderByCode(omieCode);
+    async getProductionOrderByCode(omieId: string) {
+        console.log("[OP][REAL][QUERY] getProductionOrderByCode", { omieId });
+        return this.store.getProductionOrderByCode(omieId);
     }
 
     async getProductionOrderStats() {

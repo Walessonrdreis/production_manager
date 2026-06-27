@@ -16,7 +16,7 @@ export type ProductionOrderListFilters = {
 
 export type ProductionOrderListResult = {
     id: string;
-    omieCode: string;
+    omieId: string;
     internalCode: string | null;
     orderNumber: string | null;
     productOmieId: string | null;
@@ -84,7 +84,7 @@ export class ProductionOrderQueryStore {
         return {
             items: items.map((item) => ({
                 id: item.id,
-                omieCode: item.omieCode,
+                omieId: item.omieId,
                 internalCode: item.internalCode,
                 orderNumber: item.orderNumber,
                 productOmieId: item.productOmieId,
@@ -108,10 +108,10 @@ export class ProductionOrderQueryStore {
     // ─── Detalhe por omieCode ──────────────────────────────────────────
 
     async getProductionOrderByCode(
-        omieCode: string
+        omieId: string
     ): Promise<ProductionOrderDetailResult | null> {
         const record = await this.prisma.omieProductionOrder.findUnique({
-            where: { omieCode },
+            where: { omieId },
             include: { items: true },
         });
 
@@ -119,7 +119,7 @@ export class ProductionOrderQueryStore {
 
         return {
             id: record.id,
-            omieCode: record.omieCode,
+            omieId: record.omieId,
             internalCode: record.internalCode,
             orderNumber: record.orderNumber,
             productOmieId: record.productOmieId,
@@ -172,10 +172,10 @@ export class ProductionOrderQueryStore {
             where: {
                 orderNumber: null,
             },
-            select: { omieCode: true },
+            select: { omieId: true },
             take: limit,
         });
 
-        return records.map((r) => r.omieCode);
+        return records.map((r) => r.omieId);
     }
 }

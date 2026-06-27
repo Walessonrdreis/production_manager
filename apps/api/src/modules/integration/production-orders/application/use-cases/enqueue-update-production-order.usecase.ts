@@ -10,7 +10,7 @@ import { enqueueJob } from "@/shared/infra/job-queue";
 
 export type EnqueueUpdateProductionOrderCommand = {
     externalRequestId: string;
-    omieCode: string;
+    omieId: string;
     quantity?: number;
     forecastDate?: string;
     notes?: string;
@@ -33,7 +33,7 @@ export class EnqueueUpdateProductionOrderUseCase {
 
         await enqueueJob("production-order.update-op", {
             externalRequestId: command.externalRequestId,
-            omieCode: command.omieCode,
+            omieId: command.omieId,
             quantity: command.quantity,
             forecastDate: command.forecastDate,
             notes: command.notes,

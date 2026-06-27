@@ -15,12 +15,12 @@ export class ProcessChangeStageProductionOrderUseCase {
     ) { }
 
     async execute(data: ProcessChangeStageProductionOrderData): Promise<void> {
-        const { externalRequestId, omieCode, stage } = data;
+        const { externalRequestId, omieId, stage } = data;
 
         if (!this.options.isFake) {
             const result = await this.changeStageGateway.changeStage({
                 externalRequestId,
-                omieCode,
+                omieId,
                 stage,
             });
 
@@ -34,7 +34,7 @@ export class ProcessChangeStageProductionOrderUseCase {
             externalRequestId,
             commandType: "CHANGE_STAGE",
             source: "JOB",
-            payload: { omieCode, stage },
+            payload: { omieId, stage },
         });
         await this.commandStore.markConfirmed(externalRequestId);
     }

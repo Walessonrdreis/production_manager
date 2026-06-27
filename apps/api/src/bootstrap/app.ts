@@ -17,16 +17,7 @@ import { createOmieStockCache } from "@/shared/integrations/omie/omie-stock-cach
 // PgBoss (job queue centralizada — ADR-009)
 import { startJobQueue, startWorker } from "@/shared/infra/job-queue";
 
-// jobs (nova arquitetura)
-import { startStockRefreshJob } from "@/modules/legacy/products/infrastructure/jobs/stock-refresh.job";
-import { startOmieProductSyncJob } from "@/modules/legacy/products/infrastructure/jobs/omie-product-sync.job";
-import { startOmieProductionOrdersSyncJob } from "@/modules/legacy/omie-production-orders/infrastructure/jobs/omie-production-orders-sync.job";
-import { startOmieClientSyncJob } from "@/modules/legacy/client/infrastructure/jobs/sync-omie-clients.job";
-
-import { ListOrdersViewUseCase } from "@/modules/legacy/orders-view/application/list-orders-view.usecase";
-import type { ListClientsUseCase } from "@/modules/legacy/client/application/use-cases/list-clients.usecase";
-import type { ListStage20OrdersEnrichedUseCase } from "@/modules/legacy/orders-enriched/application/use-cases/list-stage20-orders-enriched.usecase";
-import { startOmieProductStructureSyncJob } from "@/modules/legacy/product-structure/infrastructure/jobs/omie-product-structure-sync.job";
+// (legacy jobs removidos — módulos migrados para integration)
 // Documentação OpenAPI simplificada
 import { registerOpenAPIDocumentation } from "./openapi-simple";
 
@@ -49,9 +40,6 @@ declare module "fastify" {
       lastStartedAt: Date | null;
       lastFinishedAt: Date | null;
     };
-    listClientsUseCase: ListClientsUseCase;
-    listStage20OrdersEnrichedUseCase: ListStage20OrdersEnrichedUseCase;
-    ordersViewUseCase: ListOrdersViewUseCase;
     omieStockCache: ReturnType<typeof createOmieStockCache>;
   }
 }
@@ -179,31 +167,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerRoutes(app);
 
   /// ---------------------------------------------------------------------------
-  // ✅ PgBoss — Job Queue Centralizada (DEPOIS das rotas, ANTES dos jobs legados)
+  // ✅ PgBoss — Job Queue Centralizada
   // ---------------------------------------------------------------------------
-  // Os handlers dos módulos (product-structure, etc.) foram registrados durante
-  // registerRoutes() → registerProductStructureJobs() → registerProductStructureJobHandlers().
-  // Agora iniciamos o PgBoss e o worker para começar a processar.
   const boss = await startJobQueue();
   await startWorker(boss);
 
-  /// ---------------------------------------------------------------------------
-  // Jobs (✅ UMA VEZ, ✅ DEPOIS DAS ROTAS)
-  // ---------------------------------------------------------------------------
-  if (env.ENABLE_STOCK_REFRESH_JOB) {
-    startStockRefreshJob(app);
-  }
-
-  if (env.ENABLE_OMIE_PRODUCT_SYNC_JOB) {
-    startOmieProductSyncJob(app);
-  }
-
-  if (env.OMIE_PRODUCTION_ORDERS_SYNC) {
-    startOmieProductionOrdersSyncJob(app);
-  }
-
-  if (env.ENABLE_OMIE_CLIENT_SYNC_JOB) {
-    startOmieClientSyncJob(app);
-  }
   return app;
 }

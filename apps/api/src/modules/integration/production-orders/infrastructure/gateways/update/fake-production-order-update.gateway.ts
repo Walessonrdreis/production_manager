@@ -7,7 +7,7 @@ export class FakeProductionOrderUpdateGateway implements ProductionOrderUpdateGa
     ): Promise<{ externalRequestId: string; status: "ACCEPTED" }> {
         console.log("[OP][FAKE][UPDATE] update", {
             externalRequestId: command.externalRequestId,
-            omieCode: command.omieCode,
+            omieId: command.omieId,
             quantity: command.quantity,
         });
 
