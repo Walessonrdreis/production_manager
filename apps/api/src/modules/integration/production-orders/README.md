@@ -11,18 +11,20 @@
 
 - [1. Visão Geral](#1-visão-geral)
 - [2. Arquitetura](#2-arquitetura)
-- [3. Estrutura do Módulo](#3-estrutura-do-módulo)
-- [4. Rotas da API (Referência Completa)](#4-rotas-da-api-referência-completa)
-- [5. Fluxos de Operação](#5-fluxos-de-operação)
-- [6. Padrão Real / Fake](#6-padrão-real--fake)
-- [7. Configuração (Env Vars)](#7-configuração-env-vars)
-- [8. Hooks Pós-Sync](#8-hooks-pós-sync)
-- [9. Desenvolvimento](#9-desenvolvimento)
-- [10. Produção](#10-produção)
-- [11. Schema do Banco](#11-schema-do-banco)
-- [12. Limitações Conhecidas](#12-limitações-conhecidas)
-- [13. Checklist de Code Review](#13-checklist-de-code-review)
-- [14. Regras de Ouro (Imutáveis)](#14-regras-de-ouro-imutáveis)
+- [3. Canonical Data Model (Omie → Sistema)](#3-canonical-data-model-omie--sistema)
+- [4. Estrutura do Módulo](#4-estrutura-do-módulo)
+- [5. Rotas da API (Referência Completa)](#5-rotas-da-api-referência-completa)
+- [6. Fluxos de Operação](#6-fluxos-de-operação)
+- [7. Padrão Real / Fake](#7-padrão-real--fake)
+- [8. Configuração (Env Vars)](#8-configuração-env-vars)
+- [9. Hooks Pós-Sync](#9-hooks-pós-sync)
+- [10. Desenvolvimento](#10-desenvolvimento)
+- [11. Produção](#11-produção)
+- [12. Schema do Banco](#12-schema-do-banco)
+- [13. Field Mapping Detalhado — Production Orders](#13-field-mapping-detalhado--production-orders)
+- [14. Limitações Conhecidas](#14-limitações-conhecidas)
+- [15. Checklist de Code Review](#15-checklist-de-code-review)
+- [16. Regras de Ouro (Imutáveis)](#16-regras-de-ouro-imutáveis)
 
 ---
 
@@ -163,7 +165,87 @@ sequenceDiagram
 
 ---
 
-## 3. Estrutura do Módulo
+## 3. Canonical Data Model (Omie → Sistema)
+
+> 🔥 **Padronização cross-domain** — Define como os campos do Omie são mapeados para o sistema local.
+> Este mapeamento cobre **todos os módulos de integração** (OP, Produto, Estoque, Estrutura).
+
+### Regra Global de Nomenclatura
+
+| Conceito | Regra | Exemplo |
+|---|---|---|
+| `omieId` | ID numérico da entidade no Omie (PK) | `9204166587` |
+| `productOmieId` | `nCodProd` / `nCodProduto` do produto no Omie | `9116172062` |
+| `productCode` | Código visível do produto (string) | `"PROD-001"` |
+| `orderNumber` | Número visível da OP | `"2024/00002"` |
+| `componentOmieId` | `nIdProdutoMalha` do componente na estrutura | `123456` |
+| `componentCode` | Código visível do componente | `"COMP-001"` |
+
+---
+
+### 🏭 Ordem de Produção (OP) — `production-orders`
+
+| Omie | Sistema | Tipo | Descrição |
+|---|---|---|---|
+| `identificacao.nCodOP` | `omieId` | `String` | ID único da OP no Omie |
+| `identificacao.cNumOP` | `orderNumber` | `String?` | Número comercial da OP |
+| `identificacao.nCodProduto` | `productOmieId` | `String?` | Código do produto no Omie |
+| `identificacao.cCodIntProd` | `productIntegrationCode` | `String?` | Código de integração do produto |
+| `identificacao.nQtde` | `quantity` | `String` | Quantidade planejada |
+| `infAdicionais.cEtapa` | `stage` | `String?` | Etapa (ex: "40", "60", "80") |
+| `outrasInf.cConcluida` | `completed` | `Boolean` | `"S"` = concluída |
+
+---
+
+### 📦 Produto — `product-structure`
+
+| Omie | Sistema | Tipo | Descrição |
+|---|---|---|---|
+| `codigo_produto` | `productOmieId` | `String` | ID do produto no Omie |
+| `codigo` | `productCode` | `String` | Código visível do produto |
+| `descricao` | `description` | `String` | Descrição/nome do produto |
+| `codigo_familia` | `familyCode` | `String?` | Código da família |
+| `unidade` | `unit` | `String` | Unidade de medida |
+
+---
+
+### 📦 Estoque — `stock`
+
+| Omie | Sistema | Tipo | Descrição |
+|---|---|---|---|
+| `nCodProd` | `productOmieId` | `String` | ID do produto no Omie |
+| `cCodigo` | `productCode` | `String` | Código visível do produto |
+| `fisico` | `stockQuantity` | `Decimal` | Quantidade física em estoque |
+| `local` | `locationCode` | `String?` | Localização no depósito |
+
+---
+
+### 🏗️ Estrutura (BOM) — `product-structure`
+
+| Omie | Sistema | Tipo | Descrição |
+|---|---|---|---|
+| `codProduto` | `productCode` | `String` | Código do produto pai |
+| `idProduto` | `productOmieId` | `String` | ID do produto pai no Omie |
+| `codProdMalha` | `componentCode` | `String` | Código do componente |
+| `idProdMalha` | `componentOmieId` | `BigInt` | ID do componente na malha |
+| `nIteGera` | `bomQuantity` | `Decimal` | Quantidade do componente no BOM |
+| `nNivel` | `bomLevel` | `Int` | Nível hierárquico na estrutura |
+
+---
+
+### 🚨 Regras Críticas
+
+1. ❌ **Nunca usar `omieCode` como ID numérico** — `omieCode` em payloads antigos representa `nCodOP` (string), não o ID numérico. Prefira `omieId`.
+2. ✅ **Sempre usar `productOmieId` para lookup de estoque** — o campo numérico do Omie é a chave correta, não o código textual.
+3. ✅ **Bridge é apenas para conversão** — o adapter (`OmieProductionOrdersAdapter.mapProductionOrder()`) faz a tradução dos campos. Nenhuma regra de negócio deve usar campos Omie diretamente.
+4. ❌ **Nunca confundir `productCode` com `productOmieId`** — o primeiro é o código visível (ex: "PROD-001"), o segundo é o ID numérico interno do Omie (ex: 9116172062).
+5. ✅ **Sempre documentar novos mapeamentos** — qualquer novo campo adicionado deve ser refletido neste canonical model.
+
+> **🔍 Nota sobre `omieCode`:** O código já foi padronizado — **todas as rotas novas e existentes usam `omieId`**. O parâmetro `omieCode` não é mais aceito. Consulte a seção [3. Canonical Data Model](#3-canonical-data-model-omie--sistema) para a nomenclatura oficial.
+
+---
+
+## 4. Estrutura do Módulo
 
 ### 📁 Árvore de Arquivos (60+ arquivos)
 
@@ -229,32 +311,44 @@ modules/integration/production-orders/
         ├── openapi.ts                            # Documentação OpenAPI 3.0
         ├── routes/
         │   ├── commands/
-        │   │   ├── create-production-order.route.ts
-        │   │   ├── update-production-order.route.ts
         │   │   ├── cancel-production-order.route.ts
         │   │   ├── change-production-order-stage.route.ts
+        │   │   ├── create-production-order.route.ts
+        │   │   ├── get-production-order-status.route.ts
+        │   │   ├── invalidate.route.ts              # (C3)
+        │   │   ├── rebuild.route.ts                 # (C3)
+        │   │   ├── reconcile.route.ts               # (C3)
+        │   │   ├── retry-failed.route.ts            # (C1-P0)
         │   │   ├── sync-all-production-orders.route.ts
-        │   │   └── get-production-order-status.route.ts
+        │   │   ├── sync-incremental.route.ts        # (C1-P0)
+        │   │   └── update-production-order.route.ts
         │   ├── callbacks/
         │   │   ├── confirm-production-order.callback.route.ts
         │   │   └── fail-production-order.callback.route.ts
         │   └── read/
-        │       ├── list-production-orders.route.ts
-        │       ├── get-production-order.route.ts
+        │       ├── get-production-order-by-number.route.ts  # (C2)
+        │       ├── get-production-order-consumption.route.ts # (C1)
+        │       ├── get-production-order-refresh.route.ts
         │       ├── get-production-order-stats.route.ts
-        │       ├── get-queue-status.route.ts
+        │       ├── get-production-order-summary.route.ts     # (C1)
+        │       ├── get-production-order.route.ts
         │       ├── get-queue-failures.route.ts
-        │       └── get-production-order-refresh.route.ts
-        └── controllers/                          (legacy — migrar para use-cases)
+        │       ├── get-queue-status.route.ts
+        │       ├── get-stock-issues.route.ts                 # (C2)
+        │       ├── get-sync-state.route.ts                   # (C3)
+        │       ├── list-production-order-commands.route.ts   # (C2)
+        │       ├── list-production-orders-unified.route.ts   # (C1)
+        │       └── list-production-orders.route.ts
+```
 ```
 
 ---
 
-## 4. Rotas da API (Referência Completa)
+## 5. Rotas da API (Referência Completa)
 
 > **24 rotas no total:** 9 commands (8 POST + 1 GET), 2 callbacks (POST), 13 read-models (GET).
 
-### 4.1 Commands (Intenções)
+### 5.1 Commands (Intenções)
 
 #### `POST /v1/integration/production-orders/commands/create`
 Cria uma ordem de produção no Omie (assíncrono via PgBoss).
@@ -297,7 +391,7 @@ Atualiza uma ordem de produção no Omie (assíncrono via PgBoss).
 ```json
 {
   "externalRequestId": "uuid-v4",
-  "omieCode": "OP-12345",
+  "omieId": "9204166587",
   "quantity": 150,
   "forecastDate": "2026-06-01",
   "notes": "Atualização de quantidade"
@@ -308,7 +402,7 @@ Atualiza uma ordem de produção no Omie (assíncrono via PgBoss).
 ```bash
 curl -X POST http://localhost:3333/v1/integration/production-orders/commands/update \
   -H "Content-Type: application/json" \
-  -d '{"externalRequestId":"test-002","omieCode":"OP-12345","quantity":150}'
+  -d '{"externalRequestId":"test-002","omieId":"9204166587","quantity":150}'
 ```
 
 ---
@@ -320,7 +414,7 @@ Cancela uma ordem de produção no Omie (assíncrono via PgBoss).
 ```json
 {
   "externalRequestId": "uuid-v4",
-  "omieCode": "OP-12345",
+  "omieId": "9204166587",
   "reason": "Cancelamento por solicitação do cliente"
 }
 ```
@@ -329,7 +423,7 @@ Cancela uma ordem de produção no Omie (assíncrono via PgBoss).
 ```bash
 curl -X POST http://localhost:3333/v1/integration/production-orders/commands/cancel \
   -H "Content-Type: application/json" \
-  -d '{"externalRequestId":"test-003","omieCode":"OP-12345","reason":"Cliente desistiu"}'
+  -d '{"externalRequestId":"test-003","omieId":"9204166587","reason":"Cliente desistiu"}'
 ```
 
 ---
@@ -341,7 +435,7 @@ Altera a etapa de uma ordem de produção no Omie (assíncrono via PgBoss).
 ```json
 {
   "externalRequestId": "uuid-v4",
-  "omieCode": "OP-12345",
+  "omieId": "9204166587",
   "stage": "EM_PRODUCAO"
 }
 ```
@@ -350,7 +444,7 @@ Altera a etapa de uma ordem de produção no Omie (assíncrono via PgBoss).
 ```bash
 curl -X POST http://localhost:3333/v1/integration/production-orders/commands/change-stage \
   -H "Content-Type: application/json" \
-  -d '{"externalRequestId":"test-004","omieCode":"OP-12345","stage":"EM_PRODUCAO"}'
+  -d '{"externalRequestId":"test-004","omieId":"9204166587","stage":"EM_PRODUCAO"}'
 ```
 
 ---
@@ -478,7 +572,7 @@ curl -X POST http://localhost:3333/v1/integration/production-orders/commands/reb
 
 ---
 
-### 4.2 Tracking
+### 5.2 Tracking
 
 #### `GET /v1/integration/production-orders/commands/:externalRequestId`
 Consulta o status de um comando de integração.
@@ -507,7 +601,7 @@ curl http://localhost:3333/v1/integration/production-orders/commands/test-001
 
 ---
 
-### 4.3 Callbacks (Fake-only)
+### 5.3 Callbacks (Fake-only)
 
 #### `POST /v1/integration/production-orders/callbacks/:externalRequestId/confirm`
 **FAKE ONLY** — Marca um comando como CONFIRMED.
@@ -536,7 +630,7 @@ curl -X POST http://localhost:3333/v1/integration/production-orders/callbacks/te
 
 ---
 
-### 4.4 Read-Models (Espelho Local)
+### 5.4 Read-Models (Espelho Local)
 
 #### `GET /v1/integration/production-orders/read`
 Lista paginada do espelho local de ordens de produção.
@@ -575,27 +669,27 @@ Busca OP pelo número da ordem (`orderNumber`).
 
 **curl:**
 ```bash
-curl "http://localhost:3333/v1/integration/production-orders/read/by-number/OP-12345"
+curl "http://localhost:3333/v1/integration/production-orders/read/by-number/2024%2F00002"
 ```
 
 ---
 
-#### `GET /v1/integration/production-orders/read/summary/:omieCode` (C1)
+#### `GET /v1/integration/production-orders/read/summary/:omieId` (C1)
 Sumário consolidado de uma OP: totais de quantidade planejada vs. produzida.
 
 **curl:**
 ```bash
-curl "http://localhost:3333/v1/integration/production-orders/read/summary/OP-12345"
+curl "http://localhost:3333/v1/integration/production-orders/read/summary/9204166587"
 ```
 
 ---
 
-#### `GET /v1/integration/production-orders/read/consumption/:omieCode` (C1)
+#### `GET /v1/integration/production-orders/read/consumption/:omieId` (C1)
 Detalhamento de consumo de materiais de uma OP.
 
 **curl:**
 ```bash
-curl "http://localhost:3333/v1/integration/production-orders/read/consumption/OP-12345"
+curl "http://localhost:3333/v1/integration/production-orders/read/consumption/9204166587"
 ```
 
 ---
@@ -620,12 +714,12 @@ curl "http://localhost:3333/v1/integration/production-orders/read/sync-state"
 
 ---
 
-#### `GET /v1/integration/production-orders/read/:omieCode`
+#### `GET /v1/integration/production-orders/read/:omieId`
 Detalhe de uma OP + itens do espelho local.
 
 **curl:**
 ```bash
-curl http://localhost:3333/v1/integration/production-orders/read/OP-12345
+curl http://localhost:3333/v1/integration/production-orders/read/9204166587
 ```
 
 ---
@@ -660,19 +754,19 @@ curl http://localhost:3333/v1/integration/production-orders/read/queue/failures
 
 ---
 
-#### `GET /v1/integration/production-orders/read/:omieCode/refresh`
+#### `GET /v1/integration/production-orders/read/:omieId/refresh`
 Consulta a OP diretamente no Omie, atualiza o espelho local e retorna dados frescos. **Síncrona** — sem fila.
 
 **curl:**
 ```bash
-curl http://localhost:3333/v1/integration/production-orders/read/OP-12345/refresh
+curl http://localhost:3333/v1/integration/production-orders/read/9204166587/refresh
 ```
 
 ---
 
-## 5. Fluxos de Operação
+## 6. Fluxos de Operação
 
-### 5.1 Criação de OP (Assíncrona)
+### 6.1 Criação de OP (Assíncrona)
 
 1. API 2 envia `POST /commands/create` com `externalRequestId`, `productId`, `quantity`
 2. Rota enfileira job `production-order.create-op` no PgBoss e retorna 202
@@ -680,7 +774,7 @@ curl http://localhost:3333/v1/integration/production-orders/read/OP-12345/refres
 4. Se modo real: chama Omie via `RealCreationGateway`
 5. Worker cria registro de auditoria no CommandStore e marca como CONFIRMED
 
-### 5.2 Sync Global (Checkpoint Incremental)
+### 6.2 Sync Global (Checkpoint Incremental)
 
 1. API 2 envia `POST /commands/sync-global` com `externalRequestId`
 2. `SyncAllProductionOrdersUseCase` percorre páginas do Omie
@@ -689,16 +783,16 @@ curl http://localhost:3333/v1/integration/production-orders/read/OP-12345/refres
 5. A cada 10 páginas: log de checkpoint
 6. Ao final: executa hooks via `SyncHooksRunner` (se houver)
 
-### 5.3 Refresh Individual (Síncrono)
+### 6.3 Refresh Individual (Síncrono)
 
-1. API 2 envia `GET /read/:omieCode/refresh`
+1. API 2 envia `GET /read/:omieId/refresh`
 2. Rota consulta Omie via `RealProductionOrderConsultGateway` (com circuit breaker)
 3. Atualiza espelho local via `ProductionOrderSyncStore.save()`
 4. Retorna dados frescos diretamente
 
 ---
 
-## 6. Padrão Real / Fake
+## 7. Padrão Real / Fake
 
 Todas as portas de gateway possuem duas implementações:
 
@@ -717,7 +811,7 @@ Todas as portas de gateway possuem duas implementações:
 
 ---
 
-## 7. Configuração (Env Vars)
+## 8. Configuração (Env Vars)
 
 | Variável | Obrigatória | Default | Descrição |
 |---|---|---|---|
@@ -728,7 +822,7 @@ Todas as portas de gateway possuem duas implementações:
 
 ---
 
-## 8. Hooks Pós-Sync
+## 9. Hooks Pós-Sync
 
 O `SyncAllProductionOrdersUseCase` aceita um `SyncHooksRunner` opcional.
 Se fornecido, executa hooks após o comando ser marcado como CONFIRMED.
@@ -745,7 +839,7 @@ Atualmente usado no `sync-all-production-orders.route.ts` (bridge entre rotas e 
 
 ---
 
-## 9. Desenvolvimento
+## 10. Desenvolvimento
 
 ### Setup local
 
@@ -777,7 +871,7 @@ curl http://localhost:3333/v1/integration/production-orders/commands/dev-test-1
 
 ---
 
-## 10. Produção
+## 11. Produção
 
 Antes de ativar modo real:
 
@@ -789,7 +883,7 @@ Antes de ativar modo real:
 
 ---
 
-## 11. Schema do Banco
+## 12. Schema do Banco
 
 Tabelas utilizadas pelo módulo:
 
@@ -802,7 +896,112 @@ Tabelas utilizadas pelo módulo:
 
 ---
 
-## 12. Limitações Conhecidas
+## 13. Field Mapping Detalhado — Production Orders
+
+> **Fonte da verdade:** O mapeamento é feito no adapter compartilhado em `src/shared/integrations/omie/OmieProductionOrdersAdapter.ts`, função `mapProductionOrder()`.
+> **Payload de referência:** `docs/PAYLOADS_OMIE/LISTAR_OP.MD`
+
+### 13.1 Ordem de Produção (`OmieProductionOrder` / `omie_production_order`)
+
+| Omie (JSON) | Campo Local | Tipo Local | Descrição | Regra |
+|---|---|---|---|---|
+| `identificacao.nCodOP` | `omieId` | `String` | Código da OP no Omie | `String(order.nCodOP)` |
+| `identificacao.cCodIntOP` | `internalCode` | `String?` | Código interno de integração | `String(order.cCodIntOP)` ou `null` |
+| `identificacao.cNumOP` | `orderNumber` | `String?` | Número da OP (ex: "2024/00002") | `String(order.cNumOP)` ou `null` |
+| `identificacao.nCodProduto` | `productOmieId` | `String?` | Código do produto no Omie | `String(order.nCodProduto)` ou `null` |
+| `identificacao.cCodIntProd` | `productIntegrationCode` | `String?` | Código de integração do produto | `String(order.cCodIntProd)` ou `null` |
+| `identificacao.nQtde` | `quantity` | `String` | Quantidade planejada | `String(order.nQtde ?? 0)` |
+| `identificacao.dDtPrevisao` | `forecastDate` | `DateTime?` | Data prevista | Convertido de dd/MM/yyyy via `brDateToISO()` |
+| `infAdicionais.dDtInicio` | `startDate` | `DateTime?` | Data de início | Convertido de dd/MM/yyyy via `brDateToISO()` |
+| `infAdicionais.dDtConclusao` | `completionDate` | `DateTime?` | Data de conclusão | Convertido de dd/MM/yyyy via `brDateToISO()` |
+| `infAdicionais.cEtapa` | `stage` | `String?` | Etapa atual (ex: "40", "60", "80") | `String(order.cEtapa)` ou `null` |
+| `infAdicionais.nCodProjeto` | `projectCode` | `String?` | Código do projeto vinculado | `String(order.nCodProjeto)` ou `null` |
+| `outrasInf.cConcluida` | `completed` | `Boolean` | Se a OP está concluída | `String(order.cConcluida).trim() === 'S'` |
+| — (payload bruto) | `rawPayload` | `Json` | Payload completo do Omie | Armazenado como recebido |
+| — (timestamp) | `lastSyncAt` | `DateTime` | Última sincronização | `new Date()` no momento do map |
+| — (controle) | `active` | `Boolean` | Se o registro está ativo | Default `true` |
+
+**Exemplo de payload Omie (abreviado):**
+
+```json
+{
+  "identificacao": {
+    "nCodOP": 9204166587,
+    "cCodIntOP": "",
+    "cNumOP": "2024/00002",
+    "nCodProduto": 9116172062,
+    "cCodIntProd": null,
+    "dDtPrevisao": "08/07/2024",
+    "nQtde": 132
+  },
+  "infAdicionais": {
+    "cEtapa": "80",
+    "dDtConclusao": "08/07/2024",
+    "dDtInicio": "08/07/2024",
+    "nCodProjeto": 0
+  },
+  "outrasInf": {
+    "cConcluida": "S"
+  }
+}
+```
+
+### 13.2 Item da OP (`OmieProductionOrderItem` / `omie_production_order_item`)
+
+Há duas fontes de itens no payload Omie:
+
+**a) Itens principais (`order.itens[]`)**
+
+| Omie (JSON) | Campo Local | Tipo Local | Descrição |
+|---|---|---|---|
+| `item.nIdProdutoMalha` | `productMeshId` | `BigInt?` | ID do produto na malha |
+| `item.cUtilizarDoEstoque` | `useFromStock` | `String?` | Flag se utiliza do estoque |
+
+**b) Itens detalhados (`order.itensDetalhes[]`)**
+
+| Omie (JSON) | Campo Local | Tipo Local | Descrição |
+|---|---|---|---|
+| `item.nIdProdutoMalha` | `productMeshId` | `BigInt?` | ID do produto na malha |
+| `item.cUtilizarDoEstoque` | `useFromStock` | `String?` | Flag se utiliza do estoque |
+| `item.nQtde` | `quantity` | `String?` | Quantidade do item |
+| `item.codigo_local_estoque` | `stockLocationCode` | `BigInt?` | Código do local de estoque |
+| `item.cObs` | `observation` | `String?` | Observação do item |
+
+**Campos comuns a todos os itens:**
+
+| Campo | Geração | Descrição |
+|---|---|---|
+| `omieItemCode` | `"main_" + item.nIdProdutoMalha` ou `"detail_" + item.nIdProdutoMalha` | Chave única por item |
+| `omieProductionOrderId` | Herdado do `omieId` da OP | FK para a OP |
+| `rawPayload` | Payload bruto do item | Armazenado como recebido |
+| `lastSyncAt` | `new Date()` | Timestamp |
+
+### 13.3 Derivados (Read-Model)
+
+Os campos abaixo **não** vêm diretamente do Omie — são calculados ou enriquecidos localmente:
+
+| Campo | Tabela | Origem |
+|---|---|---|
+| `completed` | `omie_production_order` | Derivado de `outrasInf.cConcluida === 'S'` |
+| `active` | `omie_production_order` | Controle interno (default `true`) |
+| `rawPayload` | Ambas | Payload bruto armazenado para debug/reprocessamento |
+| `lastSyncAt` | Ambas | Timestamp gerado no momento do `mapProductionOrder()` |
+
+### 13.4 Diagrama de Fluxo do Mapeamento
+
+```mermaid
+flowchart LR
+    O[Omie API] -->|JSON bruto| A[OmieProductionOrdersAdapter<br/>mapProductionOrder()]
+    A -->|Mapeia campos| OP[OmieProductionOrder]
+    A -->|Extrai itens| OPI[OmieProductionOrderItem[]]
+    OP -->|Persiste| DB1[(integration.omie_production_order)]
+    OPI -->|Persiste| DB2[(integration.omie_production_order_item)]
+    DB1 -->|Consume| RM[Read-Models / API 2]
+```
+
+---
+
+## 14. Limitações Conhecidas
 
 - ❌ **Lifecycle fake-only**: Callbacks HTTP (confirm/fail) só funcionam em modo fake. Em real, Omie gerencia o ciclo de vida externamente.
 - ❌ **Sem cron de reconciliação**: Há rota `/commands/reconcile` para disparo manual, mas não há job agendado para reconciliação periódica.
@@ -812,7 +1011,7 @@ Tabelas utilizadas pelo módulo:
 
 ---
 
-## 13. Checklist de Code Review
+## 15. Checklist de Code Review
 
 - [ ] Porta de gateway definida como `type` (não `interface`)
 - [ ] Real gateway implementa a porta
@@ -830,7 +1029,7 @@ Tabelas utilizadas pelo módulo:
 
 ---
 
-## 14. Regras de Ouro (Imutáveis)
+## 16. Regras de Ouro (Imutáveis)
 
 1. **Frontend nunca chama Omie ou API 1 diretamente**
 2. **API 2 nunca chama Omie**
