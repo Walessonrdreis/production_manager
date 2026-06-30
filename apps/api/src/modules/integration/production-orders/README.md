@@ -180,7 +180,9 @@ modules/integration/production-orders/
 │   │   ├── create-production-order.dto.ts
 │   │   ├── update-production-order.dto.ts
 │   │   ├── cancel-production-order.dto.ts
-│   │   └── change-stage-production-order.dto.ts
+│   │   ├── change-stage-production-order.dto.ts
+│   │   ├── reconcile.dto.ts              # (C3)
+│   │   └── invalidate.dto.ts             # (C3)
 │   │
 │   ├── ports/
 │   │   └── production-order-sync-page.gateway.ts
@@ -191,6 +193,7 @@ modules/integration/production-orders/
 │       ├── process-update-production-order.usecase.ts
 │       ├── process-cancel-production-order.usecase.ts
 │       ├── process-change-stage-production-order.usecase.ts
+│       ├── refresh-production-order-read-model.usecase.ts
 │       └── create-production-order.usecase.ts          (legacy síncrono)
 │
 ├── domain/
@@ -202,6 +205,7 @@ modules/integration/production-orders/
 │   ├── db/
 │   │   ├── production-order-command.store.ts
 │   │   ├── production-order-integration.store.ts
+│   │   ├── production-order-read-model.store.ts
 │   │   └── production-order-sync.store.ts
 │   │
 │   ├── gateways/
@@ -248,7 +252,7 @@ modules/integration/production-orders/
 
 ## 4. Rotas da API (Referência Completa)
 
-> **14 rotas no total:** 6 commands (5 POST + 1 GET), 2 callbacks (POST), 6 read-models (GET).
+> **24 rotas no total:** 9 commands (8 POST + 1 GET), 2 callbacks (POST), 13 read-models (GET).
 
 ### 4.1 Commands (Intenções)
 
@@ -372,6 +376,108 @@ curl -X POST http://localhost:3333/v1/integration/production-orders/commands/syn
 
 ---
 
+#### `POST /v1/integration/production-orders/commands/sync-incremental`
+Sincronização incremental: busca apenas OPs alteradas desde a última sync (C1-P0).
+
+**Request body** (opcional):
+```json
+{
+  "externalRequestId": "uuid-v4",
+  "pageSize": 100,
+  "maxPages": 500
+}
+```
+
+**curl:**
+```bash
+curl -X POST http://localhost:3333/v1/integration/production-orders/commands/sync-incremental \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId":"test-sync-inc-001"}'
+```
+
+---
+
+#### `POST /v1/integration/production-orders/commands/retry-failed`
+Re-enfileira comandos FAILED como PENDING (C1-P0).
+
+**Request body** (opcional):
+```json
+{
+  "externalRequestId": "uuid-v4",
+  "limit": 50
+}
+```
+
+**curl:**
+```bash
+curl -X POST http://localhost:3333/v1/integration/production-orders/commands/retry-failed \
+  -H "Content-Type: application/json" \
+  -d '{"limit":10}'
+```
+
+---
+
+#### `POST /v1/integration/production-orders/commands/reconcile` (C3)
+Enfileira reconciliação: verifica se OPs no Omie correspondem ao read-model.
+
+**Request body** (opcional):
+```json
+{
+  "externalRequestId": "uuid-v4",
+  "omieId": "OP-12345"
+}
+```
+
+**curl:**
+```bash
+curl -X POST http://localhost:3333/v1/integration/production-orders/commands/reconcile \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId":"test-rec-001"}'
+```
+
+---
+
+#### `POST /v1/integration/production-orders/commands/invalidate` (C3)
+Invalida o read-model de uma OP específica, forçando rebuild.
+
+**Request body:**
+```json
+{
+  "externalRequestId": "uuid-v4",
+  "omieId": "OP-12345"
+}
+```
+
+**curl:**
+```bash
+curl -X POST http://localhost:3333/v1/integration/production-orders/commands/invalidate \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId":"test-inv-001","omieId":"OP-12345"}'
+```
+
+---
+
+#### `POST /v1/integration/production-orders/commands/rebuild` (C3)
+Dispara rebuild completo: sync global + refresh do read model.
+
+**Request body** (opcional):
+```json
+{
+  "externalRequestId": "uuid-v4",
+  "pageSize": 100,
+  "maxPages": 500
+}
+```
+
+**curl:**
+```bash
+curl -X POST http://localhost:3333/v1/integration/production-orders/commands/rebuild \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId":"test-rbl-001"}'
+```
+
+---
+
 ### 4.2 Tracking
 
 #### `GET /v1/integration/production-orders/commands/:externalRequestId`
@@ -440,6 +546,76 @@ Lista paginada do espelho local de ordens de produção.
 **curl:**
 ```bash
 curl "http://localhost:3333/v1/integration/production-orders/read?page=1&limit=20"
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/list-unified` (C1)
+Lista unificada com filtros avançados: `isOpen`, `isLate`, `hasStockIssues`, `productCode`, `page`, `limit`.
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/list-unified?isOpen=true&isLate=true&limit=20"
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/stock-issues` (C2)
+Lista OPs com problemas de estoque. Filtro `type`: `missing`, `critical`, `partial`, `any`.
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/stock-issues?type=missing&limit=20"
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/by-number/:orderNumber` (C2)
+Busca OP pelo número da ordem (`orderNumber`).
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/by-number/OP-12345"
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/summary/:omieCode` (C1)
+Sumário consolidado de uma OP: totais de quantidade planejada vs. produzida.
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/summary/OP-12345"
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/consumption/:omieCode` (C1)
+Detalhamento de consumo de materiais de uma OP.
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/consumption/OP-12345"
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/commands` (C2)
+Histórico da fila de comandos de integração. Filtros: `status`, `commandType`, `limit`.
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/commands?status=FAILED&limit=10"
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/sync-state` (C3)
+Status consolidado da sincronização: último sync, contagens do read-model, contagens da fila.
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/sync-state"
 ```
 
 ---
@@ -629,7 +805,7 @@ Tabelas utilizadas pelo módulo:
 ## 12. Limitações Conhecidas
 
 - ❌ **Lifecycle fake-only**: Callbacks HTTP (confirm/fail) só funcionam em modo fake. Em real, Omie gerencia o ciclo de vida externamente.
-- ❌ **Sem cron de reconciliação**: Diferente do product-structure, não há job agendado para reconciliação periódica.
+- ❌ **Sem cron de reconciliação**: Há rota `/commands/reconcile` para disparo manual, mas não há job agendado para reconciliação periódica.
 - ❌ **Legacy síncrono**: `CreateProductionOrderUseCase` (sem sufixo) é legado síncrono — não usar.
 - ✅ **Idempotência**: Garantida via `externalRequestId` + CommandStore.
 - ✅ **Rate-limit**: `sleep(700)` entre páginas no sync global.
@@ -736,7 +912,9 @@ production-orders/
 │   │   ├── create-production-order.dto.ts
 │   │   ├── update-production-order.dto.ts
 │   │   ├── cancel-production-order.dto.ts
-│   │   └── change-stage-production-order.dto.ts
+│   │   ├── change-stage-production-order.dto.ts
+│   │   ├── reconcile.dto.ts              # (C3)
+│   │   └── invalidate.dto.ts             # (C3)
 │   ├── ports/
 │   │   ├── production-order-cancel.gateway.ts
 │   │   ├── production-order-change-stage.gateway.ts
@@ -755,6 +933,7 @@ production-orders/
 │       ├── process-change-stage-production-order.usecase.ts
 │       ├── process-create-production-order.usecase.ts
 │       ├── process-update-production-order.usecase.ts
+│       ├── refresh-production-order-read-model.usecase.ts
 │       └── sync-all-production-orders.usecase.ts
 ├── infrastructure/
 │   ├── db/
@@ -802,17 +981,29 @@ production-orders/
             │   ├── change-production-order-stage.route.ts
             │   ├── create-production-order.route.ts
             │   ├── get-production-order-status.route.ts
+            │   ├── invalidate.route.ts              # (C3)
+            │   ├── rebuild.route.ts                 # (C3)
+            │   ├── reconcile.route.ts               # (C3)
+            │   ├── retry-failed.route.ts            # (C1-P0)
             │   ├── sync-all-production-orders.route.ts
+            │   ├── sync-incremental.route.ts        # (C1-P0)
             │   └── update-production-order.route.ts
             ├── callbacks/
             │   ├── confirm-production-order.callback.route.ts
             │   └── fail-production-order.callback.route.ts
             └── read/
-                ├── get-production-order-stats.route.ts
+                ├── get-production-order-by-number.route.ts  # (C2)
+                ├── get-production-order-consumption.route.ts # (C1)
                 ├── get-production-order-refresh.route.ts
+                ├── get-production-order-stats.route.ts
+                ├── get-production-order-summary.route.ts     # (C1)
                 ├── get-production-order.route.ts
                 ├── get-queue-failures.route.ts
                 ├── get-queue-status.route.ts
+                ├── get-stock-issues.route.ts                 # (C2)
+                ├── get-sync-state.route.ts                   # (C3)
+                ├── list-production-order-commands.route.ts   # (C2)
+                ├── list-production-orders-unified.route.ts   # (C1)
                 └── list-production-orders.route.ts
 ```
 
