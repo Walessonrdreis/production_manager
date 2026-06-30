@@ -570,11 +570,15 @@ model ProductionOrderIntegration {
 
 enum ProductionOrderCommandType {
   SYNC_GLOBAL
+  SYNC_INCREMENTAL
   CREATE_OP
   UPDATE_OP
   SYNC_OP
   CANCEL_OP
   CHANGE_STAGE
+  RETRY_FAILED
+  RECONCILE
+  INVALIDATE
 
   @@schema("integration")
 }
@@ -616,8 +620,7 @@ model ProductionOrderCommand {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@index([status])
-  @@index([commandType])
+  @@index([status, commandType])
   @@map("production_order_command")
   @@schema("integration")
 }
@@ -772,6 +775,12 @@ model ProductionOrderReadModel {
   @@index([priority])
   @@index([expectedAt])
   @@index([isLate])
+
+  // ─── Índices de performance (criados manualmente, mas no schema
+  //       para evitar que o Prisma os drope — REGRA 7) ────────────
+  @@index([materialsJson], type: Gin, map: "idx_prorm_materials_gin")
+  @@index([isOpen, priority(sort: Desc), expectedAt], map: "idx_prorm_open_priority_expected")
+  @@index([isOpen, expectedAt], map: "idx_prorm_open_expected")
 
   @@map("production_order_read_model")
   @@schema("read_model")
