@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Get Production Orders with Stock Issues (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/read/production-orders/stock-issues
+// GET /v1/integration/production-orders/read/stock-issues
 // Retorna OPs com problemas de estoque (hasStockIssue, hasMissingMaterials,
 // hasCriticalMaterial) a partir do read model.
 //
@@ -15,7 +15,7 @@ export async function registerGetStockIssuesRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/read/production-orders/stock-issues",
+        "/v1/integration/production-orders/read/stock-issues",
         async (request, reply) => {
             try {
                 const query = request.query as {

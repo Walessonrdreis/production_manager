@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Get Production Order Summary by OmieId (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/read/production-orders/:omieId/summary
+// GET /v1/integration/production-orders/read/summary/:omieId
 // Retorna campos de resumo de uma OP específica a partir do read-model.
 // C1.2 spec v2 — versão leve sem materiais.
 // ---------------------------------------------------------------------------
@@ -13,7 +13,7 @@ export async function registerGetProductionOrderSummaryByIdRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/read/production-orders/:omieId/summary",
+        "/v1/integration/production-orders/read/summary/:omieId",
         async (request, reply) => {
             try {
                 const { omieId } = request.params as { omieId: string };

@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Production Order Consumption Summary (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/read/production-orders/consumption-summary
+// GET /v1/integration/production-orders/read/consumption-summary
 // Retorna consumo agregado de materiais em todas as OPs abertas.
 // Agrupa por componente, soma totalRequired, e classifica risco de falta.
 //
@@ -15,7 +15,7 @@ export async function registerGetConsumptionSummaryRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/read/production-orders/consumption-summary",
+        "/v1/integration/production-orders/read/consumption-summary",
         async (_request, reply) => {
             try {
                 const store = new ProductionOrderReadModelStore();

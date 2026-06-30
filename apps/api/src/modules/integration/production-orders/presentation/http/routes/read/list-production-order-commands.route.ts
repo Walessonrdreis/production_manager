@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — List Production Order Commands (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/read/production-orders/commands
+// GET /v1/integration/production-orders/read/commands
 // Retorna o histórico de comandos de ordem de produção.
 // Suporta filtro por status e paginação.
 //
@@ -16,7 +16,7 @@ export async function registerListProductionOrderCommandsRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/read/production-orders/commands",
+        "/v1/integration/production-orders/read/commands",
         async (request, reply) => {
             try {
                 const query = request.query as {

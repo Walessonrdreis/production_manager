@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — List Open Production Orders (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/read/production-orders/open
+// GET /v1/integration/production-orders/read/list-open
 // Retorna OPs abertas do read model, com flags, prioridade, materiais.
 // isLate e daysOverdue são recalculados ao vivo (sem alterar banco).
 // ---------------------------------------------------------------------------
@@ -13,7 +13,7 @@ export async function registerListOpenProductionOrdersRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/read/production-orders/open",
+        "/v1/integration/production-orders/read/list-open",
         async (request, reply) => {
             try {
                 const query = request.query as {

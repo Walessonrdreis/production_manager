@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — List Unified Production Orders (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/read/production-orders
+// GET /v1/integration/production-orders/read/list-unified
 // Lista unificada do read-model com filtros combinados.
 // Suporta filtros por flags (isOpen, isLate, isBlocked, etc.),
 // status operacional, prioridade, código do produto e número da OP.
@@ -17,7 +17,7 @@ export async function registerListUnifiedProductionOrdersRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/read/production-orders",
+        "/v1/integration/production-orders/read/list-unified",
         async (request, reply) => {
             try {
                 const query = request.query as {

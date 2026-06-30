@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Get Consumption Summary by OmieId (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/read/production-orders/:omieId/consumption-summary
+// GET /v1/integration/production-orders/read/consumption/:omieId
 // Retorna consumo de materiais de uma OP específica a partir do materialsJson.
 // C1.3 spec v2 — sem JOIN, usa JSON pronto do read-model.
 // ---------------------------------------------------------------------------
@@ -13,7 +13,7 @@ export async function registerGetConsumptionSummaryByIdRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/read/production-orders/:omieId/consumption-summary",
+        "/v1/integration/production-orders/read/consumption/:omieId",
         async (request, reply) => {
             try {
                 const { omieId } = request.params as { omieId: string };

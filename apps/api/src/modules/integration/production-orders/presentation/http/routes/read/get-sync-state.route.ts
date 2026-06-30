@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Get Production Order Sync State (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/read/production-orders/sync-state
+// GET /v1/integration/production-orders/read/sync-state
 // Retorna o estado atual da sincronização de ordens de produção:
 // última sync, status da fila, total de OPs no read-model.
 //
@@ -15,7 +15,7 @@ export async function registerGetSyncStateRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/read/production-orders/sync-state",
+        "/v1/integration/production-orders/read/sync-state",
         async (request, reply) => {
             try {
                 const [syncState, totalCounts, queueCounts] = await Promise.all([

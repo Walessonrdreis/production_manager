@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Get Production Order by Order Number (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/read/production-orders/by-number/:orderNumber
+// GET /v1/integration/production-orders/read/by-number/:orderNumber
 // Retorna uma OP específica localizada pelo número do pedido.
 //
 // C2: Endpoint para consulta rápida por número da OP.
@@ -14,7 +14,7 @@ export async function registerGetProductionOrderByNumberRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/read/production-orders/by-number/:orderNumber",
+        "/v1/integration/production-orders/read/by-number/:orderNumber",
         async (request, reply) => {
             try {
                 const { orderNumber } = request.params as { orderNumber: string };

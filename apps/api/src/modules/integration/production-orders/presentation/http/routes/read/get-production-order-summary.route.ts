@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Route — Production Order Summary (Read-Model)
 // ---------------------------------------------------------------------------
-// GET /v1/read/production-orders/summary
+// GET /v1/integration/production-orders/read/summary
 // Retorna contagens agregadas do read model para dashboard.
 //
 // C1-P0: Endpoint de sumário para visão geral do estado das OPs.
@@ -14,7 +14,7 @@ export async function registerGetProductionOrderSummaryRoute(
     app: FastifyInstance
 ) {
     app.get(
-        "/v1/read/production-orders/summary",
+        "/v1/integration/production-orders/read/summary",
         async (_request, reply) => {
             try {
                 const store = new ProductionOrderReadModelStore();
