@@ -15,6 +15,9 @@ import { registerChangeProductionOrderStageRoute } from "./routes/commands/chang
 import { registerSyncAllProductionOrdersRoute } from "./routes/commands/sync-all-production-orders.route";
 import { registerRetryFailedRoute } from "./routes/commands/retry-failed.route";
 import { registerSyncIncrementalRoute } from "./routes/commands/sync-incremental.route";
+import { registerReconcileRoute } from "./routes/commands/reconcile.route";
+import { registerInvalidateRoute } from "./routes/commands/invalidate.route";
+import { registerRebuildRoute } from "./routes/commands/rebuild.route";
 import { registerGetProductionOrderStatusRoute } from "./routes/commands/get-production-order-status.route";
 
 import { registerConfirmProductionOrderCallbackRoute } from "./routes/callbacks/confirm-production-order.callback.route";
@@ -27,12 +30,15 @@ import { registerGetQueueStatusRoute } from "./routes/read/get-queue-status.rout
 import { registerGetQueueFailuresRoute } from "./routes/read/get-queue-failures.route";
 import { registerGetProductionOrderRefreshRoute } from "./routes/read/get-production-order-refresh.route";
 import { registerGetProductionOrderWithBomRoute } from "./routes/read/get-production-order-with-bom.route";
-import { registerListOpenProductionOrdersRoute } from "./routes/read/list-open-production-orders.route";
 import { registerListUnifiedProductionOrdersRoute } from "./routes/read/list-unified-production-orders.route";
 import { registerGetProductionOrderSummaryRoute } from "./routes/read/get-production-order-summary.route";
 import { registerGetConsumptionSummaryRoute } from "./routes/read/get-consumption-summary.route";
 import { registerGetProductionOrderSummaryByIdRoute } from "./routes/read/get-production-order-summary-by-id.route";
 import { registerGetConsumptionSummaryByIdRoute } from "./routes/read/get-consumption-summary-by-id.route";
+import { registerGetStockIssuesRoute } from "./routes/read/get-stock-issues.route";
+import { registerGetProductionOrderByNumberRoute } from "./routes/read/get-production-order-by-number.route";
+import { registerListProductionOrderCommandsRoute } from "./routes/read/list-production-order-commands.route";
+import { registerGetSyncStateRoute } from "./routes/read/get-sync-state.route";
 import { registerRefreshProductionOrderReadModelRoute } from "./routes/admin/refresh-production-order-read-model.route";
 
 export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
@@ -46,6 +52,11 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
   // ─── Commands (C1-P0) ─────────────────────────────────────────────
   await registerRetryFailedRoute(app);
   await registerSyncIncrementalRoute(app);
+
+  // ─── Commands (C3) ────────────────────────────────────────────────
+  await registerReconcileRoute(app);
+  await registerInvalidateRoute(app);
+  await registerRebuildRoute(app);
 
   // ─── Callbacks (respostas) ────────────────────────────────────────
   await registerConfirmProductionOrderCallbackRoute(app);
@@ -67,9 +78,6 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
   // ─── BOM Consumption (detalhe + estrutura) ────────────────────────
   await registerGetProductionOrderWithBomRoute(app);
 
-  // ─── Read-Model (listagem de OPs abertas) ─────────────────────────
-  await registerListOpenProductionOrdersRoute(app);
-
   // ─── Read-Model (lista unificada com filtros — C1-P0) ─────────────
   await registerListUnifiedProductionOrdersRoute(app);
 
@@ -84,6 +92,18 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
 
   // ─── Read-Model (consumption por OP — C1.3 spec v2) ──────────────
   await registerGetConsumptionSummaryByIdRoute(app);
+
+  // ─── Read-Model (OPs com problemas de estoque — C2) ─────────────
+  await registerGetStockIssuesRoute(app);
+
+  // ─── Read-Model (consulta por número da OP — C2) ─────────────────
+  await registerGetProductionOrderByNumberRoute(app);
+
+  // ─── Read-Model (histórico de comandos — C2) ────────────────────
+  await registerListProductionOrderCommandsRoute(app);
+
+  // ─── Read-Model (estado de sincronização — C3) ──────────────────
+  await registerGetSyncStateRoute(app);
 
   // ─── Admin (refresh do read model) ────────────────────────────────
   await registerRefreshProductionOrderReadModelRoute(app);

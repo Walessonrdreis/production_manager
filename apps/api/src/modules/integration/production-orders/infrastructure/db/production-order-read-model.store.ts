@@ -250,6 +250,14 @@ export class ProductionOrderReadModelStore {
         });
     }
 
+    // ─── Buscar por orderNumber (C2) ───────────────────────────────
+
+    async getByOrderNumber(orderNumber: string) {
+        return prisma.productionOrderReadModel.findFirst({
+            where: { orderNumber },
+        });
+    }
+
     // ─── Summary agregado (C1-P0) ───────────────────────────────────
 
     async getSummary() {

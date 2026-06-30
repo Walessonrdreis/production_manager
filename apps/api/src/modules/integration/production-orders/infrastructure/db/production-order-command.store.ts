@@ -12,7 +12,7 @@
 import type { PrismaClient, ProductionOrderCommand } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 
-export type CommandType = "SYNC_GLOBAL" | "CREATE_OP" | "UPDATE_OP" | "SYNC_OP" | "CANCEL_OP" | "CHANGE_STAGE";
+export type CommandType = "SYNC_GLOBAL" | "CREATE_OP" | "UPDATE_OP" | "SYNC_OP" | "CANCEL_OP" | "CHANGE_STAGE" | "RECONCILE" | "INVALIDATE";
 export type CommandStatus = "PENDING" | "PROCESSING" | "CONFIRMED" | "FAILED";
 export type CommandSource = "API2" | "JOB" | "ADMIN";
 
