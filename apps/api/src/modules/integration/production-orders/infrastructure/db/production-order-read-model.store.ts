@@ -249,4 +249,238 @@ export class ProductionOrderReadModelStore {
             where: { omieId },
         });
     }
+
+    // ─── Summary agregado (C1-P0) ───────────────────────────────────
+
+    async getSummary() {
+        const [
+            total,
+            totalOpen,
+            totalClosed,
+            totalLate,
+            totalBlocked,
+            totalReady,
+            totalWithStockIssue,
+            totalMissingMaterials,
+            totalCriticalMaterial,
+            totalPartialStock,
+            totalHighPriority,
+        ] = await Promise.all([
+            prisma.productionOrderReadModel.count(),
+            prisma.productionOrderReadModel.count({ where: { isOpen: true } }),
+            prisma.productionOrderReadModel.count({ where: { isOpen: false } }),
+            prisma.productionOrderReadModel.count({ where: { isLate: true } }),
+            prisma.productionOrderReadModel.count({ where: { isBlocked: true } }),
+            prisma.productionOrderReadModel.count({ where: { isReady: true } }),
+            prisma.productionOrderReadModel.count({ where: { hasStockIssue: true } }),
+            prisma.productionOrderReadModel.count({ where: { hasMissingMaterials: true } }),
+            prisma.productionOrderReadModel.count({ where: { hasCriticalMaterial: true } }),
+            prisma.productionOrderReadModel.count({ where: { hasPartialStock: true } }),
+            prisma.productionOrderReadModel.count({ where: { priority: "high" } }),
+        ]);
+
+        return {
+            total,
+            totalOpen,
+            totalClosed,
+            totalLate,
+            totalBlocked,
+            totalReady,
+            totalWithStockIssue,
+            totalMissingMaterials,
+            totalCriticalMaterial,
+            totalPartialStock,
+            totalHighPriority,
+        };
+    }
+
+    // ─── Consumption Summary agregado (C1-P0) ───────────────────────
+
+    async getConsumptionSummary() {
+        const openOrders = await prisma.productionOrderReadModel.findMany({
+            where: { isOpen: true },
+            select: {
+                omieId: true,
+                orderNumber: true,
+                productCode: true,
+                productName: true,
+                quantity: true,
+                materialsJson: true,
+                materialsSummaryJson: true,
+            },
+        });
+
+        // ─── Agrupar materiais por componentCode ─────────────────────
+        const materialMap = new Map<string, {
+            componentCode: string;
+            componentName: string | null;
+            unit: string | null;
+            totalRequired: number;
+            currentStock: number;
+            projectedStock: number;
+            status: string;
+            orderCount: number;
+            orders: Array<{
+                omieId: string;
+                orderNumber: string | null;
+                quantity: number;
+                totalRequired: number;
+            }>;
+        }>();
+
+        for (const order of openOrders) {
+            const materials = order.materialsJson as MaterialItem[] | null;
+            if (!materials) continue;
+
+            for (const mat of materials) {
+                const existing = materialMap.get(mat.componentCode);
+                if (existing) {
+                    existing.totalRequired += mat.totalRequired;
+                    existing.orderCount += 1;
+                    existing.orders.push({
+                        omieId: order.omieId,
+                        orderNumber: order.orderNumber,
+                        quantity: Number(order.quantity),
+                        totalRequired: mat.totalRequired,
+                    });
+                    // Pior status vence (aggregado pessimista)
+                    const rank = ["NO_STOCK_DATA", "OK", "PARTIAL", "CRITICAL", "MISSING"];
+                    if (rank.indexOf(mat.status) > rank.indexOf(existing.status as any)) {
+                        existing.status = mat.status;
+                    }
+                } else {
+                    materialMap.set(mat.componentCode, {
+                        componentCode: mat.componentCode,
+                        componentName: mat.componentName,
+                        unit: mat.unit,
+                        totalRequired: mat.totalRequired,
+                        currentStock: mat.currentStock,
+                        projectedStock: mat.projectedStock,
+                        status: mat.status,
+                        orderCount: 1,
+                        orders: [{
+                            omieId: order.omieId,
+                            orderNumber: order.orderNumber,
+                            quantity: Number(order.quantity),
+                            totalRequired: mat.totalRequired,
+                        }],
+                    });
+                }
+            }
+        }
+
+        const materials = Array.from(materialMap.values());
+        const totalComponents = materials.length;
+        const missingCount = materials.filter((m) => m.status === "MISSING").length;
+        const criticalCount = materials.filter((m) => m.status === "CRITICAL").length;
+        const partialCount = materials.filter((m) => m.status === "PARTIAL").length;
+        const okCount = materials.filter((m) => m.status === "OK").length;
+        const noStockDataCount = materials.filter((m) => m.status === "NO_STOCK_DATA").length;
+
+        // Ordenar: piores status primeiro, depois maior required
+        const statusRank: Record<string, number> = {
+            MISSING: 0, CRITICAL: 1, PARTIAL: 2, NO_STOCK_DATA: 3, OK: 4,
+        };
+        materials.sort((a, b) => {
+            const rankDiff = (statusRank[a.status] ?? 99) - (statusRank[b.status] ?? 99);
+            if (rankDiff !== 0) return rankDiff;
+            return b.totalRequired - a.totalRequired;
+        });
+
+        return {
+            summary: {
+                totalOrders: openOrders.length,
+                totalComponents,
+                missingCount,
+                criticalCount,
+                partialCount,
+                okCount,
+                noStockDataCount,
+            },
+            materials,
+        };
+    }
+
+    // ─── Lista unificada com filtros (C1-P0) ─────────────────────────
+
+    async listOrders(params?: {
+        limit?: number;
+        offset?: number;
+        priority?: string;
+        operationalStatus?: string;
+        isOpen?: boolean;
+        isLate?: boolean;
+        isBlocked?: boolean;
+        hasStockIssue?: boolean;
+        hasMissingMaterials?: boolean;
+        hasCriticalMaterial?: boolean;
+        hasPartialStock?: boolean;
+        isReady?: boolean;
+        stage?: string;
+        productCode?: string;
+        orderNumber?: string;
+    }) {
+        const {
+            limit = 50,
+            offset = 0,
+            priority,
+            operationalStatus,
+            isOpen,
+            isLate,
+            isBlocked,
+            hasStockIssue,
+            hasMissingMaterials,
+            hasCriticalMaterial,
+            hasPartialStock,
+            isReady,
+            stage,
+            productCode,
+            orderNumber,
+        } = params ?? {};
+
+        const safeLimit = Math.max(1, Math.min(Number(limit || 50), 500));
+        const safeOffset = Math.max(0, Number(offset || 0));
+
+        const where: Record<string, unknown> = {};
+
+        if (isOpen !== undefined) where.isOpen = isOpen;
+        if (priority) where.priority = priority;
+        if (operationalStatus) where.operationalStatus = operationalStatus;
+        if (isLate !== undefined) where.isLate = isLate;
+        if (isBlocked !== undefined) where.isBlocked = isBlocked;
+        if (hasStockIssue !== undefined) where.hasStockIssue = hasStockIssue;
+        if (hasMissingMaterials !== undefined) where.hasMissingMaterials = hasMissingMaterials;
+        if (hasCriticalMaterial !== undefined) where.hasCriticalMaterial = hasCriticalMaterial;
+        if (hasPartialStock !== undefined) where.hasPartialStock = hasPartialStock;
+        if (isReady !== undefined) where.isReady = isReady;
+        if (stage) where.stage = stage;
+        if (productCode) where.productCode = { contains: productCode, mode: "insensitive" };
+        if (orderNumber) where.orderNumber = { contains: orderNumber, mode: "insensitive" };
+
+        const [total, rows] = await Promise.all([
+            prisma.productionOrderReadModel.count({ where: where as any }),
+            prisma.productionOrderReadModel.findMany({
+                where: where as any,
+                orderBy: [
+                    { priority: "desc" },
+                    { daysOverdue: "desc" },
+                    { expectedAt: "asc" },
+                ],
+                take: safeLimit,
+                skip: safeOffset,
+            }),
+        ]);
+
+        return {
+            summary: {
+                total,
+                returned: rows.length,
+            },
+            meta: {
+                pageSize: safeLimit,
+                offset: safeOffset,
+            },
+            data: rows,
+        };
+    }
 }

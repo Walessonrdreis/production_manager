@@ -267,4 +267,34 @@ export class ProductionOrderCommandStore {
             orderBy: { executedAt: "asc" },
         });
     }
+
+    // ─── Retry (C1-P0) ──────────────────────────────────────────────────
+
+    /**
+     * Re-enfileira um comando FAILED de volta para PENDING,
+     * incrementando retryCount e limpando lastError.
+     */
+    async resetToPending(
+        externalRequestId: string
+    ): Promise<ProductionOrderCommand> {
+        return this.prisma.productionOrderCommand.update({
+            where: { externalRequestId },
+            data: {
+                status: "PENDING",
+                retryCount: { increment: 1 },
+                lastError: Prisma.DbNull,
+                completedAt: null,
+                executedAt: null,
+            },
+        });
+    }
+
+    /**
+     * Retorna a contagem atual de comandos FAILED.
+     */
+    async countFailed(): Promise<number> {
+        return this.prisma.productionOrderCommand.count({
+            where: { status: "FAILED" },
+        });
+    }
 }

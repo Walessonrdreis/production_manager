@@ -13,6 +13,8 @@ import { registerUpdateProductionOrderRoute } from "./routes/commands/update-pro
 import { registerCancelProductionOrderRoute } from "./routes/commands/cancel-production-order.route";
 import { registerChangeProductionOrderStageRoute } from "./routes/commands/change-production-order-stage.route";
 import { registerSyncAllProductionOrdersRoute } from "./routes/commands/sync-all-production-orders.route";
+import { registerRetryFailedRoute } from "./routes/commands/retry-failed.route";
+import { registerSyncIncrementalRoute } from "./routes/commands/sync-incremental.route";
 import { registerGetProductionOrderStatusRoute } from "./routes/commands/get-production-order-status.route";
 
 import { registerConfirmProductionOrderCallbackRoute } from "./routes/callbacks/confirm-production-order.callback.route";
@@ -26,6 +28,9 @@ import { registerGetQueueFailuresRoute } from "./routes/read/get-queue-failures.
 import { registerGetProductionOrderRefreshRoute } from "./routes/read/get-production-order-refresh.route";
 import { registerGetProductionOrderWithBomRoute } from "./routes/read/get-production-order-with-bom.route";
 import { registerListOpenProductionOrdersRoute } from "./routes/read/list-open-production-orders.route";
+import { registerListUnifiedProductionOrdersRoute } from "./routes/read/list-unified-production-orders.route";
+import { registerGetProductionOrderSummaryRoute } from "./routes/read/get-production-order-summary.route";
+import { registerGetConsumptionSummaryRoute } from "./routes/read/get-consumption-summary.route";
 import { registerRefreshProductionOrderReadModelRoute } from "./routes/admin/refresh-production-order-read-model.route";
 
 export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
@@ -35,6 +40,10 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
   await registerCancelProductionOrderRoute(app);
   await registerChangeProductionOrderStageRoute(app);
   await registerSyncAllProductionOrdersRoute(app);
+
+  // ─── Commands (C1-P0) ─────────────────────────────────────────────
+  await registerRetryFailedRoute(app);
+  await registerSyncIncrementalRoute(app);
 
   // ─── Callbacks (respostas) ────────────────────────────────────────
   await registerConfirmProductionOrderCallbackRoute(app);
@@ -58,6 +67,15 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
 
   // ─── Read-Model (listagem de OPs abertas) ─────────────────────────
   await registerListOpenProductionOrdersRoute(app);
+
+  // ─── Read-Model (lista unificada com filtros — C1-P0) ─────────────
+  await registerListUnifiedProductionOrdersRoute(app);
+
+  // ─── Read-Model (summary para dashboard — C1-P0) ──────────────────
+  await registerGetProductionOrderSummaryRoute(app);
+
+  // ─── Read-Model (consumo agregado de materiais — C1-P0) ───────────
+  await registerGetConsumptionSummaryRoute(app);
 
   // ─── Admin (refresh do read model) ────────────────────────────────
   await registerRefreshProductionOrderReadModelRoute(app);
