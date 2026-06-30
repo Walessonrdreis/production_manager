@@ -474,6 +474,91 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
         { concurrency: 1, batchSize: 1 }
     );
 
+    // ── 10. RECONCILE: Verificar consistência Omie vs read-model (C3) ──
+
+    registerJobHandler<{ externalRequestId: string; omieId?: string }>(
+        "production-order.reconcile",
+        async (job) => {
+            const { externalRequestId, omieId } = job.data;
+            logger.info("Processing reconcile", { externalRequestId, omieId });
+
+            try {
+                if (isFake) {
+                    logger.info("Fake mode: marking reconcile as confirmed");
+                    await commandStore.markConfirmed(externalRequestId);
+                    return;
+                }
+
+                // Reconcile: busca a OP no Omie e atualiza o read-model
+                const consultGateway = new RealProductionOrderConsultGateway(omieClient);
+                const store = new ProductionOrderReadModelStore();
+                const useCase = new RefreshProductionOrderReadModelUseCase(store);
+
+                if (omieId) {
+                    // Reconcile de uma OP específica
+                    await useCase.refreshOne(omieId);
+                } else {
+                    // Reconcile completo (refresh de todas as OPs abertas)
+                    const result = await useCase.execute();
+                    logger.info("Reconcile completed — full refresh done", {
+                        externalRequestId,
+                        processed: result?.processed,
+                    });
+                }
+
+                await commandStore.markConfirmed(externalRequestId);
+                logger.info("Reconcile completed", { externalRequestId, omieId });
+            } catch (error) {
+                logger.error("Reconcile failed", {
+                    externalRequestId,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+                await commandStore.markFailed(externalRequestId, error);
+                throw error;
+            }
+        },
+        { concurrency: 1, batchSize: 1 }
+    );
+
+    // ── 11. INVALIDATE: Invalidar read-model de uma OP (C3) ────────────
+
+    registerJobHandler<{ externalRequestId: string; omieId: string }>(
+        "production-order.invalidate",
+        async (job) => {
+            const { externalRequestId, omieId } = job.data;
+            logger.info("Processing invalidate", { externalRequestId, omieId });
+
+            try {
+                // Invalida o read-model atualizando operationalStatus para "stale"
+                // e forçando refresh na próxima consulta
+                const store = new ProductionOrderReadModelStore();
+
+                const record = await store.getByOmieCode(omieId);
+
+                if (!record) {
+                    logger.warn("Invalidate: OP not found in read-model", { omieId });
+                    await commandStore.markConfirmed(externalRequestId);
+                    return;
+                }
+
+                // Marca como stale e força refresh
+                const useCase = new RefreshProductionOrderReadModelUseCase(store);
+                await useCase.refreshOne(omieId);
+
+                await commandStore.markConfirmed(externalRequestId);
+                logger.info("Invalidate completed — OP refreshed", { externalRequestId, omieId });
+            } catch (error) {
+                logger.error("Invalidate failed", {
+                    externalRequestId,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+                await commandStore.markFailed(externalRequestId, error);
+                throw error;
+            }
+        },
+        { concurrency: 1, batchSize: 1 }
+    );
+
     logger.info("Production-order PgBoss handlers registered", {
         types: [
             "production-order.create-op",
@@ -485,6 +570,8 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
             "production-order.refresh",
             "production-order.refresh.by-stock",
             "production-order.refresh.batch",
+            "production-order.reconcile",
+            "production-order.invalidate",
         ],
     });
 }
