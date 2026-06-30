@@ -36,6 +36,11 @@ export async function registerListUnifiedProductionOrdersRoute(
                     stage?: string;
                     productCode?: string;
                     orderNumber?: string;
+                    startDateFrom?: string;
+                    startDateTo?: string;
+                    completionDateFrom?: string;
+                    completionDateTo?: string;
+                    q?: string;
                 };
 
                 const store = new ProductionOrderReadModelStore();
@@ -61,6 +66,11 @@ export async function registerListUnifiedProductionOrdersRoute(
                     stage: query.stage,
                     productCode: query.productCode,
                     orderNumber: query.orderNumber,
+                    startDateFrom: query.startDateFrom,
+                    startDateTo: query.startDateTo,
+                    completionDateFrom: query.completionDateFrom,
+                    completionDateTo: query.completionDateTo,
+                    q: query.q,
                 });
 
                 // ─── Recalcular isLate/daysOverdue ao vivo ──────────────────

@@ -401,6 +401,107 @@ export class ProductionOrderReadModelStore {
         };
     }
 
+    // ─── Summary por OP (C1.2 spec v2) ───────────────────────────
+
+    async getSummaryByOmieId(omieId: string) {
+        const record = await prisma.productionOrderReadModel.findUnique({
+            where: { omieId },
+            select: {
+                omieId: true,
+                orderNumber: true,
+                productCode: true,
+                productOmieId: true,
+                quantity: true,
+                expectedAt: true,
+                startedAt: true,
+                completedAt: true,
+                stage: true,
+                operationalStatus: true,
+                isReady: true,
+                isBlocked: true,
+                hasStockIssue: true,
+                hasMissingMaterials: true,
+                hasCriticalMaterial: true,
+                hasPartialStock: true,
+                isLate: true,
+                daysOverdue: true,
+                priority: true,
+                productName: true,
+                productUnit: true,
+                isOpen: true,
+                lastSyncAt: true,
+            },
+        });
+        return record;
+    }
+
+    // ─── Consumption Summary por OP (C1.3 spec v2) ──────────────
+
+    async getConsumptionSummaryByOmieId(omieId: string) {
+        const record = await prisma.productionOrderReadModel.findUnique({
+            where: { omieId },
+            select: {
+                omieId: true,
+                orderNumber: true,
+                productCode: true,
+                productName: true,
+                quantity: true,
+                materialsJson: true,
+            },
+        });
+
+        if (!record) return null;
+
+        const materials = record.materialsJson as MaterialItem[] | null;
+        if (!materials || materials.length === 0) {
+            return {
+                omieId: record.omieId,
+                orderNumber: record.orderNumber,
+                productCode: record.productCode,
+                productName: record.productName,
+                totalComponents: 0,
+                totalQuantityNeeded: 0,
+                itemsWithStockIssue: 0,
+                criticalItems: 0,
+                hasAnyIssue: false,
+                components: [],
+            };
+        }
+
+        const totalComponents = materials.length;
+        const totalQuantityNeeded = materials.reduce((sum, m) => sum + m.totalRequired, 0);
+        const itemsWithStockIssue = materials.filter(
+            (m) => m.status === "MISSING" || m.status === "CRITICAL" || m.status === "PARTIAL"
+        ).length;
+        const criticalItems = materials.filter(
+            (m) => m.status === "MISSING" || m.status === "CRITICAL"
+        ).length;
+        const hasAnyIssue = itemsWithStockIssue > 0;
+
+        const components = materials.map((m) => ({
+            componentCode: m.componentCode,
+            componentName: m.componentName,
+            unit: m.unit,
+            quantityNeeded: m.totalRequired,
+            currentStock: m.currentStock,
+            projectedStock: m.projectedStock,
+            status: m.status,
+        }));
+
+        return {
+            omieId: record.omieId,
+            orderNumber: record.orderNumber,
+            productCode: record.productCode,
+            productName: record.productName,
+            totalComponents,
+            totalQuantityNeeded,
+            itemsWithStockIssue,
+            criticalItems,
+            hasAnyIssue,
+            components,
+        };
+    }
+
     // ─── Lista unificada com filtros (C1-P0) ─────────────────────────
 
     async listOrders(params?: {
@@ -419,6 +520,11 @@ export class ProductionOrderReadModelStore {
         stage?: string;
         productCode?: string;
         orderNumber?: string;
+        startDateFrom?: string;
+        startDateTo?: string;
+        completionDateFrom?: string;
+        completionDateTo?: string;
+        q?: string;
     }) {
         const {
             limit = 50,
@@ -436,6 +542,11 @@ export class ProductionOrderReadModelStore {
             stage,
             productCode,
             orderNumber,
+            startDateFrom,
+            startDateTo,
+            completionDateFrom,
+            completionDateTo,
+            q,
         } = params ?? {};
 
         const safeLimit = Math.max(1, Math.min(Number(limit || 50), 500));
@@ -456,6 +567,28 @@ export class ProductionOrderReadModelStore {
         if (stage) where.stage = stage;
         if (productCode) where.productCode = { contains: productCode, mode: "insensitive" };
         if (orderNumber) where.orderNumber = { contains: orderNumber, mode: "insensitive" };
+
+        // ─── Filtros temporais ────────────────────────────────────────
+        if (startDateFrom || startDateTo) {
+            const expectedAtFilter: Record<string, Date> = {};
+            if (startDateFrom) expectedAtFilter.gte = new Date(startDateFrom);
+            if (startDateTo) expectedAtFilter.lte = new Date(startDateTo);
+            where.expectedAt = expectedAtFilter;
+        }
+        if (completionDateFrom || completionDateTo) {
+            const completedAtFilter: Record<string, Date> = {};
+            if (completionDateFrom) completedAtFilter.gte = new Date(completionDateFrom);
+            if (completionDateTo) completedAtFilter.lte = new Date(completionDateTo);
+            where.completedAt = completedAtFilter;
+        }
+
+        // ─── Busca textual (q) ────────────────────────────────────────
+        if (q) {
+            where.OR = [
+                { orderNumber: { contains: q, mode: "insensitive" } },
+                { productName: { contains: q, mode: "insensitive" } },
+            ];
+        }
 
         const [total, rows] = await Promise.all([
             prisma.productionOrderReadModel.count({ where: where as any }),

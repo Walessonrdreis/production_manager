@@ -31,6 +31,8 @@ import { registerListOpenProductionOrdersRoute } from "./routes/read/list-open-p
 import { registerListUnifiedProductionOrdersRoute } from "./routes/read/list-unified-production-orders.route";
 import { registerGetProductionOrderSummaryRoute } from "./routes/read/get-production-order-summary.route";
 import { registerGetConsumptionSummaryRoute } from "./routes/read/get-consumption-summary.route";
+import { registerGetProductionOrderSummaryByIdRoute } from "./routes/read/get-production-order-summary-by-id.route";
+import { registerGetConsumptionSummaryByIdRoute } from "./routes/read/get-consumption-summary-by-id.route";
 import { registerRefreshProductionOrderReadModelRoute } from "./routes/admin/refresh-production-order-read-model.route";
 
 export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
@@ -76,6 +78,12 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
 
   // ─── Read-Model (consumo agregado de materiais — C1-P0) ───────────
   await registerGetConsumptionSummaryRoute(app);
+
+  // ─── Read-Model (summary por OP — C1.2 spec v2) ──────────────────
+  await registerGetProductionOrderSummaryByIdRoute(app);
+
+  // ─── Read-Model (consumption por OP — C1.3 spec v2) ──────────────
+  await registerGetConsumptionSummaryByIdRoute(app);
 
   // ─── Admin (refresh do read model) ────────────────────────────────
   await registerRefreshProductionOrderReadModelRoute(app);

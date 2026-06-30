@@ -776,11 +776,15 @@ model ProductionOrderReadModel {
   @@index([expectedAt])
   @@index([isLate])
 
-  // ─── Índices de performance (criados manualmente, mas no schema
-  //       para evitar que o Prisma os drope — REGRA 7) ────────────
+  // ─── Índices de performance — spec v2 (C0)
+  //       Mantidos no schema para evitar que o Prisma os drope — REGRA 7
   @@index([materialsJson], type: Gin, map: "idx_prorm_materials_gin")
   @@index([isOpen, priority(sort: Desc), expectedAt], map: "idx_prorm_open_priority_expected")
   @@index([isOpen, expectedAt], map: "idx_prorm_open_expected")
+  @@index([isOpen, stage], map: "idx_prorm_open_stage")
+  @@index([hasStockIssue], map: "idx_prorm_has_stock_issue")
+  @@index([hasMissingMaterials], map: "idx_prorm_has_missing_materials")
+  @@index([hasCriticalMaterial], map: "idx_prorm_has_critical_material")
 
   @@map("production_order_read_model")
   @@schema("read_model")
