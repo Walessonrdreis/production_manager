@@ -6,6 +6,10 @@
 // ---------------------------------------------------------------------------
 
 import { prisma } from "@/shared/db/prisma";
+import { normalize } from "@/shared/search/normalize";
+import { tokenize } from "@/shared/search/tokenize";
+import { detectQueryType } from "@/shared/search/detect-query-type";
+import { score } from "@/shared/search/score";
 
 export type MaterialItem = {
     componentCode: string;
@@ -618,12 +622,49 @@ export class ProductionOrderReadModelStore {
             where.completedAt = completedAtFilter;
         }
 
-        // ─── Busca textual (q) ────────────────────────────────────────
+        // ─── Busca textual (q) — Universal Search ────────────────────
+        // Suporta 4 modos: orderNumber, omieId, code, text
+        // Usa campos normalizados para matching robusto.
+        let needsScoring = false;
+
         if (q) {
-            where.OR = [
-                { orderNumber: { contains: q, mode: "insensitive" } },
-                { productName: { contains: q, mode: "insensitive" } },
-            ];
+            const qNormalized = normalize(q);
+            const queryType = detectQueryType(q);
+
+            if (queryType === "omieId") {
+                where.omieId = q;
+            } else if (queryType === "orderNumber") {
+                where.OR = [
+                    { orderNumber: { contains: q, mode: "insensitive" } },
+                    { orderNumberNormalized: { contains: qNormalized, mode: "insensitive" } },
+                ];
+            } else if (queryType === "code") {
+                where.OR = [
+                    { productCode: { contains: q, mode: "insensitive" } },
+                    { productCodeNormalized: { contains: qNormalized, mode: "insensitive" } },
+                ];
+            } else {
+                // Text search — busca em múltiplos campos textuais
+                needsScoring = true;
+                const tokens = tokenize(q);
+
+                if (tokens.length <= 1) {
+                    where.OR = [
+                        { productName: { contains: q, mode: "insensitive" } },
+                        { productNameNormalized: { contains: qNormalized, mode: "insensitive" } },
+                        { productCodeNormalized: { contains: qNormalized, mode: "insensitive" } },
+                        { orderNumberNormalized: { contains: qNormalized, mode: "insensitive" } },
+                    ];
+                } else {
+                    // Multi-token: cada token precisa bater em pelo menos um campo
+                    where.AND = tokens.map((token) => ({
+                        OR: [
+                            { productNameNormalized: { contains: token, mode: "insensitive" } },
+                            { productCodeNormalized: { contains: token, mode: "insensitive" } },
+                        ],
+                    }));
+                }
+            }
         }
 
         const [total, rows] = await Promise.all([
@@ -640,16 +681,37 @@ export class ProductionOrderReadModelStore {
             }),
         ]);
 
+        // ─── Scoring pós-consulta ────────────────────────────────────
+        // Re-ranking por relevância quando for busca textual.
+        let finalRows = rows;
+
+        if (needsScoring && q) {
+            const tokens = tokenize(q);
+
+            const scored = finalRows.map((row) => ({
+                row,
+                score: score(tokens, {
+                    productName: row.productName ?? "",
+                    productCode: row.productCode ?? "",
+                    orderNumber: row.orderNumber ?? "",
+                    stageName: row.stageName ?? "",
+                }).score,
+            }));
+
+            scored.sort((a, b) => b.score - a.score);
+            finalRows = scored.map((s) => s.row);
+        }
+
         return {
             summary: {
                 total,
-                returned: rows.length,
+                returned: finalRows.length,
             },
             meta: {
                 pageSize: safeLimit,
                 offset: safeOffset,
             },
-            data: rows,
+            data: finalRows,
         };
     }
 }
