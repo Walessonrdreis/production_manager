@@ -16,13 +16,13 @@ export type QueryType = 'orderNumber' | 'omieId' | 'code' | 'text';
  * - Caso contrário → text (ex: "cacau", "chocolate 42")
  */
 export function detectQueryType(q: string): QueryType {
-  if (!q || q.trim().length === 0) return 'text';
+    if (!q || q.trim().length === 0) return 'text';
 
-  const trimmed = q.trim();
+    const trimmed = q.trim();
 
-  if (trimmed.includes('/')) return 'orderNumber';
-  if (/^\d{6,}$/.test(trimmed)) return 'omieId';
-  if (/^[a-z0-9]+$/i.test(trimmed)) return 'code';
+    if (trimmed.includes('/')) return 'orderNumber';
+    if (/^\d{6,}$/.test(trimmed)) return 'omieId';
+    if (/^[a-z0-9]+$/i.test(trimmed)) return 'code';
 
-  return 'text';
+    return 'text';
 }

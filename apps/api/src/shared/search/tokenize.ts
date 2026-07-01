@@ -17,11 +17,11 @@ import { normalize } from './normalize';
  * tokenize("a")                  // → []
  */
 export function tokenize(q: string): string[] {
-  if (!q || q.trim().length === 0) return [];
+    if (!q || q.trim().length === 0) return [];
 
-  const normalized = normalize(q);
-  const raw = normalized.split(/\s+/);
+    const normalized = normalize(q);
+    const raw = normalized.split(/\s+/);
 
-  // Filtra tokens vazios ou muito curtos (menos de 2 chars)
-  return raw.filter((t) => t.length >= 2);
+    // Filtra tokens vazios ou muito curtos (menos de 2 chars)
+    return raw.filter((t) => t.length >= 2);
 }

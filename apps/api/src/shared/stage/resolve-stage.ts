@@ -8,12 +8,12 @@
 import { STAGE_CONFIG } from './stage-config';
 
 export interface ResolvedStage {
-  /** Nome amigável (ex: "Fabricação") */
-  stageName: string;
-  /** Ordem sequencial (1-6, ou 999 para desconhecido) */
-  stageOrder: number;
-  /** Grupo funcional (planning | execution | done | unknown) */
-  stageGroup: string;
+    /** Nome amigável (ex: "Fabricação") */
+    stageName: string;
+    /** Ordem sequencial (1-6, ou 999 para desconhecido) */
+    stageOrder: number;
+    /** Grupo funcional (planning | execution | done | unknown) */
+    stageGroup: string;
 }
 
 /**
@@ -33,27 +33,27 @@ export interface ResolvedStage {
  * // → { stageName: "Desconhecida", stageOrder: 999, stageGroup: "unknown" }
  */
 export function resolveStage(stage: string | null | undefined): ResolvedStage {
-  if (!stage || stage.trim().length === 0) {
+    if (!stage || stage.trim().length === 0) {
+        return {
+            stageName: 'Desconhecida',
+            stageOrder: 999,
+            stageGroup: 'unknown',
+        };
+    }
+
+    const config = STAGE_CONFIG[stage.trim()];
+
+    if (!config) {
+        return {
+            stageName: `Etapa ${stage.trim()}`,
+            stageOrder: 999,
+            stageGroup: 'unknown',
+        };
+    }
+
     return {
-      stageName: 'Desconhecida',
-      stageOrder: 999,
-      stageGroup: 'unknown',
+        stageName: config.name,
+        stageOrder: config.order,
+        stageGroup: config.group,
     };
-  }
-
-  const config = STAGE_CONFIG[stage.trim()];
-
-  if (!config) {
-    return {
-      stageName: `Etapa ${stage.trim()}`,
-      stageOrder: 999,
-      stageGroup: 'unknown',
-    };
-  }
-
-  return {
-    stageName: config.name,
-    stageOrder: config.order,
-    stageGroup: config.group,
-  };
 }

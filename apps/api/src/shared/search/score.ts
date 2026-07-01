@@ -12,10 +12,10 @@ import { QueryType } from './detect-query-type';
  * Campos do read model usados para pontuação.
  */
 export interface ScorableFields {
-  productName: string;
-  productCode: string;
-  orderNumber: string;
-  stageName?: string;
+    productName: string;
+    productCode: string;
+    orderNumber: string;
+    stageName?: string;
 }
 
 /**
@@ -24,10 +24,10 @@ export interface ScorableFields {
  * PARTIAL = apenas algum token bate.
  */
 const WEIGHTS: Record<keyof ScorableFields, { all: number; partial: number }> = {
-  productName: { all: 100, partial: 60 },
-  productCode: { all: 95, partial: 55 },
-  orderNumber: { all: 100, partial: 70 },
-  stageName: { all: 80, partial: 40 },
+    productName: { all: 100, partial: 60 },
+    productCode: { all: 95, partial: 55 },
+    orderNumber: { all: 100, partial: 70 },
+    stageName: { all: 80, partial: 40 },
 };
 
 /**
@@ -35,7 +35,7 @@ const WEIGHTS: Record<keyof ScorableFields, { all: number; partial: number }> = 
  * Usa `includes` para substring match (prefixo ou contains).
  */
 function tokenMatchesField(token: string, field: string): boolean {
-  return field.toLowerCase().includes(token);
+    return field.toLowerCase().includes(token);
 }
 
 /**
@@ -44,34 +44,34 @@ function tokenMatchesField(token: string, field: string): boolean {
  * @returns Pontuação 0-100, ou 0 se o campo não for relevante para o tipo de query.
  */
 function scoreField(
-  tokens: string[],
-  fieldValue: string,
-  fieldName: keyof ScorableFields,
+    tokens: string[],
+    fieldValue: string,
+    fieldName: keyof ScorableFields,
 ): number {
-  if (!fieldValue || fieldValue.trim().length === 0) return 0;
+    if (!fieldValue || fieldValue.trim().length === 0) return 0;
 
-  const field = fieldValue.toLowerCase();
-  const weights = WEIGHTS[fieldName];
+    const field = fieldValue.toLowerCase();
+    const weights = WEIGHTS[fieldName];
 
-  // ALL: todos os tokens batem no campo
-  if (tokens.every((t) => tokenMatchesField(t, field))) {
-    return weights.all;
-  }
+    // ALL: todos os tokens batem no campo
+    if (tokens.every((t) => tokenMatchesField(t, field))) {
+        return weights.all;
+    }
 
-  // PARTIAL: algum token bate no campo
-  if (tokens.some((t) => tokenMatchesField(t, field))) {
-    return weights.partial;
-  }
+    // PARTIAL: algum token bate no campo
+    if (tokens.some((t) => tokenMatchesField(t, field))) {
+        return weights.partial;
+    }
 
-  return 0;
+    return 0;
 }
 
 /**
  * Resultado do scoring para um registro.
  */
 export interface ScoredResult {
-  score: number;
-  matchedFields: string[];
+    score: number;
+    matchedFields: string[];
 }
 
 /**
@@ -90,40 +90,40 @@ export interface ScoredResult {
  * // result.score = 100 (ALL productName) + 95 (ALL productCode) = 195
  */
 export function score(
-  tokens: string[],
-  fields: ScorableFields,
-  _queryType?: QueryType,
+    tokens: string[],
+    fields: ScorableFields,
+    _queryType?: QueryType,
 ): ScoredResult {
-  if (tokens.length === 0) {
-    return { score: 0, matchedFields: [] };
-  }
-
-  const matchedFields: string[] = [];
-  let totalScore = 0;
-
-  const fieldEntries: Array<[keyof ScorableFields, string | undefined]> = [
-    ['productName', fields.productName],
-    ['productCode', fields.productCode],
-    ['orderNumber', fields.orderNumber],
-  ];
-
-  // stageName é opcional — só pontua se existir
-  if (fields.stageName !== undefined && fields.stageName.trim().length > 0) {
-    fieldEntries.push(['stageName', fields.stageName]);
-  }
-
-  for (const [fieldName, fieldValue] of fieldEntries) {
-    if (!fieldValue) continue;
-
-    const fieldScore = scoreField(tokens, fieldValue, fieldName);
-    if (fieldScore > 0) {
-      totalScore += fieldScore;
-      matchedFields.push(fieldName);
+    if (tokens.length === 0) {
+        return { score: 0, matchedFields: [] };
     }
-  }
 
-  return {
-    score: totalScore,
-    matchedFields,
-  };
+    const matchedFields: string[] = [];
+    let totalScore = 0;
+
+    const fieldEntries: Array<[keyof ScorableFields, string | undefined]> = [
+        ['productName', fields.productName],
+        ['productCode', fields.productCode],
+        ['orderNumber', fields.orderNumber],
+    ];
+
+    // stageName é opcional — só pontua se existir
+    if (fields.stageName !== undefined && fields.stageName.trim().length > 0) {
+        fieldEntries.push(['stageName', fields.stageName]);
+    }
+
+    for (const [fieldName, fieldValue] of fieldEntries) {
+        if (!fieldValue) continue;
+
+        const fieldScore = scoreField(tokens, fieldValue, fieldName);
+        if (fieldScore > 0) {
+            totalScore += fieldScore;
+            matchedFields.push(fieldName);
+        }
+    }
+
+    return {
+        score: totalScore,
+        matchedFields,
+    };
 }

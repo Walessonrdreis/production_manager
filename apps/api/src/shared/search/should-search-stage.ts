@@ -17,5 +17,5 @@
  * shouldSearchStage(["42", "cacau"]) // → true (um token tem 3+ chars)
  */
 export function shouldSearchStage(tokens: string[]): boolean {
-  return tokens.some((t) => t.length >= 3);
+    return tokens.some((t) => t.length >= 3);
 }

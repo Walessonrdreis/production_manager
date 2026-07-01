@@ -20,11 +20,11 @@ export const NORMALIZE_VERSION = 1;
  * normalize("  João  ")  // → "joao"
  */
 export function normalize(str: string): string {
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .replace(/[%\/]/g, ' ') // substitui % e / por espaço (consistência com tokenize)
-    .replace(/\s+/g, ' ')   // colapsa espaços múltiplos
-    .trim();
+    return str
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/[%\/]/g, ' ') // substitui % e / por espaço (consistência com tokenize)
+        .replace(/\s+/g, ' ')   // colapsa espaços múltiplos
+        .trim();
 }
