@@ -55,7 +55,7 @@ export class SyncAllProductionOrdersJob {
         await useCase.execute({
             externalRequestId,
             source: "JOB",
-            fullSync: input.fullSync ?? false,
+            fullSync: fullSync ?? false,
         });
 
         logger.info("Finished production orders sync job", { externalRequestId });
