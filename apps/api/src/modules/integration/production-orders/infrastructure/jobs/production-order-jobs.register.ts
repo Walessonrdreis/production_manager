@@ -45,6 +45,32 @@ export function registerProductionOrderJobs(omieClient: OmieHttpClientPort) {
         });
     }
 
+    // ─── Full Daily Sync Job (full re-sync — 00:00) ─────────────────────
+
+    if (!env.ENABLE_OMIE_PRODUCTION_ORDER_FULL_SYNC_JOB) {
+        logger.info("Production Order full daily sync job is disabled");
+    } else {
+        const schedule = env.OMIE_PRODUCTION_ORDER_FULL_SYNC_CRON ?? "0 0 * * *";
+
+        logger.info("Registering Production Order full daily sync job", { schedule });
+
+        cron.schedule(schedule, async () => {
+            const runLogger = getLogger("production-orders:cron:full-daily");
+            runLogger.info("Starting Production Order full daily sync");
+
+            try {
+                await SyncAllProductionOrdersJob.execute({
+                    source: "JOB",
+                    omieClient,
+                    fullSync: true,
+                });
+                runLogger.info("Finished Production Order full daily sync");
+            } catch (error) {
+                runLogger.error("Production Order full daily sync failed", error as any);
+            }
+        });
+    }
+
     // ─── Read-Model Refresh Job ──────────────────────────────────────────
 
     if (!env.ENABLE_OMIE_PRODUCTION_ORDER_READ_MODEL_REFRESH_JOB) {

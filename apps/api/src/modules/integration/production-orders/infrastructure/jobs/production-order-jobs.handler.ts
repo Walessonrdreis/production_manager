@@ -60,6 +60,8 @@ type SyncGlobalJobData = {
     maxPages?: number;
     /** Se true, enfileira sync-items após o sync-global */
     syncItems?: boolean;
+    /** true = full re-sync, false/omitido = incremental */
+    fullSync?: boolean;
 };
 
 const logger = getLogger("production-orders:jobs:handler");
@@ -233,6 +235,7 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
                         pageSize: pageSize ?? 100,
                         maxPages: maxPages ?? 1000,
                         source: "JOB",
+                        fullSync: job.data.fullSync ?? false,
                     },
                     hooks,
                     {

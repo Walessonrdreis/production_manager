@@ -2,20 +2,31 @@
 // Route — Sync Incremental Production Orders (Command)
 // ---------------------------------------------------------------------------
 // POST /v1/integration/production-orders/commands/sync-incremental
-// Enfileira sync incremental: busca apenas OPs alteradas desde a última sync.
-// Usa o mesmo worker production-order.sync-global, que já trata updatedSince
-// via PrismaSyncStateStore.
+// Sync incremental: busca apenas OPs alteradas desde a última sync.
+// Usa o mesmo use case SyncAllProductionOrdersUseCase com fullSync: false.
 //
 // C1-P0: Comando para sincronização leve (apenas deltas).
 // ---------------------------------------------------------------------------
 
 import type { FastifyInstance } from "fastify";
+import { env } from "@/config";
 import { getLogger } from "@/shared/logger";
-import { enqueueJob } from "@/shared/infra/job-queue";
+import { prisma } from "@/shared/db/prisma";
+import type { OmieHttpClientPort } from "@/shared/integrations/omie/omie-http-client.port";
+import { PrismaSyncStateStore } from "@/shared/integration/strategies/sync-state.store";
+import { SyncHooksRunner } from "@/shared/integration/strategies/sync-hooks";
+
 import type {
     SyncIncrementalRequestDTO,
     SyncIncrementalResponseDTO,
 } from "../../../../application/dto/sync-incremental.dto";
+
+import { SyncAllProductionOrdersUseCase } from "../../../../application/use-cases/sync-all-production-orders.usecase";
+import { ProductionOrderCommandStore } from "../../../../infrastructure/db/production-order-command.store";
+import { ProductionOrderSyncStore } from "../../../../infrastructure/db/production-order-sync.store";
+
+import { FakeProductionOrderSyncPageGateway } from "../../../../infrastructure/gateways/sync-page/fake-production-order-sync-page.gateway";
+import { RealProductionOrderSyncPageGateway } from "../../../../infrastructure/gateways/sync-page/real-production-order-sync-page.gateway";
 
 const logger = getLogger("sync-incremental.route");
 
@@ -27,21 +38,43 @@ export async function registerSyncIncrementalRoute(app: FastifyInstance) {
             const externalRequestId =
                 body.externalRequestId ?? `production-orders-incremental-${Date.now()}`;
 
-            // ─── Enfileira no PgBoss ──────────────────────────────────
-            // O handler production-order.sync-global já usa updatedSince
-            // a partir do PrismaSyncStateStore, fazendo sync incremental.
-            await enqueueJob("production-order.sync-global", {
-                externalRequestId,
-                pageSize: body.pageSize ?? 100,
-                maxPages: body.maxPages ?? 500,
-                syncItems: true,
-            }, {
-                retryLimit: 2,
-                retryBackoff: true,
-                singletonKey: "production-order-sync-incremental",
-            });
+            const isFake = env.PRODUCTION_ORDER_GATEWAY === "fake";
 
-            logger.info("Incremental sync enqueued", { externalRequestId });
+            const fetchPageGateway = isFake
+                ? new FakeProductionOrderSyncPageGateway()
+                : new RealProductionOrderSyncPageGateway(
+                    (app as any).omieClient as OmieHttpClientPort
+                );
+
+            const syncStateStore = new PrismaSyncStateStore(
+                prisma.productionOrderSyncState,
+                "GLOBAL"
+            );
+
+            const useCase = new SyncAllProductionOrdersUseCase(
+                fetchPageGateway,
+                new ProductionOrderSyncStore(prisma),
+                new ProductionOrderCommandStore(prisma),
+                syncStateStore,
+                { noWrite: isFake }
+            );
+
+            const hooks = new SyncHooksRunner();
+
+            void useCase
+                .execute(
+                    {
+                        externalRequestId,
+                        pageSize: body.pageSize ?? 100,
+                        maxPages: body.maxPages ?? 500,
+                        source: "API2",
+                        fullSync: false,
+                    },
+                    hooks
+                )
+                .catch((error) => {
+                    logger.error("Sync incremental failed", error as any);
+                });
 
             const response: SyncIncrementalResponseDTO = {
                 status: "ACCEPTED",

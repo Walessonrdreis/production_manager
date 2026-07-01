@@ -61,6 +61,7 @@ export async function registerSyncAllProductionOrdersRoute(app: FastifyInstance)
                     pageSize: body.pageSize,
                     maxPages: body.maxPages,
                     source: "API2",
+                    fullSync: true,
                 },
                 hooks
             )

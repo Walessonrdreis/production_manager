@@ -19,6 +19,7 @@ import { RealProductionOrderSyncPageGateway } from "@/modules/integration/produc
 type ExecuteInput = {
     source: "JOB";
     omieClient: OmieHttpClientPort;
+    fullSync?: boolean;
 };
 
 export class SyncAllProductionOrdersJob {
@@ -54,6 +55,7 @@ export class SyncAllProductionOrdersJob {
         await useCase.execute({
             externalRequestId,
             source: "JOB",
+            fullSync: input.fullSync ?? false,
         });
 
         logger.info("Finished production orders sync job", { externalRequestId });

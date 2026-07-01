@@ -22,6 +22,8 @@ export type SyncAllProductionOrdersCommand = {
     pageSize?: number;
     maxPages?: number;
     source?: "API2" | "JOB" | "ADMIN";
+    /** true = full re-sync (ignora lastSyncAt), false/omitido = só delta */
+    fullSync?: boolean;
 };
 
 export class SyncAllProductionOrdersUseCase {
@@ -118,6 +120,8 @@ export class SyncAllProductionOrdersUseCase {
             externalRequestId: command.externalRequestId,
             pageSize: command.pageSize,
             maxPages: command.maxPages,
+            fullSync: command.fullSync ?? false,
+            syncItems: true,
         }, {
             retryLimit: 2,
             retryBackoff: true,
@@ -166,7 +170,7 @@ export async function executeSyncAllProductionOrders(
             () => fetchPageGateway.fetchPage({
                 page,
                 pageSize,
-                updatedSince: lastSyncAt,
+                updatedSince: command.fullSync ? undefined : lastSyncAt,
             }),
             {
                 label: "production-orders",
