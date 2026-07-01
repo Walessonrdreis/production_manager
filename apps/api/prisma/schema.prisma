@@ -730,6 +730,17 @@ model ProductionOrderReadModel {
   productName    String? @db.Text @map("product_name")
   productUnit    String? @db.VarChar(16) @map("product_unit")
 
+  // ─── UX / Busca (normalized fields) ───────────────────────────────
+  productNameNormalized  String? @db.Text        @map("product_name_normalized")
+  productCodeNormalized  String? @db.VarChar(64) @map("product_code_normalized")
+  orderNumberNormalized  String? @db.VarChar(32) @map("order_number_normalized")
+  normalizeVersion       Int     @default(0)     @map("normalize_version")
+
+  // ─── Stage (UX) ────────────────────────────────────────────────────
+  stageName  String? @db.VarChar(32) @map("stage_name")
+  stageOrder Int     @default(999)   @map("stage_order")
+  stageGroup String  @default("unknown") @db.VarChar(16) @map("stage_group")
+
   // ─── Quantidades ──────────────────────────────────────────────────
   quantity Decimal @db.Decimal(18, 4)
 
@@ -775,6 +786,11 @@ model ProductionOrderReadModel {
   @@index([priority])
   @@index([expectedAt])
   @@index([isLate])
+
+  // ─── Índices de busca — spec search UX (C0) ───────────────────────
+  @@index([productName], map: "idx_prorm_product_name")
+  @@index([productCode], map: "idx_prorm_product_code")
+  @@index([orderNumber], map: "idx_prorm_order_number")
 
   // ─── Índices de performance — spec v2 (C0)
   //       Mantidos no schema para evitar que o Prisma os drope — REGRA 7
