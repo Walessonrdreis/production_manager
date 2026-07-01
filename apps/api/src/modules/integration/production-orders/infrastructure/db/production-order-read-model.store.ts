@@ -41,9 +41,16 @@ export type ProductionOrderReadModelRecord = {
     productCode: string | null;
     productOmieId: string | null;
     productName: string | null;
+    productNameNormalized: string | null;
+    productCodeNormalized: string | null;
+    orderNumberNormalized: string | null;
+    normalizeVersion: number;
     productUnit: string | null;
     quantity: number;
     stage: string | null;
+    stageName: string | null;
+    stageOrder: number;
+    stageGroup: string;
     operationalStatus: string;
     isOpen: boolean;
     isLate: boolean;
@@ -94,9 +101,16 @@ export class ProductionOrderReadModelStore {
                     productCode: r.productCode,
                     productOmieId: r.productOmieId,
                     productName: r.productName,
+                    productNameNormalized: r.productNameNormalized,
+                    productCodeNormalized: r.productCodeNormalized,
+                    orderNumberNormalized: r.orderNumberNormalized,
+                    normalizeVersion: r.normalizeVersion,
                     productUnit: r.productUnit,
                     quantity: Number(r.quantity),
                     stage: r.stage,
+                    stageName: r.stageName,
+                    stageOrder: r.stageOrder,
+                    stageGroup: r.stageGroup,
                     operationalStatus: r.operationalStatus,
                     isOpen: r.isOpen,
                     isLate: r.isLate,
@@ -133,9 +147,16 @@ export class ProductionOrderReadModelStore {
                 productCode: record.productCode,
                 productOmieId: record.productOmieId,
                 productName: record.productName,
+                productNameNormalized: record.productNameNormalized,
+                productCodeNormalized: record.productCodeNormalized,
+                orderNumberNormalized: record.orderNumberNormalized,
+                normalizeVersion: record.normalizeVersion,
                 productUnit: record.productUnit,
                 quantity: Number(record.quantity),
                 stage: record.stage,
+                stageName: record.stageName,
+                stageOrder: record.stageOrder,
+                stageGroup: record.stageGroup,
                 operationalStatus: record.operationalStatus,
                 isOpen: record.isOpen,
                 isLate: record.isLate,
@@ -162,9 +183,16 @@ export class ProductionOrderReadModelStore {
                 productCode: record.productCode,
                 productOmieId: record.productOmieId,
                 productName: record.productName,
+                productNameNormalized: record.productNameNormalized,
+                productCodeNormalized: record.productCodeNormalized,
+                orderNumberNormalized: record.orderNumberNormalized,
+                normalizeVersion: record.normalizeVersion,
                 productUnit: record.productUnit,
                 quantity: Number(record.quantity),
                 stage: record.stage,
+                stageName: record.stageName,
+                stageOrder: record.stageOrder,
+                stageGroup: record.stageGroup,
                 operationalStatus: record.operationalStatus,
                 isOpen: record.isOpen,
                 isLate: record.isLate,

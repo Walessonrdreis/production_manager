@@ -24,6 +24,8 @@ import {
     type MaterialsSummary,
     type ReadinessInfo,
 } from "../../infrastructure/db/production-order-read-model.store";
+import { normalize, NORMALIZE_VERSION } from "@/shared/search/normalize";
+import { resolveStage } from "@/shared/stage/resolve-stage";
 
 const logger = getLogger("RefreshProductionOrderReadModelUseCase");
 
@@ -322,15 +324,24 @@ export function buildProductionOrderReadModel(
         const completedAt = op.completionDate;
         const isOpen = op.active && !op.completed;
 
+        const stageInfo = resolveStage(op.stage);
+
         return {
             omieId: op.omieId,
             orderNumber: op.orderNumber,
+            orderNumberNormalized: normalize(op.orderNumber),
             productCode: bridge.internalToOmie.get(op.productOmieId) ?? null,
+            productCodeNormalized: normalize(bridge.internalToOmie.get(op.productOmieId) ?? null),
             productOmieId: op.productOmieId,
             productName: product?.description ?? null,
+            productNameNormalized: normalize(product?.description ?? null),
             productUnit: product?.unit ?? null,
+            normalizeVersion: NORMALIZE_VERSION,
             quantity: opQuantity,
             stage: op.stage,
+            stageName: stageInfo.stageName,
+            stageOrder: stageInfo.stageOrder,
+            stageGroup: stageInfo.stageGroup,
             operationalStatus: "NO_STRUCTURE",
             isOpen,
             isLate: false,
@@ -471,15 +482,24 @@ export function buildProductionOrderReadModel(
     };
 
     // ─── 10. Output final ─────────────────────────────────────────────
+    const stageInfo = resolveStage(op.stage);
+
     return {
         omieId: op.omieId,
         orderNumber: op.orderNumber,
+        orderNumberNormalized: normalize(op.orderNumber),
         productCode: bridge.internalToOmie.get(op.productOmieId) ?? null,
+        productCodeNormalized: normalize(bridge.internalToOmie.get(op.productOmieId) ?? null),
         productOmieId: op.productOmieId,
         productName: product?.description ?? null,
+        productNameNormalized: normalize(product?.description ?? null),
         productUnit: product?.unit ?? null,
+        normalizeVersion: NORMALIZE_VERSION,
         quantity: opQuantity,
         stage: op.stage,
+        stageName: stageInfo.stageName,
+        stageOrder: stageInfo.stageOrder,
+        stageGroup: stageInfo.stageGroup,
         operationalStatus,
         isOpen,
         isLate,
