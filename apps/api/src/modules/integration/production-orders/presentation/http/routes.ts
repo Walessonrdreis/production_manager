@@ -39,6 +39,7 @@ import { registerGetStockIssuesRoute } from "./routes/read/get-stock-issues.rout
 import { registerGetProductionOrderByNumberRoute } from "./routes/read/get-production-order-by-number.route";
 import { registerListProductionOrderCommandsRoute } from "./routes/read/list-production-order-commands.route";
 import { registerGetSyncStateRoute } from "./routes/read/get-sync-state.route";
+import { registerSearchSuggestionsRoute } from "./routes/read/search-suggestions.route";
 import { registerRefreshProductionOrderReadModelRoute } from "./routes/admin/refresh-production-order-read-model.route";
 
 export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
@@ -104,6 +105,9 @@ export async function productionOrdersIntegrationRoutes(app: FastifyInstance) {
 
   // ─── Read-Model (estado de sincronização — C3) ──────────────────
   await registerGetSyncStateRoute(app);
+
+  // ─── Read-Model (autocomplete — barra de busca) ──────────────────
+  await registerSearchSuggestionsRoute(app);
 
   // ─── Admin (refresh do read model) ────────────────────────────────
   await registerRefreshProductionOrderReadModelRoute(app);
