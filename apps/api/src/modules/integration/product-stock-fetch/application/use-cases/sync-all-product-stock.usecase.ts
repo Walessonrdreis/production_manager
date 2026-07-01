@@ -20,7 +20,7 @@ export type IntegrationStoreContract = {
 export type CommandStoreContract = {
   getOrCreateAccepted(input: {
     externalRequestId: string;
-    productId: string;
+    productOmieId: string;
     commandType: string;
     source?: string;
   }): Promise<{ record: any; created: boolean }>;
@@ -96,7 +96,7 @@ export class SyncAllProductStockUseCase {
     // Modo real: busca incremental e persiste
     const { record, created } = await this.commandStore.getOrCreateAccepted({
       externalRequestId: command.externalRequestId,
-      productId: "__GLOBAL__",
+      productOmieId: "__GLOBAL__",
       commandType: "REFRESH_STOCK",
       source: command.source ?? "API2",
     });

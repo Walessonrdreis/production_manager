@@ -8,7 +8,7 @@ import { getLogger } from "@/shared/logger";
 
 export type CreateAcceptedCommandInput = {
     externalRequestId: string;
-    productId: string;
+    productOmieId: string;
     commandType: "REFRESH_STOCK";
     source?: "API2" | "JOB" | "ADMIN";
 };
@@ -28,7 +28,7 @@ export class ProductStockCommandStore {
 
         this.logger.info("Criando comando ACEITO (product-stock-fetch)", {
             externalRequestId: input.externalRequestId,
-            productId: input.productId,
+            productOmieId: input.productOmieId,
             commandType: input.commandType,
             source: input.source ?? "API2",
         });
@@ -36,7 +36,7 @@ export class ProductStockCommandStore {
         const record = await prisma.productStockCommand.create({
             data: {
                 externalRequestId: input.externalRequestId,
-                productId: input.productId,
+                productOmieId: input.productOmieId,
                 commandType: input.commandType,
                 status: "ACCEPTED",
                 source: input.source ?? "API2",

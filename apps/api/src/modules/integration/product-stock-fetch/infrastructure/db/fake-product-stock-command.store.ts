@@ -8,7 +8,7 @@ import type { CreateAcceptedCommandInput } from "./product-stock-command.store";
 
 type CommandRecord = {
     externalRequestId: string;
-    productId: string;
+    productOmieId: string;
     commandType: string;
     status: string;
     source: string;
@@ -36,7 +36,7 @@ export class FakeProductStockCommandStore {
 
         const record: CommandRecord = {
             externalRequestId: input.externalRequestId,
-            productId: input.productId,
+            productOmieId: input.productOmieId,
             commandType: input.commandType,
             status: "ACCEPTED",
             source: input.source ?? "API2",
@@ -49,7 +49,7 @@ export class FakeProductStockCommandStore {
 
         this.logger.info("Fake comando ACCEPTED (product-stock-fetch)", {
             externalRequestId: input.externalRequestId,
-            productId: input.productId,
+            productOmieId: input.productOmieId,
         });
 
         return { record, created: true };

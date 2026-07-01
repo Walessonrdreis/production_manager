@@ -19,17 +19,17 @@ export class RefreshProductStockJob {
             productCount: this.productIds.length,
         });
 
-        for (const productId of this.productIds) {
+        for (const productOmieId of this.productIds) {
             try {
-                const externalRequestId = `job-refresh-stock-${productId}-${Date.now()}`;
+                const externalRequestId = `job-refresh-stock-${productOmieId}-${Date.now()}`;
                 await this.useCase.process({
                     externalRequestId,
-                    productId,
+                    productOmieId,
                 });
-                this.logger.info("Estoque atualizado", { productId });
+                this.logger.info("Estoque atualizado", { productOmieId });
             } catch (error) {
                 this.logger.error("Falha ao atualizar estoque", {
-                    productId,
+                    productOmieId,
                     error: error instanceof Error ? error.message : String(error),
                 });
             }

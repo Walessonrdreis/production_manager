@@ -65,7 +65,7 @@ export async function registerRefreshProductStockRoute(app: FastifyInstance) {
         const result = await useCase.execute({ externalRequestId, productId });
 
         // Processa em background (fire-and-forget)
-        useCase.process({ externalRequestId, productId }).catch((err) => {
+        useCase.process({ externalRequestId, productOmieId: productId }).catch((err) => {
             request.log.error(err, "Erro ao processar refresh de estoque");
         });
 

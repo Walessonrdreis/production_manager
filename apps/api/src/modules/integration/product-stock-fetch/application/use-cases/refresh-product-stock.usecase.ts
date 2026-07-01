@@ -14,7 +14,7 @@ export interface CommandStoreContract {
     findByExternalRequestId(externalRequestId: string): Promise<any>;
     getOrCreateAccepted(input: {
         externalRequestId: string;
-        productId: string;
+        productOmieId: string;
         commandType: string;
         source?: string;
     }): Promise<{ record: any; created: boolean }>;
@@ -41,7 +41,7 @@ export class RefreshProductStockUseCase {
     ): Promise<RefreshProductStockResponseDTO> {
         const { record, created } = await this.commandStore.getOrCreateAccepted({
             externalRequestId: input.externalRequestId,
-            productId: input.productId,
+            productOmieId: input.productId,
             commandType: "REFRESH_STOCK",
             source: "API2",
         });
@@ -55,12 +55,12 @@ export class RefreshProductStockUseCase {
 
     async process(input: {
         externalRequestId: string;
-        productId: string;
+        productOmieId: string;
     }) {
         try {
-            const stockData = await this.fetchGateway.fetch(input.productId);
+            const stockData = await this.fetchGateway.fetch(input.productOmieId);
 
-            await this.integrationStore.upsert(input.productId, {
+            await this.integrationStore.upsert(input.productOmieId, {
                 stockQuantity: stockData.total,
                 minimumStock: 0,
             });
