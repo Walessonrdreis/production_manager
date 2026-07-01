@@ -48,6 +48,7 @@ export async function registerSearchSuggestionsRoute(
                         OR: [
                             { productCode: { startsWith: q, mode: "insensitive" } },
                             { productCodeNormalized: { startsWith: qNormalized, mode: "insensitive" } },
+                            { stageName: { startsWith: q, mode: "insensitive" } },
                         ],
                     };
                 } else {

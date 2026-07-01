@@ -642,6 +642,7 @@ export class ProductionOrderReadModelStore {
                 where.OR = [
                     { productCode: { contains: q, mode: "insensitive" } },
                     { productCodeNormalized: { contains: qNormalized, mode: "insensitive" } },
+                    { stageName: { contains: q, mode: "insensitive" } },
                 ];
             } else {
                 // Text search — busca em múltiplos campos textuais
@@ -654,6 +655,7 @@ export class ProductionOrderReadModelStore {
                         { productNameNormalized: { contains: qNormalized, mode: "insensitive" } },
                         { productCodeNormalized: { contains: qNormalized, mode: "insensitive" } },
                         { orderNumberNormalized: { contains: qNormalized, mode: "insensitive" } },
+                        { stageName: { contains: q, mode: "insensitive" } },
                     ];
                 } else {
                     // Multi-token: cada token precisa bater em pelo menos um campo
@@ -661,6 +663,7 @@ export class ProductionOrderReadModelStore {
                         OR: [
                             { productNameNormalized: { contains: token, mode: "insensitive" } },
                             { productCodeNormalized: { contains: token, mode: "insensitive" } },
+                            { stageName: { contains: token, mode: "insensitive" } },
                         ],
                     }));
                 }
