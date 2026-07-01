@@ -40,6 +40,8 @@ Representa a **capacidade externa de Ordens de Produção (OP)**, cuja fonte de 
 - Persistir o estado de integração (command queue + espelho local)
 - Expor read-models estáveis para consumo da API 2
 - Suportar refresh individual de OP diretamente do Omie (síncrono)
+- **Search UX:** Busca inteligente com autocomplete, scoring e normalização nos read-models (consulte `docs/SEARCH_UX.md`)
+- **Admin:** Recalcular read-model e popular campos de busca indexados via `POST /v1/admin/production-orders/read-model/refresh`
 
 ### 🧠 Classificação Arquitetural
 
@@ -287,6 +289,7 @@ modules/integration/production-orders/
 │   ├── db/
 │   │   ├── production-order-command.store.ts
 │   │   ├── production-order-integration.store.ts
+│   │   ├── production-order-query.store.ts
 │   │   ├── production-order-read-model.store.ts
 │   │   └── production-order-sync.store.ts
 │   │
@@ -325,20 +328,28 @@ modules/integration/production-orders/
         │   ├── callbacks/
         │   │   ├── confirm-production-order.callback.route.ts
         │   │   └── fail-production-order.callback.route.ts
+        │   ├── admin/
+        │   │   └── refresh-production-order-read-model.route.ts
         │   └── read/
-        │       ├── get-production-order-by-number.route.ts  # (C2)
-        │       ├── get-production-order-consumption.route.ts # (C1)
+        │       ├── get-consumption-summary-by-id.route.ts      # (C1)
+        │       ├── get-consumption-summary.route.ts            # (C1)
+        │       ├── get-production-order-by-number.route.ts     # (C2)
+        │       ├── get-production-order-consumption.route.ts   # (C1)
         │       ├── get-production-order-refresh.route.ts
         │       ├── get-production-order-stats.route.ts
-        │       ├── get-production-order-summary.route.ts     # (C1)
+        │       ├── get-production-order-summary-by-id.route.ts # (C1)
+        │       ├── get-production-order-summary.route.ts       # (C1)
+        │       ├── get-production-order-with-bom.route.ts
         │       ├── get-production-order.route.ts
         │       ├── get-queue-failures.route.ts
         │       ├── get-queue-status.route.ts
-        │       ├── get-stock-issues.route.ts                 # (C2)
-        │       ├── get-sync-state.route.ts                   # (C3)
-        │       ├── list-production-order-commands.route.ts   # (C2)
-        │       ├── list-production-orders-unified.route.ts   # (C1)
-        │       └── list-production-orders.route.ts
+        │       ├── get-stock-issues.route.ts                   # (C2)
+        │       ├── get-sync-state.route.ts                     # (C3)
+        │       ├── list-open-production-orders.route.ts
+        │       ├── list-production-order-commands.route.ts     # (C2)
+        │       ├── list-production-orders.route.ts
+        │       ├── list-unified-production-orders.route.ts     # (C1)
+        │       └── search-suggestions.route.ts                 # Search UX
 ```
 ```
 
@@ -346,7 +357,7 @@ modules/integration/production-orders/
 
 ## 5. Rotas da API (Referência Completa)
 
-> **24 rotas no total:** 9 commands (8 POST + 1 GET), 2 callbacks (POST), 13 read-models (GET).
+> **33 rotas no total:** 11 commands (10 POST + 1 GET), 2 callbacks (POST), 19 read-models (GET), 1 admin (POST).
 
 ### 5.1 Commands (Intenções)
 
@@ -645,10 +656,20 @@ curl "http://localhost:3333/v1/integration/production-orders/read?page=1&limit=2
 ---
 
 #### `GET /v1/integration/production-orders/read/list-unified` (C1)
-Lista unificada com filtros avançados: `isOpen`, `isLate`, `hasStockIssues`, `productCode`, `page`, `limit`.
+Lista unificada com filtros avançados: `q`, `isOpen`, `isLate`, `hasStockIssues`, `productCode`, `page`, `limit`.
+
+**Parâmetro `q` (Search UX):** Ativa busca inteligente com:
+- Detecção automática do tipo de consulta (`detectQueryType`)
+- Busca ponderada por: `orderNumber`, `productCode`, `productName`, `stageName`, `omieId`
+- Score de relevância com reordenação pós-consulta (ALL = 5, PARTIAL = 2)
+- Normalização (remoção de acentos + lowercase) nos campos indexados
+- Compatível com tokenização multi-palavra (mín. 2 caracteres por token)
+
+> 📖 Consulte `docs/SEARCH_UX.md` para detalhes completos da infraestrutura de busca.
 
 **curl:**
 ```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/list-unified?q=Planejada&limit=20"
 curl "http://localhost:3333/v1/integration/production-orders/read/list-unified?isOpen=true&isLate=true&limit=20"
 ```
 
@@ -760,6 +781,81 @@ Consulta a OP diretamente no Omie, atualiza o espelho local e retorna dados fres
 **curl:**
 ```bash
 curl http://localhost:3333/v1/integration/production-orders/read/9204166587/refresh
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/search-suggestions?q=` (Search UX)
+Autocomplete de busca: retorna sugestões com base em prefixo match contra `productName`, `productCode`, `orderNumber`, `stageName`.
+
+**Parâmetros query:** `q` (obrigatório, mínimo 2 caracteres)
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/search-suggestions?q=FAB"
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/consumption-summary` (C1)
+Sumário agregado de consumo de materiais (dashboard). Retorna totais consolidados de todos os consumos.
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/consumption-summary"
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/consumption-summary/:omieId` (C1)
+Sumário de consumo de materiais de uma OP específica.
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/consumption-summary/9204166587"
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/production-order-with-bom/:omieId`
+Retorna a ordem de produção com sua estrutura (BOM) completa.
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/production-order-with-bom/9204166587"
+```
+
+---
+
+#### `GET /v1/integration/production-orders/read/list-open`
+Lista OPs abertas (não concluídas) com paginação.
+
+**curl:**
+```bash
+curl "http://localhost:3333/v1/integration/production-orders/read/list-open?page=1&limit=20"
+```
+
+---
+
+### 5.5 Admin (Manutenção)
+
+#### `POST /v1/admin/production-orders/read-model/refresh`
+Recalcula o read-model de todas as OPs do espelho local. Executa `normalize()` e `resolveStage()` em cada registro para popular campos de busca indexados.
+
+**curl:**
+```bash
+curl -X POST http://localhost:3333/v1/admin/production-orders/read-model/refresh
+```
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "totalProcessed": 1566,
+    "message": "Read-model refreshed successfully"
+  }
+}
 ```
 
 ---
@@ -1008,6 +1104,7 @@ flowchart LR
 - ❌ **Legacy síncrono**: `CreateProductionOrderUseCase` (sem sufixo) é legado síncrono — não usar.
 - ✅ **Idempotência**: Garantida via `externalRequestId` + CommandStore.
 - ✅ **Rate-limit**: `sleep(700)` entre páginas no sync global.
+- ✅ **Search UX**: Infraestrutura completa de busca (autocomplete + score + normalização) documentada em `docs/SEARCH_UX.md`.
 
 ---
 
@@ -1039,229 +1136,3 @@ flowchart LR
 6. **Comandos retornam 202 Accepted** (eventual-consistente)
 7. **Nunca importar Prisma direto nos use-cases** — usar stores
 8. **Nunca misturar responsabilidades de diferentes módulos de integração**
-    "data": {
-      "externalRequestId": "string",
-      "productId": "string",
-      "quantity": "number",
-      "scheduledDate": "string (optional)",
-      "notes": "string (optional)",
-      "status": "CONFIRMED",
-      "omieProductionOrderId": "number (optional)",
-      "createdAt": "string (ISO datetime)",
-      "updatedAt": "string (ISO datetime)"
-    }
-  }
-  ```
-- `404 Not Found`: Ordem não encontrada
-- `405 Method Not Allowed`: Quando `PRODUCTION_ORDER_GATEWAY=real`
-
----
-
-### 4. **POST** `/v1/integration/production-orders/:externalRequestId/fail`
-**FAKE ONLY** - Marca uma ordem de produção como falha (disponível apenas quando `PRODUCTION_ORDER_GATEWAY=fake`).
-
-**Path Parameters:**
-- `externalRequestId`: ID externo da ordem
-
-**Request Body:**
-```json
-{
-  "code": "string",
-  "message": "string"
-}
-```
-
-**Responses:**
-- `200 OK`: Ordem marcada como falha
-  ```json
-  {
-    "success": true,
-    "data": {
-      "externalRequestId": "string",
-      "productId": "string",
-      "quantity": "number",
-      "scheduledDate": "string (optional)",
-      "notes": "string (optional)",
-      "status": "FAILED",
-      "omieProductionOrderId": "number (optional)",
-      "createdAt": "string (ISO datetime)",
-      "updatedAt": "string (ISO datetime)",
-      "lastError": {
-        "code": "string",
-        "message": "string"
-      }
-    }
-  }
-  ```
-- `404 Not Found`: Ordem não encontrada
-- `405 Method Not Allowed`: Quando `PRODUCTION_ORDER_GATEWAY=real`
-
----
-
-## 🏗️ Arquitetura
-
-```
-production-orders/
-├── index.ts
-├── production-orders-integration-register.ts
-├── README.md
-├── application/
-│   ├── dto/
-│   │   ├── sync-all-production-orders.dto.ts
-│   │   ├── create-production-order.dto.ts
-│   │   ├── update-production-order.dto.ts
-│   │   ├── cancel-production-order.dto.ts
-│   │   ├── change-stage-production-order.dto.ts
-│   │   ├── reconcile.dto.ts              # (C3)
-│   │   └── invalidate.dto.ts             # (C3)
-│   ├── ports/
-│   │   ├── production-order-cancel.gateway.ts
-│   │   ├── production-order-change-stage.gateway.ts
-│   │   ├── production-order-consult.gateway.ts
-│   │   ├── production-order-creation.gateway.ts
-│   │   ├── production-order-integration.gateway.ts
-│   │   ├── production-order-query.gateway.ts
-│   │   ├── production-order-sync-page.gateway.ts
-│   │   └── production-order-update.gateway.ts
-│   └── use-cases/
-│       ├── enqueue-cancel-production-order.usecase.ts
-│       ├── enqueue-change-stage-production-order.usecase.ts
-│       ├── enqueue-create-production-order.usecase.ts
-│       ├── enqueue-update-production-order.usecase.ts
-│       ├── process-cancel-production-order.usecase.ts
-│       ├── process-change-stage-production-order.usecase.ts
-│       ├── process-create-production-order.usecase.ts
-│       ├── process-update-production-order.usecase.ts
-│       ├── refresh-production-order-read-model.usecase.ts
-│       └── sync-all-production-orders.usecase.ts
-├── infrastructure/
-│   ├── db/
-│   │   ├── production-order-command.store.ts
-│   │   ├── production-order-integration.store.ts
-│   │   ├── production-order-query.store.ts
-│   │   └── production-order-sync.store.ts
-│   ├── gateways/
-│   │   ├── cancel/
-│   │   │   ├── fake-production-order-cancel.gateway.ts
-│   │   │   └── real-production-order-cancel.gateway.ts
-│   │   ├── change-stage/
-│   │   │   ├── fake-production-order-change-stage.gateway.ts
-│   │   │   └── real-production-order-change-stage.gateway.ts
-│   │   ├── consult/
-│   │   │   ├── fake-production-order-consult.gateway.ts
-│   │   │   └── real-production-order-consult.gateway.ts
-│   │   ├── creation/
-│   │   │   ├── fake-production-order-creation.gateway.ts
-│   │   │   └── real-production-order-creation.gateway.ts
-│   │   ├── lifecycle/
-│   │   │   ├── fake-production-order-lifecycle.gateway.ts
-│   │   │   └── real-production-order-lifecycle.gateway.ts
-│   │   ├── query/
-│   │   │   ├── fake-production-order-query.gateway.ts
-│   │   │   └── real-production-order-query.gateway.ts
-│   │   ├── sync-page/
-│   │   │   ├── fake-production-order-sync-page.gateway.ts
-│   │   │   └── real-production-order-sync-page.gateway.ts
-│   │   └── update/
-│   │       ├── fake-production-order-update.gateway.ts
-│   │       └── real-production-order-update.gateway.ts
-│   └── jobs/
-│       ├── production-order-jobs.handler.ts
-│       ├── production-order-jobs.register.ts
-│       └── sync-all-production-orders.job.ts
-└── presentation/
-    └── http/
-        ├── routes.ts
-        ├── schemas.ts
-        ├── openapi.ts
-        └── routes/
-            ├── commands/
-            │   ├── cancel-production-order.route.ts
-            │   ├── change-production-order-stage.route.ts
-            │   ├── create-production-order.route.ts
-            │   ├── get-production-order-status.route.ts
-            │   ├── invalidate.route.ts              # (C3)
-            │   ├── rebuild.route.ts                 # (C3)
-            │   ├── reconcile.route.ts               # (C3)
-            │   ├── retry-failed.route.ts            # (C1-P0)
-            │   ├── sync-all-production-orders.route.ts
-            │   ├── sync-incremental.route.ts        # (C1-P0)
-            │   └── update-production-order.route.ts
-            ├── callbacks/
-            │   ├── confirm-production-order.callback.route.ts
-            │   └── fail-production-order.callback.route.ts
-            └── read/
-                ├── get-production-order-by-number.route.ts  # (C2)
-                ├── get-production-order-consumption.route.ts # (C1)
-                ├── get-production-order-refresh.route.ts
-                ├── get-production-order-stats.route.ts
-                ├── get-production-order-summary.route.ts     # (C1)
-                ├── get-production-order.route.ts
-                ├── get-queue-failures.route.ts
-                ├── get-queue-status.route.ts
-                ├── get-stock-issues.route.ts                 # (C2)
-                ├── get-sync-state.route.ts                   # (C3)
-                ├── list-production-order-commands.route.ts   # (C2)
-                ├── list-production-orders-unified.route.ts   # (C1)
-                └── list-production-orders.route.ts
-```
-
----
-
-## ⚙️ Configuração
-
-**Variáveis de Ambiente:**
-- `PRODUCTION_ORDER_GATEWAY`: `"fake"` (default) ou `"real"`
-- `OMIE_APP_KEY`: Chave da API Omie (apenas para gateway real)
-- `OMIE_APP_SECRET`: Segredo da API Omie (apenas para gateway real)
-- `OMIE_BASE_URL`: URL base da API Omie (apenas para gateway real)
-
----
-
-## 🔄 Fluxo de Integração
-
-1. **API 2** → Envia comando para **API 1** via `POST /v1/integration/production-order`
-2. **API 1** → Valida payload e seleciona gateway (fake/real)
-3. **Gateway Fake** → Retorna `ACCEPTED` imediatamente (simulação)
-4. **Gateway Real** → Chama API Omie (`IncluirOrdemProducao`)
-5. **API 1** → Retorna resposta para **API 2**
-
----
-
-## 🧪 Endpoints de Teste (Fake Only)
-
-Quando `PRODUCTION_ORDER_GATEWAY=fake`, endpoints adicionais estão disponíveis para simulação:
-
-1. **Confirmar Ordem**: `POST /v1/integration/production-orders/:id/confirm`
-2. **Falhar Ordem**: `POST /v1/integration/production-orders/:id/fail`
-
-Estes endpoints são **bloqueados** quando `PRODUCTION_ORDER_GATEWAY=real`.
-
----
-
-## 📊 Status da Ordem
-
-- `ACCEPTED`: Ordem aceita para processamento
-- `CONFIRMED`: Ordem confirmada pelo sistema externo (fake only)
-- `FAILED`: Falha na integração (fake only)
-
----
-
-## 🔒 Segurança
-
-- **API 1** é a única responsável por integrações externas
-- **API 2** nunca faz chamadas diretas a sistemas externos
-- Endpoints fake são protegidos por variável de ambiente
-
----
-
-## 🚀 Uso em Produção
-
-Para usar integração real com Omie:
-1. Configure `PRODUCTION_ORDER_GATEWAY=real`
-2. Forneça credenciais válidas da API Omie
-3. Teste em ambiente de staging antes de produção
-
-Para desenvolvimento/teste:
-1. Mantenha `PRODUCTION_ORDER_GATEWAY=fake`
-2. Use endpoints fake para simular diferentes cenários

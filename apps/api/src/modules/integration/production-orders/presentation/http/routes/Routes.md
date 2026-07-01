@@ -6,13 +6,13 @@ Módulo de integração de Ordens de Produção (OP) com Omie.
 
 ## Organização das Rotas
 
-| Grupo | Descrição |
-|---|---|
-| **Commands** `POST /commands/*` | Intenções que saem do sistema → enfileiradas (Command Queue) |
-| **Callbacks** `POST /callbacks/*` | Respostas que entram no sistema (Fake-only) |
-| **Tracking** `GET /commands/:id` | Acompanhamento de status de comando |
-| **Read-Models** `GET /read/*` | Consultas ao espelho local (sem efeito colateral) |
-| **Refresh** `GET /read/*/refresh` | Consulta síncrona ao Omie + atualiza espelho |
+| Grupo | Prefixo | Descrição |
+|---|---|---|
+| **Commands** | `POST /v1/integration/production-orders/commands/*` | Intenções que saem do sistema → enfileiradas (Command Queue) |
+| **Callbacks** | `POST /v1/integration/production-orders/callbacks/*` | Respostas que entram no sistema (Fake-only) |
+| **Tracking** | `GET /v1/integration/production-orders/commands/:externalRequestId` | Acompanhamento de status de comando |
+| **Read-Models** | `GET /v1/integration/production-orders/read/*` | Consultas ao espelho local (sem efeito colateral) |
+| **Admin** | `POST /v1/admin/production-orders/*` | Operações administrativas (refresh, rebuild) |
 
 > **Arquitetura:** Toda intenção de escrita enfileira um comando `PENDING`. O **Queue Processor Job** consome a fila e executa contra o Omie. A resposta é assíncrona (eventual-consistente).
 
@@ -97,7 +97,7 @@ Enfileira uma atualização de OP (`UPDATE_OP`) no Command Queue.
 ```json
 {
   "externalRequestId": "meu-id-único-002",
-  "omieCode": "9551864263",
+  "omieId": "9551864263",
   "quantity": 150,
   "forecastDate": "2026-08-01T00:00:00.000Z",
   "notes": "Alteração de quantidade"
@@ -107,7 +107,7 @@ Enfileira uma atualização de OP (`UPDATE_OP`) no Command Queue.
 | Campo | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
 | `externalRequestId` | `string` | ✅ Sim | ID de idempotência |
-| `omieCode` | `string` | ✅ Sim | Código da OP no Omie |
+| `omieId` | `string` | ✅ Sim | Código da OP no Omie |
 | `quantity` | `number` | ❌ Não | Nova quantidade (> 0) |
 | `forecastDate` | `string (ISO 8601)` | ❌ Não | Nova data prevista |
 | `notes` | `string` | ❌ Não | Observações |
@@ -131,7 +131,7 @@ curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/comma
   -H "Content-Type: application/json" \
   -d '{
     "externalRequestId": "update-op-001",
-    "omieCode": "9551864263",
+    "omieId": "9551864263",
     "quantity": 150
   }'
 ```
@@ -151,7 +151,7 @@ Enfileira um cancelamento de OP (`CANCEL_OP`) no Command Queue.
 ```json
 {
   "externalRequestId": "meu-id-único-003",
-  "omieCode": "9551864263",
+  "omieId": "9551864263",
   "reason": "Cancelamento por solicitação do cliente"
 }
 ```
@@ -159,7 +159,7 @@ Enfileira um cancelamento de OP (`CANCEL_OP`) no Command Queue.
 | Campo | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
 | `externalRequestId` | `string` | ✅ Sim | ID de idempotência |
-| `omieCode` | `string` | ✅ Sim | Código da OP no Omie |
+| `omieId` | `string` | ✅ Sim | Código da OP no Omie |
 | `reason` | `string` | ❌ Não | Motivo do cancelamento |
 
 **Response 202 (Accepted):**
@@ -181,7 +181,7 @@ curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/comma
   -H "Content-Type: application/json" \
   -d '{
     "externalRequestId": "cancel-op-001",
-    "omieCode": "9551864263",
+    "omieId": "9551864263",
     "reason": "Cliente desistiu do pedido"
   }'
 ```
@@ -201,7 +201,7 @@ Enfileira uma alteração de etapa (`CHANGE_STAGE`) no Command Queue.
 ```json
 {
   "externalRequestId": "meu-id-único-004",
-  "omieCode": "9551864263",
+  "omieId": "9551864263",
   "stage": "30"
 }
 ```
@@ -209,7 +209,7 @@ Enfileira uma alteração de etapa (`CHANGE_STAGE`) no Command Queue.
 | Campo | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
 | `externalRequestId` | `string` | ✅ Sim | ID de idempotência |
-| `omieCode` | `string` | ✅ Sim | Código da OP no Omie |
+| `omieId` | `string` | ✅ Sim | Código da OP no Omie |
 | `stage` | `string` | ✅ Sim | Código da etapa (ex: "10", "20", "30", "60") |
 
 **Response 202 (Accepted):**
@@ -231,7 +231,7 @@ curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/comma
   -H "Content-Type: application/json" \
   -d '{
     "externalRequestId": "stage-op-001",
-    "omieCode": "9551864263",
+    "omieId": "9551864263",
     "stage": "30"
   }'
 ```
@@ -431,10 +431,10 @@ curl.exe -s "http://localhost:3333/v1/integration/production-orders/commands/cre
 >
 > **Exceção:** `…/refresh` (seção 4.6) — consulta síncrona ao Omie + atualização do espelho.
 
-### 4.1 Listar Ordens de Produção
+### 4.1 Listar Ordens de Produção (Legacy)
 
 ```
-GET /v1/integration/read/production-orders?page=1&limit=20&completed=false&active=true&productCode=9468673347
+GET /v1/integration/production-orders/read?page=1&limit=20&completed=false&active=true&productCode=9468673347
 ```
 
 Retorna lista paginada de OPs do espelho local.
@@ -458,7 +458,7 @@ Retorna lista paginada de OPs do espelho local.
     "items": [
       {
         "id": "79db4515-...",
-        "omieCode": "9551864263",
+        "omieId": "9551864263",
         "productCode": "9468673347",
         "quantity": "1",
         "stage": "10",
@@ -480,18 +480,149 @@ Retorna lista paginada de OPs do espelho local.
 **Exemplo curl:**
 
 ```bash
-curl.exe -s "http://localhost:3333/v1/integration/read/production-orders?page=1&limit=5&completed=false"
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read?page=1&limit=5&completed=false"
 ```
 
 ---
 
-### 4.2 Detalhe da Ordem de Produção
+### 4.2 Lista Unificada com Busca Inteligente
 
 ```
-GET /v1/integration/read/production-orders/:omieCode
+GET /v1/integration/production-orders/read/list-unified?page=1&limit=20&q=9468673347&completed=false
+```
+
+Retorna lista paginada de OPs com suporte a **busca inteligente** via parâmetro `q`.  
+Quando `q` é informado, o sistema detecta automaticamente o tipo de consulta e aplica scoring/ranking:
+
+| Tipo de Consulta | Exemplo | Campos Buscados |
+|---|---|---|
+| `orderNumber` | `"1456"` (numérico 4 dígitos) | `orderNumber` |
+| `omieId` | `"9551864263"` (numérico 10 dígitos) | `omieId` |
+| `code` | `"9468673347"` ou `"Planejada"` (alfabético) | `productCode`, `productCodeNormalized`, `stageName`, `productName` |
+| `text` | `"bobina 35kg"` (multitoken) | `productName`, `productNameNormalized`, `stageName` |
+
+**Query Parameters:**
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|---|---|---|---|
+| `page` | `number` | `1` | Página atual |
+| `limit` | `number` | `20` | Itens por página (max: 100) |
+| `q` | `string` | — | Termo de busca (detecção automática) |
+| `completed` | `boolean` | — | Filtrar por concluídas |
+| `active` | `boolean` | — | Filtrar por ativas |
+| `productCode` | `string` | — | Filtrar por código do produto |
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "79db4515-...",
+        "omieId": "9551864263",
+        "productCode": "9468673347",
+        "productName": "BOBINA 35KG C/ALMA 76MM",
+        "quantity": "1",
+        "stage": "10",
+        "stageName": "Planejada",
+        "stageOrder": 1,
+        "stageGroup": "PLANEJAMENTO",
+        "completed": false,
+        "active": true,
+        "forecastDate": "2026-06-12T00:00:00.000Z",
+        "startDate": "2026-06-12T00:00:00.000Z",
+        "completionDate": null,
+        "lastSyncAt": "2026-06-22T18:03:16.376Z",
+        "score": 1,
+        "matchedFields": ["omieId"]
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 20
+  }
+}
+```
+
+> **Campos adicionais** (vs rota legada): `productName`, `stageName`, `stageOrder`, `stageGroup`, `score`, `matchedFields`.
+
+**Exemplo curl:**
+
+```bash
+# Busca por código de produto
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/list-unified?q=9468673347"
+
+# Busca por nome de produto
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/list-unified?q=bobina%2035kg"
+
+# Busca por estágio
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/list-unified?q=planejada"
+```
+
+---
+
+### 4.3 Autocomplete (Sugestões de Busca)
+
+```
+GET /v1/integration/production-orders/read/search-suggestions?q=bobina
+```
+
+Retorna sugestões de busca para a barra de pesquisa (autocomplete).  
+Usa prefix matching com suporte a multi-token e ranqueamento por similaridade.
+
+**Query Parameters:**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `q` | `string` | ✅ Sim | Termo de busca (mín. 2 caracteres) |
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "suggestions": [
+      { "type": "product", "label": "BOBINA 35KG C/ALMA 76MM", "value": "9468673347" },
+      { "type": "order", "label": "OP 9551864263 — BOBINA 35KG", "value": "9551864263" },
+      { "type": "stage", "label": "Etapa: Planejada", "value": "Planejada" }
+    ]
+  }
+}
+```
+
+**Tipos de sugestão:**
+
+| `type` | Descrição |
+|---|---|
+| `product` | Nome do produto |
+| `code` | Código do produto |
+| `order` | Código da OP (omieId) |
+| `stage` | Nome da etapa |
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/search-suggestions?q=bobina"
+```
+
+---
+
+### 4.4 Detalhe da Ordem de Produção
+
+```
+GET /v1/integration/production-orders/read/:omieId
 ```
 
 Retorna detalhes + itens de uma OP específica.
+
+**Path Parameters:**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `omieId` | `string` | ✅ Sim | Código numérico da OP no Omie (nCodOP) |
 
 **Response 200:**
 
@@ -500,7 +631,7 @@ Retorna detalhes + itens de uma OP específica.
   "success": true,
   "data": {
     "id": "79db4515-...",
-    "omieCode": "9551864263",
+    "omieId": "9551864263",
     "productCode": "9468673347",
     "quantity": "1",
     "stage": "10",
@@ -515,184 +646,15 @@ Retorna detalhes + itens de uma OP específica.
 **Exemplo curl:**
 
 ```bash
-curl.exe -s "http://localhost:3333/v1/integration/read/production-orders/9551864263"
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/9551864263"
 ```
 
 ---
 
-### 4.3 Estatísticas
+### 4.5 Detalhe da OP com Estrutura (BOM) e Consumo
 
 ```
-GET /v1/integration/read/production-orders/stats
-```
-
-Retorna contagens agregadas do espelho local.
-
-**Response 200:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "total": 1537,
-    "active": 1537,
-    "completed": 1441,
-    "withOrderNumber": 0
-  }
-}
-```
-
-**Exemplo curl:**
-
-```bash
-curl.exe -s "http://localhost:3333/v1/integration/read/production-orders/stats"
-```
-
----
-
-### 4.4 Status da Fila de Comandos
-
-```
-GET /v1/integration/read/production-orders/queue
-```
-
-Retorna contagens por status + comandos recentes da Command Queue.
-
-**Response 200:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "counts": {
-      "pending": 3,
-      "processing": 0,
-      "confirmed": 5,
-      "failed": 0
-    },
-    "recent": [
-      {
-        "id": "9c0bb8fc-...",
-        "externalRequestId": "create-op-001",
-        "commandType": "CREATE_OP",
-        "status": "PENDING",
-        "source": "API2",
-        "createdAt": "2026-06-22T21:02:50.786Z",
-        "updatedAt": "2026-06-22T21:02:50.786Z"
-      }
-    ]
-  }
-}
-```
-
-**Exemplo curl:**
-
-```bash
-curl.exe -s "http://localhost:3333/v1/integration/read/production-orders/queue"
-```
-
----
-
-### 4.5 Falhas na Fila
-
-```
-GET /v1/integration/read/production-orders/queue/failures
-```
-
-Retorna comandos com falha (últimos 20).
-
-**Response 200:**
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "abc123-...",
-      "externalRequestId": "falhou-op-001",
-      "commandType": "CREATE_OP",
-      "status": "FAILED",
-      "lastError": {
-        "code": "OMIE_ERROR",
-        "message": "Produto não encontrado"
-      },
-      "retryCount": 0,
-      "createdAt": "2026-06-22T21:02:50.786Z",
-      "updatedAt": "2026-06-22T21:02:50.786Z"
-    }
-  ]
-}
-```
-
-**Exemplo curl:**
-
-```bash
-curl.exe -s "http://localhost:3333/v1/integration/read/production-orders/queue/failures"
-```
-
----
-
-### 4.6 Atualizar OP do Omie (Refresh)
-
-```
-GET /v1/integration/read/production-orders/:omieCode/refresh
-```
-
-Consulta a OP diretamente no Omie (`ConsultarOrdemProducao`), atualiza o espelho local e retorna dados frescos.
-Rota **síncrona** — o dado é buscado do Omie e devolvido na hora.
-
-**Path Parameters:**
-
-| Parâmetro | Tipo | Obrigatório | Descrição |
-|---|---|---|---|
-| `omieCode` | `string` | ✅ Sim | Código numérico da OP no Omie (nCodOP) |
-
-**Response 200:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "omieCode": "9551864263",
-    "internalCode": null,
-    "orderNumber": null,
-    "productCode": "9468673347",
-    "productIntegrationCode": null,
-    "quantity": "1",
-    "forecastDate": "2026-06-12T00:00:00.000Z",
-    "startDate": "2026-06-12T00:00:00.000Z",
-    "completionDate": null,
-    "stage": "10",
-    "projectCode": null,
-    "completed": false,
-    "active": true,
-    "items": []
-  }
-}
-```
-
-**Response 404:**
-
-```json
-{
-  "success": false,
-  "error": "NOT_FOUND",
-  "message": "Production order 9999999999 not found in Omie"
-}
-```
-
-**Exemplo curl:**
-
-```bash
-curl.exe -s "http://localhost:3333/v1/integration/read/production-orders/9551864263/refresh"
-```
-
----
-
-### 4.7 Detalhe da OP com Estrutura (BOM) e Consumo
-
-```
-GET /v1/integration/production-orders/read/:omieCode/with-bom
+GET /v1/integration/production-orders/read/:omieId/with-bom
 ```
 
 Retorna a OP + nome do produto + itens da estrutura (BOM) com cálculo de consumo + itens da OP vindos do Omie.
@@ -701,10 +663,10 @@ Retorna a OP + nome do produto + itens da estrutura (BOM) com cálculo de consum
 
 | Parâmetro | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
-| `omieCode` | `string` | ✅ Sim | Código numérico da OP no Omie (nCodOP) |
+| `omieId` | `string` | ✅ Sim | Código numérico da OP no Omie (nCodOP) |
 
 **Comportamento:**
-- Busca a OP pelo `omieCode`
+- Busca a OP pelo `omieId`
 - Faz a ponte entre `product_code` (código Omie) e a estrutura (`product_structure_item`) via catálogo
 - Calcula: `totalConsumption = OP.quantity * BOM.quantidade`
 - Calcula: `stockAfterConsumption = currentStock - totalConsumption`
@@ -717,7 +679,7 @@ Retorna a OP + nome do produto + itens da estrutura (BOM) com cálculo de consum
   "success": true,
   "data": {
     "order": {
-      "omieCode": "9529462060",
+      "omieId": "9529462060",
       "orderNumber": null,
       "productCode": "9116171995",
       "productName": null,
@@ -754,16 +716,6 @@ Retorna a OP + nome do produto + itens da estrutura (BOM) com cálculo de consum
 }
 ```
 
-**Response 404:**
-
-```json
-{
-  "success": false,
-  "error": "NOT_FOUND",
-  "message": "Production order 9999999999 not found"
-}
-```
-
 **Exemplo curl:**
 
 ```bash
@@ -772,7 +724,443 @@ curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/9529462
 
 ---
 
-## 5. Fluxo de Uso (Exemplo Completo)
+### 4.6 Atualizar OP do Omie (Refresh)
+
+```
+GET /v1/integration/production-orders/read/:omieId/refresh
+```
+
+Consulta a OP diretamente no Omie (`ConsultarOrdemProducao`), atualiza o espelho local e retorna dados frescos.
+Rota **síncrona** — o dado é buscado do Omie e devolvido na hora.
+
+**Path Parameters:**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `omieId` | `string` | ✅ Sim | Código numérico da OP no Omie (nCodOP) |
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "omieId": "9551864263",
+    "internalCode": null,
+    "orderNumber": null,
+    "productCode": "9468673347",
+    "productIntegrationCode": null,
+    "quantity": "1",
+    "forecastDate": "2026-06-12T00:00:00.000Z",
+    "startDate": "2026-06-12T00:00:00.000Z",
+    "completionDate": null,
+    "stage": "10",
+    "projectCode": null,
+    "completed": false,
+    "active": true,
+    "items": []
+  }
+}
+```
+
+**Response 404:**
+
+```json
+{
+  "success": false,
+  "error": "NOT_FOUND",
+  "message": "Production order 9999999999 not found in Omie"
+}
+```
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/9551864263/refresh"
+```
+
+---
+
+### 4.7 Consulta por Número da OP
+
+```
+GET /v1/integration/production-orders/read/by-number/:orderNumber
+```
+
+Busca uma OP pelo número do pedido (orderNumber).
+
+**Path Parameters:**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `orderNumber` | `string` | ✅ Sim | Número do pedido |
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/by-number/1456"
+```
+
+---
+
+### 4.8 Estatísticas
+
+```
+GET /v1/integration/production-orders/read/stats
+```
+
+Retorna contagens agregadas do espelho local.
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "total": 1537,
+    "active": 1537,
+    "completed": 1441,
+    "withOrderNumber": 0
+  }
+}
+```
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/stats"
+```
+
+---
+
+### 4.9 Status da Fila de Comandos
+
+```
+GET /v1/integration/production-orders/read/queue
+```
+
+Retorna contagens por status + comandos recentes da Command Queue.
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "counts": {
+      "pending": 3,
+      "processing": 0,
+      "confirmed": 5,
+      "failed": 0
+    },
+    "recent": [
+      {
+        "id": "9c0bb8fc-...",
+        "externalRequestId": "create-op-001",
+        "commandType": "CREATE_OP",
+        "status": "PENDING",
+        "source": "API2",
+        "createdAt": "2026-06-22T21:02:50.786Z",
+        "updatedAt": "2026-06-22T21:02:50.786Z"
+      }
+    ]
+  }
+}
+```
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/queue"
+```
+
+---
+
+### 4.10 Falhas na Fila
+
+```
+GET /v1/integration/production-orders/read/queue/failures
+```
+
+Retorna comandos com falha (últimos 20).
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "abc123-...",
+      "externalRequestId": "falhou-op-001",
+      "commandType": "CREATE_OP",
+      "status": "FAILED",
+      "lastError": {
+        "code": "OMIE_ERROR",
+        "message": "Produto não encontrado"
+      },
+      "retryCount": 0,
+      "createdAt": "2026-06-22T21:02:50.786Z",
+      "updatedAt": "2026-06-22T21:02:50.786Z"
+    }
+  ]
+}
+```
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/queue/failures"
+```
+
+---
+
+### 4.11 Histórico de Comandos
+
+```
+GET /v1/integration/production-orders/read/commands
+```
+
+Retorna o histórico completo de comandos da fila, com paginação.
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/commands?page=1&limit=10"
+```
+
+---
+
+### 4.12 Estado de Sincronização
+
+```
+GET /v1/integration/production-orders/read/sync-state
+```
+
+Retorna o estado atual da sincronização com o Omie (última execução, progresso, etc.).
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/sync-state"
+```
+
+---
+
+### 4.13 Summary (Dashboard)
+
+```
+GET /v1/integration/production-orders/read/summary
+```
+
+Retorna dados agregados para dashboard resumido.
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/summary"
+```
+
+---
+
+### 4.14 Summary por OP
+
+```
+GET /v1/integration/production-orders/read/summary/:omieId
+```
+
+Retorna resumo agregado de uma OP específica (totais, estágio, consumo).
+
+**Path Parameters:**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `omieId` | `string` | ✅ Sim | Código numérico da OP no Omie |
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/summary/9551864263"
+```
+
+---
+
+### 4.15 Consumption Summary (Geral)
+
+```
+GET /v1/integration/production-orders/read/consumption-summary
+```
+
+Retorna consumo agregado de materiais em todas as OPs ativas.
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/consumption-summary"
+```
+
+---
+
+### 4.16 Consumption Summary por OP
+
+```
+GET /v1/integration/production-orders/read/consumption/:omieId
+```
+
+Retorna o consumo de materiais de uma OP específica.
+
+**Path Parameters:**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `omieId` | `string` | ✅ Sim | Código numérico da OP no Omie |
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/consumption/9551864263"
+```
+
+---
+
+### 4.17 Problemas de Estoque
+
+```
+GET /v1/integration/production-orders/read/stock-issues
+```
+
+Retorna OPs com problemas de estoque (componentes insuficientes).
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/stock-issues"
+```
+
+---
+
+## 5. Commands Avançados
+
+### 5.1 Retentar Comando com Falha
+
+```
+POST /v1/integration/production-orders/commands/retry-failed
+```
+
+Re-enfileira um comando que falhou para nova tentativa.
+
+**Request Body:**
+
+```json
+{
+  "externalRequestId": "falhou-op-001"
+}
+```
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/commands/retry-failed \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId": "falhou-op-001"}'
+```
+
+---
+
+### 5.2 Sincronização Incremental
+
+```
+POST /v1/integration/production-orders/commands/sync-incremental
+```
+
+Dispara sincronização incremental (apenas OPs alteradas desde a última sync).
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/commands/sync-incremental \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId": "sync-inc-001"}'
+```
+
+---
+
+### 5.3 Reconciliar OPs
+
+```
+POST /v1/integration/production-orders/commands/reconcile
+```
+
+Compara OPs locais com o Omie e corrige divergências.
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/commands/reconcile \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId": "reconcile-001"}'
+```
+
+---
+
+### 5.4 Invalidar Cache
+
+```
+POST /v1/integration/production-orders/commands/invalidate
+```
+
+Invalida o cache de sincronização para forçar recarga na próxima consulta.
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/commands/invalidate \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId": "invalidate-001"}'
+```
+
+---
+
+### 5.5 Reconstruir Read Model
+
+```
+POST /v1/integration/production-orders/commands/rebuild
+```
+
+Reconstrói o read model a partir dos dados do espelho local (sem chamar Omie).
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/commands/rebuild \
+  -H "Content-Type: application/json" \
+  -d '{"externalRequestId": "rebuild-001"}'
+```
+
+---
+
+## 6. Admin
+
+### 6.1 Refresh do Read Model
+
+```
+POST /v1/admin/production-orders/read-model/refresh
+```
+
+Reconstrói todo o read model de OPs buscando dados atualizados do Omie.  
+**Síncrono** — pode levar vários minutos dependendo do volume.
+
+**Exemplo curl:**
+
+```bash
+curl.exe -s -X POST http://localhost:3333/v1/admin/production-orders/read-model/refresh \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+---
+
+## 7. Fluxo de Uso (Exemplo Completo)
 
 ```bash
 # 1. Criar uma OP
@@ -788,15 +1176,21 @@ curl.exe -s -X POST http://localhost:3333/v1/integration/production-orders/callb
   -H "Content-Type: application/json" -d '{}'
 
 # 4. Verificar fila
-curl.exe -s http://localhost:3333/v1/integration/read/production-orders/queue
+curl.exe -s http://localhost:3333/v1/integration/production-orders/read/queue
 
 # 5. Consultar OPs no espelho local
-curl.exe -s "http://localhost:3333/v1/integration/read/production-orders?page=1&limit=10"
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read?page=1&limit=10"
+
+# 6. Busca inteligente
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/list-unified?q=bobina"
+
+# 7. Autocomplete
+curl.exe -s "http://localhost:3333/v1/integration/production-orders/read/search-suggestions?q=bobina"
 ```
 
 ---
 
-## 6. Tratamento de Erros
+## 8. Tratamento de Erros
 
 | Código HTTP | `error` | Significado |
 |---|---|---|
