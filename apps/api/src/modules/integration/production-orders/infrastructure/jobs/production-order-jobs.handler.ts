@@ -336,9 +336,9 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
 
             // Busca OPs abertas com materiais (materials_json não vazio)
             // usando o índice GIN idx_prorm_materials_gin
-            type OpRow = { omie_code: string };
+            type OpRow = { omie_id: string };
             const ops = await prisma.$queryRaw<OpRow[]>`
-                SELECT omie_code
+                SELECT omie_id
                 FROM read_model.production_order_read_model
                 WHERE is_open = true
                   AND materials_json IS NOT NULL
@@ -356,9 +356,9 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
             });
 
             // Fase 3: enfileira um único batch job com debounce de 5s
-            const omieCodes = ops.map((op) => op.omie_code);
+            const omieIds = ops.map((op) => op.omie_id);
             const jobId = await enqueueJob("production-order.refresh.batch", {
-                omieCodes,
+                omieIds,
                 source: "by-stock",
             }, {
                 retryLimit: 1,
@@ -380,11 +380,11 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
     // - Processa as restantes com Promise.allSettled (concorrência controlada)
     // - Aceita source para rastrear origem do batch
 
-    registerJobHandler<{ omieCodes: string[]; source?: string }>(
+    registerJobHandler<{ omieIds: string[]; source?: string }>(
         "production-order.refresh.batch",
         async (job) => {
-            const { omieCodes, source } = job.data;
-            const batchSize = omieCodes?.length ?? 0;
+            const { omieIds, source } = job.data;
+            const batchSize = omieIds?.length ?? 0;
 
             if (batchSize === 0) {
                 logger.info("Batch refresh received empty codes list");
@@ -398,26 +398,26 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
             const FRESH_THRESHOLD_MS = 60_000;
             const cutoff = new Date(Date.now() - FRESH_THRESHOLD_MS);
 
-            type FreshRow = { omie_code: string; last_sync_at: Date | null };
+            type FreshRow = { omie_id: string; last_sync_at: Date | null };
             const freshRecords = await prisma.$queryRaw<FreshRow[]>`
-                SELECT omie_code, last_sync_at
+                SELECT omie_id, last_sync_at
                 FROM read_model.production_order_read_model
-                WHERE omie_code = ANY(${omieCodes}::text[])
+                WHERE omie_id = ANY(${omieIds}::text[])
             `;
 
             const freshMap = new Map<string, Date | null>(
-                freshRecords.map((r) => [r.omie_code, r.last_sync_at])
+                freshRecords.map((r) => [r.omie_id, r.last_sync_at])
             );
 
             const toProcess: string[] = [];
             const skipped: string[] = [];
 
-            for (const code of omieCodes) {
-                const lastSync = freshMap.get(code);
+            for (const id of omieIds) {
+                const lastSync = freshMap.get(id);
                 if (lastSync && lastSync > cutoff) {
-                    skipped.push(code);
+                    skipped.push(id);
                 } else {
-                    toProcess.push(code);
+                    toProcess.push(id);
                 }
             }
 
@@ -443,7 +443,7 @@ export function registerProductionOrderJobHandlers(omieClient: OmieHttpClientPor
             for (let i = 0; i < toProcess.length; i += CONCURRENCY) {
                 const chunk = toProcess.slice(i, i + CONCURRENCY);
                 const outcomes = await Promise.allSettled(
-                    chunk.map((code) => useCase.refreshOne(code))
+                    chunk.map((omieId) => useCase.refreshOne(omieId))
                 );
 
                 for (let j = 0; j < outcomes.length; j++) {
