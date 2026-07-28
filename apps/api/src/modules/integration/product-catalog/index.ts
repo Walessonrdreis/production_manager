@@ -1,0 +1,1 @@
+export { createProductCatalogIntegration } from "./product-catalog-integration-register";

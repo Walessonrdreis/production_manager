@@ -1,0 +1,45 @@
+**@production-manager/api**
+
+***
+
+# @production-manager/api
+
+## Modules
+
+- [app](app/README.md)
+- [contracts/publicProducts.contract](contracts/publicProducts.contract/README.md)
+- [core/SyncOmieProductsService](core/SyncOmieProductsService/README.md)
+- [core/errors/AppError](core/errors/AppError/README.md)
+- [db](db/README.md)
+- [env](env/README.md)
+- [integrations/omie/OmieAdapter](integrations/omie/OmieAdapter/README.md)
+- [integrations/omie/OmieClient](integrations/omie/OmieClient/README.md)
+- [integrations/omie/OmieStockCache](integrations/omie/OmieStockCache/README.md)
+- [jobs/omieProductSync.job](jobs/omieProductSync.job/README.md)
+- [jobs/stockRefresh.job](jobs/stockRefresh.job/README.md)
+- [lib/errors](lib/errors/README.md)
+- [lib/http](lib/http/README.md)
+- [lib/logger](lib/logger/README.md)
+- [repositories/PlanRepository](repositories/PlanRepository/README.md)
+- [repositories/ProductRepository](repositories/ProductRepository/README.md)
+- [repositories/SectorRepository](repositories/SectorRepository/README.md)
+- [routes](routes/README.md)
+- [routes/omie](routes/omie/README.md)
+- [routes/plans](routes/plans/README.md)
+- [routes/product-sector](routes/product-sector/README.md)
+- [routes/products](routes/products/README.md)
+- [routes/sectors](routes/sectors/README.md)
+- [server](server/README.md)
+- [services/CreatePlanItemService](services/CreatePlanItemService/README.md)
+- [services/CreatePlanService](services/CreatePlanService/README.md)
+- [services/CreateSectorService](services/CreateSectorService/README.md)
+- [services/SetProductDefaultSectorService](services/SetProductDefaultSectorService/README.md)
+- [services/jobLock.service](services/jobLock.service/README.md)
+- [services/omieProductRead.service](services/omieProductRead.service/README.md)
+- [services/omieProductSync.service](services/omieProductSync.service/README.md)
+- [services/omieStock.service](services/omieStock.service/README.md)
+- [services/publicProductsRead.service](services/publicProductsRead.service/README.md)
+- [services/stockRefresh.service](services/stockRefresh.service/README.md)
+- [utils/backoff](utils/backoff/README.md)
+- [utils/domainErrors](utils/domainErrors/README.md)
+- [utils/errors](utils/errors/README.md)

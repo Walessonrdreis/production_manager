@@ -1,0 +1,14 @@
+{
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
+  "out": "docs/typedoc",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "categorizeByGroup": true,
+  "defaultCategory": "General",
+  "sort": ["source-order"],
+  "hideBreadcrumbs": true
+}

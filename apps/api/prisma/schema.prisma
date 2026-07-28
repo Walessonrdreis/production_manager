@@ -1,0 +1,1066 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["integration", "read_model"]
+}
+
+model SyncLock {
+  key           String   @id
+  lockedUntil   DateTime @map("locked_until")
+
+  @@map("sync_lock")
+  @@schema("integration")
+}
+
+model JobLock {
+  key           String   @id @db.VarChar(64)
+  lockedUntil   DateTime @map("locked_until")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("job_lock")
+  @@schema("integration")
+}
+
+model OmieProduct {
+  id                  String   @id @default(uuid())
+
+  omieCode            String   @db.VarChar(64)  @map("omie_code")
+  omieId              String?  @db.VarChar(64)  @map("omie_id")
+
+  sku                 String?  @db.VarChar(128)
+  description         String   @db.Text
+  familyDescription   String?  @db.Text         @map("family_description")
+
+  active              Boolean  @default(true)
+
+  rawPayload           Json     @map("raw_payload")
+  lastSyncAt           DateTime @default(now()) @map("last_sync_at")
+
+  @@unique([omieCode])
+  @@index([description])
+  @@map("omie_product")
+  @@schema("integration")
+}
+
+model ProductStock {
+  id             String   @id @default(uuid()) @db.Uuid
+
+  productOmieId  String   @unique @db.VarChar(64) @map("product_omie_id")
+  stockQuantity  Decimal  @db.Decimal(18, 4) @map("stock_quantity")
+  minimumStock   Decimal  @db.Decimal(18, 4) @map("minimum_stock")
+
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  capturedAt     DateTime @default(now()) @map("captured_at")
+
+  @@map("product_stock")
+  @@schema("integration")
+}
+
+model OmieOrder {
+  id               String   @id @default(uuid())
+
+  omieCode         String   @db.VarChar(64) @map("omie_code")
+  numeroPedido     String?  @db.VarChar(64) @map("numero_pedido")
+  codigoCliente    String?  @db.VarChar(64) @map("codigo_cliente")
+
+  clientLegalName  String?  @db.Text @map("client_legal_name")
+  clientTradeName  String?  @db.Text @map("client_trade_name")
+
+  codigoEmpresa    String?  @db.VarChar(64) @map("codigo_empresa")
+  etapa            String   @db.VarChar(10)
+
+  cancelado        String   @default("N") @db.Char(1)
+  encerrado        String   @default("N") @db.Char(1)
+
+  dataPrevisao     DateTime? @map("data_previsao")
+
+  rawPayload        Json     @map("raw_payload")
+  lastSyncAt        DateTime @default(now()) @map("last_sync_at")
+
+  items            OmieOrderItem[]
+
+  @@unique([omieCode])
+  @@index([etapa])
+  @@index([cancelado, encerrado])
+  @@index([codigoCliente])
+  @@map("omie_order")
+  @@schema("integration")
+}
+
+model OmieOrderItem {
+  id                 String   @id @default(uuid())
+
+  omieItemCode       String   @db.VarChar(64) @map("omie_item_code")
+  omieOrderId        String   @map("omie_order_id")
+
+  omieProductCode    String?  @db.VarChar(64) @map("omie_product_code")
+  productOmieId      String?  @db.VarChar(64) @map("product_omie_id")
+  sku                String?  @db.VarChar(128)
+
+  description        String   @db.Text
+  unit               String?  @db.VarChar(16)
+  quantity           Decimal  @db.Decimal(18, 4)
+
+  unitPrice          Decimal? @db.Decimal(18, 6) @map("unit_price")
+  totalPrice         Decimal? @db.Decimal(18, 2) @map("total_price")
+
+  rawPayload         Json     @map("raw_payload")
+  lastSyncAt         DateTime @default(now()) @map("last_sync_at")
+
+  order              OmieOrder @relation(fields: [omieOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([omieItemCode])
+  @@index([omieOrderId])
+  @@index([omieProductCode])
+  @@index([description])
+  @@map("omie_order_item")
+  @@schema("integration")
+}
+
+model SalesOrder {
+  id String @id @default(uuid())
+
+  // 🔴 ID técnico do pedido (Omie)
+  omieId String @db.VarChar(64) @map("omie_order_id")
+
+  // 🔹 número do pedido
+  orderNumber String? @db.VarChar(64) @map("order_number")
+
+  // 🔥 estágio do pedido (campo crítico)
+  stage String @db.VarChar(10)
+
+  // ✅ status derivados
+  isCanceled Boolean @default(false) @map("is_canceled")
+  isClosed   Boolean @default(false) @map("is_closed")
+
+  // 🔹 cliente
+  customerOmieId String? @db.VarChar(64) @map("customer_omie_id")
+
+  // 🔹 empresa
+  companyOmieId String? @db.VarChar(64) @map("company_omie_id")
+
+  // 🔹 data prevista
+  forecastDate DateTime? @map("forecast_date")
+
+  // 🔹 valor total
+  totalAmount Decimal? @db.Decimal(18, 2) @map("total_amount")
+
+  // 📦 payload bruto
+  rawPayload Json @map("raw_payload")
+
+  lastSyncAt DateTime @default(now()) @map("last_sync_at")
+
+  // 🔗 relação
+  items SalesOrderItem[]
+
+  // ✅ índices
+  @@index([stage])
+  @@index([isCanceled])
+  @@index([isClosed])
+  @@index([customerOmieId])
+
+  // ✅ evitar duplicação por Omie
+  @@unique([omieId])
+
+  @@map("sales_order")
+  @@schema("integration")
+}
+
+model SalesOrderItem {
+  id String @id @default(uuid())
+
+  // 🔴 ID técnico do item no Omie
+  omieItemId String @db.VarChar(64) @map("omie_item_id")
+
+  // 🔥 CHAVE CANÔNICA DO PRODUTO
+  productCode String @db.VarChar(64) @map("product_code")
+
+  // 🔴 ID técnico do produto no Omie
+  productOmieId String @db.VarChar(64) @map("product_omie_id")
+
+  // 🔹 descrição do item
+  description String @db.Text
+
+  // 🔹 unidade
+  unit String? @db.VarChar(16)
+
+  // 🔹 quantidade
+  quantity Decimal @db.Decimal(18, 4)
+
+  // 🔹 preço unitário
+  unitPrice Decimal? @db.Decimal(18, 6) @map("unit_price")
+
+  // 🔹 valor total
+  totalPrice Decimal? @db.Decimal(18, 2) @map("total_price")
+
+  // 📦 payload bruto
+  rawPayload Json @map("raw_payload")
+
+  lastSyncAt DateTime @default(now()) @map("last_sync_at")
+
+  // 🔗 FK
+  salesOrderId String @map("sales_order_id")
+
+  // ✅ RELATION INLINE (SEM ERRO PRISMA)
+  order SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+
+  // ✅ ÍNDICES IMPORTANTES
+  @@index([productCode])
+  @@index([productOmieId])
+  @@index([salesOrderId])
+
+  // ✅ evitar duplicidade de item
+  @@unique([omieItemId])
+
+  @@map("sales_order_item")
+  @@schema("integration")
+}
+
+model SalesOrderSyncCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @db.VarChar(64) @map("external_request_id")
+
+  commandType String @db.VarChar(32) @map("command_type")
+  resourceId String @db.VarChar(64) @map("resource_id")
+
+  status SalesOrderSyncCommandStatus @default(ACCEPTED)
+  source SalesOrderSyncCommandSource @default(API2)
+
+  lastError Json? @map("last_error")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([status])
+  @@index([resourceId])
+
+  @@map("sales_order_sync_command")
+  @@schema("integration")
+}
+
+enum SalesOrderSyncCommandStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+
+  @@schema("integration")
+}
+
+enum SalesOrderSyncCommandSource {
+  API2
+  JOB
+  ADMIN
+
+  @@schema("integration")
+}
+
+model SalesOrderSyncState {
+  id String @id @default(uuid())
+
+  lastSyncAt DateTime
+
+ 
+  updatedAt DateTime @updatedAt
+
+  
+  @@unique([id])
+
+  @@map("sales_order_sync_state")
+  @@schema("integration")
+}
+
+model Client {
+  id                 String   @id @default(uuid())
+
+  omieClientCode     BigInt   @unique @map("codigo_cliente_omie")
+
+  legalName          String   @map("razao_social")
+  tradeName          String?  @map("nome_fantasia")
+  document           String   @map("documento")
+
+  personType         PersonType @map("tipo_pessoa")
+
+  email              String?
+  phone              String?  @map("telefone")
+
+  isActive           Boolean  @default(true) @map("is_active")
+  isBlocked          Boolean  @default(false) @map("is_blocked")
+  isBillingBlocked   Boolean  @default(false) @map("is_billing_blocked")
+
+  createdAtOmie      DateTime? @map("created_at_omie")
+  updatedAtOmie      DateTime? @map("updated_at_omie")
+
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("clientes")
+  @@schema("integration")
+}
+
+enum PersonType {
+  INDIVIDUAL @map("FISICA")
+  COMPANY    @map("JURIDICA")
+
+  @@map("TipoPessoa")
+  @@schema("integration")
+}
+
+// ============================================================
+// 🆕 NOVO MÓDULO: customer-sync (substitui o modelo Client legado)
+// ============================================================
+
+enum CustomerCommandType {
+  SYNC
+
+  @@schema("integration")
+}
+
+enum CustomerCommandStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+
+  @@schema("integration")
+}
+
+enum CustomerCommandSource {
+  API2
+  JOB
+  ADMIN
+
+  @@schema("integration")
+}
+
+model OmieCustomer {
+  id               String   @id @default(uuid())
+
+  omieCode         String   @unique @db.VarChar(64) @map("omie_code")
+  legalName        String   @db.Text               @map("legal_name")
+  tradeName        String?  @db.Text               @map("trade_name")
+  document         String   @db.VarChar(20)
+  personType       String   @db.VarChar(16)        @map("person_type")
+
+  email            String?  @db.VarChar(256)
+  phone            String?  @db.VarChar(64)
+
+  isActive         Boolean  @default(true)          @map("is_active")
+  isBlocked        Boolean  @default(false)         @map("is_blocked")
+  isBillingBlocked Boolean  @default(false)         @map("is_billing_blocked")
+
+  createdAtOmie    DateTime?                        @map("created_at_omie")
+  updatedAtOmie    DateTime?                        @map("updated_at_omie")
+
+  // 📦 payload bruto + metadados de sync
+  rawPayload       Json                             @map("raw_payload")
+  lastSyncAt       DateTime @default(now())         @map("last_sync_at")
+
+  createdAt        DateTime @default(now())         @map("created_at")
+  updatedAt        DateTime @updatedAt              @map("updated_at")
+
+  @@index([document])
+  @@index([legalName])
+  @@index([tradeName])
+  @@index([isActive])
+  @@index([isBlocked])
+  @@index([lastSyncAt])
+  @@map("omie_customer")
+  @@schema("integration")
+}
+
+model CustomerCommand {
+  id                String   @id @default(uuid())
+
+  externalRequestId String   @unique               @map("external_request_id")
+  customerCode      String   @db.VarChar(64)       @map("customer_code")
+
+  commandType       CustomerCommandType            @map("command_type")
+  status            CustomerCommandStatus          @default(ACCEPTED)
+
+  source            CustomerCommandSource          @default(API2)
+  lastError         Json?                          @map("last_error")
+
+  executedAt        DateTime?                      @map("executed_at")
+  completedAt       DateTime?                      @map("completed_at")
+
+  createdAt         DateTime @default(now())       @map("created_at")
+  updatedAt         DateTime @updatedAt            @map("updated_at")
+
+  @@index([customerCode])
+  @@index([status])
+  @@index([commandType])
+  @@map("customer_command")
+  @@schema("integration")
+}
+
+model CustomerSyncState {
+  id         String   @id @default(uuid())
+
+  lastSyncAt DateTime @map("last_sync_at")
+  updatedAt  DateTime @updatedAt
+
+  @@map("customer_sync_state")
+  @@schema("integration")
+}
+
+model OmieProductionOrder {
+  id                     String   @id @default(uuid())
+
+  omieId                 String   @db.VarChar(64) @map("omie_id")
+  internalCode           String?  @db.VarChar(64) @map("internal_code")
+  orderNumber            String?  @db.VarChar(32) @map("order_number")
+
+  productOmieId          String?  @db.VarChar(64) @map("product_omie_id")
+  productIntegrationCode String?  @db.VarChar(128) @map("product_integration_code")
+
+  quantity               String   @db.VarChar(32)
+
+  forecastDate           DateTime? @map("forecast_date")
+  startDate              DateTime? @map("start_date")
+  completionDate         DateTime? @map("completion_date")
+
+  stage                  String?  @db.VarChar(10)
+  projectCode            String?  @db.VarChar(64) @map("project_code")
+
+  completed              Boolean  @default(false)
+  active                 Boolean  @default(true)
+
+  rawPayload              Json     @map("raw_payload")
+  lastSyncAt              DateTime @default(now()) @map("last_sync_at")
+
+  items                  OmieProductionOrderItem[]
+
+  @@unique([omieId])
+  @@index([productIntegrationCode])
+  @@index([completed])
+  @@index([forecastDate])
+  @@index([completionDate])
+  @@map("omie_production_order")
+  @@schema("integration")
+}
+
+model OmieProductionOrderItem {
+  id String @id @default(uuid())
+
+  omieItemCode          String @db.VarChar(128) @map("omie_item_code")
+  omieProductionOrderId String @map("omie_production_order_id")
+
+  productMeshId      BigInt? @map("product_mesh_id")
+  useFromStock       String? @db.Char(1) @map("use_from_stock")
+  quantity           String? @db.VarChar(32)
+  stockLocationCode  BigInt? @map("stock_location_code")
+  observation        String? @db.Text
+
+  rawPayload         Json     @map("raw_payload")
+  lastSyncAt         DateTime @default(now()) @map("last_sync_at")
+
+  // ✅ CORRETO: relation em uma linha
+  productionOrder OmieProductionOrder @relation(fields: [omieProductionOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([omieItemCode, omieProductionOrderId])
+  @@index([omieProductionOrderId])
+  @@index([productMeshId])
+  @@map("omie_production_order_item")
+  @@schema("integration")
+}
+
+model ProductStructure {
+  id                  String   @id @default(cuid())
+
+  codProduto           String   @map("cod_produto")
+  descrProduto         String?  @map("descr_produto")
+
+  codFamilia           String?  @map("cod_familia")
+  descrFamilia         String?  @map("descr_familia")
+
+  tipoProduto          String?  @map("tipo_produto")
+  unidProduto          String?  @map("unid_produto")
+
+  pesoBruto            Decimal? @db.Decimal(18, 6) @map("peso_bruto")
+  pesoLiquido          Decimal? @db.Decimal(18, 6) @map("peso_liquido")
+
+  hasStructure         Boolean  @default(false) @map("has_structure")
+
+  idProdutoOmie        BigInt?  @map("id_produto_omie")
+  intProdutoOmie       String?  @map("int_produto_omie")
+
+  structureHash        String?  @map("structure_hash")
+
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  items                ProductStructureItem[]
+
+  @@unique([codProduto])
+  @@index([codProduto])
+  @@map("product_structure")
+  @@schema("integration")
+}
+
+model ProductStructureItem {
+  id String @id @default(cuid())
+
+  codProdutoPai        String @map("cod_produto_pai")
+  codProdutoComponente String @map("cod_produto_componente")
+
+  descrProdutoComponente String? @map("descr_produto_componente")
+  codFamiliaComponente   String? @map("cod_familia_componente")
+  descrFamiliaComponente String? @map("descr_familia_componente")
+
+  quantidade        Decimal @db.Decimal(18, 6)
+  unidade           String?
+  tipoProdutoComponente String? @map("tipo_produto_componente")
+  percentualPerda   Decimal? @db.Decimal(18, 6) @map("percentual_perda")
+
+  idMalhaOmie       BigInt? @map("id_malha_omie")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  // ✅ CORRETO: relation em uma linha
+  parent ProductStructure @relation(fields: [codProdutoPai], references: [codProduto], onDelete: Cascade)
+
+  @@unique([codProdutoPai, codProdutoComponente, idMalhaOmie])
+  @@index([codProdutoPai])
+  @@map("product_structure_item")
+  @@schema("integration")
+}
+
+enum ProductionOrderIntegrationStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+
+  @@schema("integration")
+}
+
+model ProductionOrderIntegration {
+  id                      String   @id @default(uuid())
+
+  externalRequestId       String   @db.VarChar(64) @unique @map("external_request_id")
+  omieProductionOrderId   String?  @db.VarChar(64) @map("omie_production_order_id")
+
+  productId               String   @db.VarChar(64) @map("product_id")
+  productOmieId           String?  @db.VarChar(64) @map("product_omie_id")
+  quantity                Int
+
+  status                  ProductionOrderIntegrationStatus
+  lastError               Json?    @map("last_error")
+
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  @@index([externalRequestId])
+  @@index([omieProductionOrderId])
+  @@index([status])
+  @@map("production_order_integration")
+  @@schema("integration")
+}
+
+// ---------------------------------------------------------------------------
+// Production Order Command + Sync State (sync-global)
+// ---------------------------------------------------------------------------
+
+enum ProductionOrderCommandType {
+  SYNC_GLOBAL
+  SYNC_INCREMENTAL
+  CREATE_OP
+  UPDATE_OP
+  SYNC_OP
+  CANCEL_OP
+  CHANGE_STAGE
+  RETRY_FAILED
+  RECONCILE
+  INVALIDATE
+
+  @@schema("integration")
+}
+
+enum ProductionOrderCommandStatus {
+  PENDING
+  PROCESSING
+  ACCEPTED
+  CONFIRMED
+  FAILED
+
+  @@schema("integration")
+}
+
+enum ProductionOrderCommandSource {
+  API2
+  JOB
+  ADMIN
+
+  @@schema("integration")
+}
+
+model ProductionOrderCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @map("external_request_id")
+
+  commandType ProductionOrderCommandType @map("command_type")
+  status      ProductionOrderCommandStatus @default(PENDING)
+
+  source      ProductionOrderCommandSource @default(API2)
+  lastError   Json? @map("last_error")
+  payload     Json? @map("payload")
+  retryCount  Int    @default(0) @map("retry_count")
+
+  executedAt  DateTime? @map("executed_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status, commandType])
+  @@map("production_order_command")
+  @@schema("integration")
+}
+
+model ProductionOrderSyncState {
+  id         String   @id
+  lastSyncAt DateTime @map("last_sync_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("production_order_sync_state")
+  @@schema("integration")
+}
+
+// ---------------------------------------------------------------------------
+
+model ProductCatalogProductionReadyReadModel {
+  id String @id @default(cuid())
+
+  productCode String @unique @db.VarChar(64) @map("product_code")
+  productOmieId String? @db.VarChar(64) @map("product_omie_id")
+  omieCode String? @db.VarChar(64) @map("omie_code")
+
+  description String @db.Text
+  sku String? @db.VarChar(128)
+
+  active Boolean @default(true)
+
+  family String? @db.Text
+  unit String? @db.VarChar(16)
+
+  salePrice Decimal? @db.Decimal(18, 6) @map("sale_price")
+  cost Decimal? @db.Decimal(18, 6)
+  margin Decimal? @db.Decimal(18, 6)
+
+  stock Decimal @default(0) @db.Decimal(18, 4)
+  minimumStock Decimal @default(0) @db.Decimal(18, 4) @map("minimum_stock")
+
+  available Boolean @default(false) @map("available")
+  belowMinimumStock Boolean @default(false) @map("below_minimum_stock")
+
+  hasStructure Boolean @default(false) @map("has_structure")
+  structureItemsCount Int @default(0) @map("structure_items_count")
+  structureItemsBelowMinStock Int @default(0) @map("structure_items_below_min_stock")
+
+  hasOpenProductionOrder Boolean @default(false) @map("has_open_production_order")
+  openProductionOrderCount Int @default(0) @map("open_production_order_count")
+
+  hasOpenSalesOrderStage20 Boolean @default(false) @map("has_open_sales_order_stage20")
+  openSalesOrderStage20Count Int @default(0) @map("open_sales_order_stage20_count")
+
+  lastSyncAt DateTime? @map("last_sync_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([active])
+  @@index([available])
+  @@index([belowMinimumStock])
+  @@index([hasStructure])
+  @@index([hasOpenProductionOrder])
+  @@index([hasOpenSalesOrderStage20])
+  @@index([description])
+  @@index([stock])
+  @@index([updatedAt])
+
+  @@map("product_catalog_production_ready_read_model")
+  @@schema("read_model")
+}
+
+model SalesOrderSummaryReadModel {
+  id String @id @default(cuid())
+
+  omieId                  String   @unique @db.VarChar(64)    @map("omie_id")
+  orderNumber             String?  @db.VarChar(64)            @map("order_number")
+  stage                   String   @db.VarChar(10)
+  isCanceled              Boolean  @default(false)            @map("is_canceled")
+  isClosed                Boolean  @default(false)            @map("is_closed")
+  customerOmieId          String?  @db.VarChar(64)            @map("customer_omie_id")
+  companyOmieId           String?  @db.VarChar(64)            @map("company_omie_id")
+  customerName            String?  @db.Text                   @map("customer_name")
+  forecastDate            DateTime?                           @map("forecast_date")
+  totalAmount             Decimal? @db.Decimal(18, 2)         @map("total_amount")
+  totalItems              Int      @default(0)                @map("total_items")
+  totalQuantity           Decimal  @default(0) @db.Decimal(18, 4) @map("total_quantity")
+  lastSyncAt              DateTime?                           @map("last_sync_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([stage])
+  @@index([isCanceled])
+  @@index([isClosed])
+  @@index([customerOmieId])
+
+  @@map("sales_order_summary_read_model")
+  @@schema("read_model")
+}
+
+model ProductionOrderReadModel {
+  id String @id @default(cuid())
+
+  // ─── Identificação ────────────────────────────────────────────────
+  omieId         String  @unique @db.VarChar(64) @map("omie_id")
+  orderNumber    String? @db.VarChar(32) @map("order_number")
+  productCode    String? @db.VarChar(64) @map("product_code")
+  productOmieId  String? @db.VarChar(64) @map("product_omie_id")
+  productName    String? @db.Text @map("product_name")
+  productUnit    String? @db.VarChar(16) @map("product_unit")
+
+  // ─── UX / Busca (normalized fields) ───────────────────────────────
+  productNameNormalized  String? @db.Text        @map("product_name_normalized")
+  productCodeNormalized  String? @db.VarChar(64) @map("product_code_normalized")
+  orderNumberNormalized  String? @db.VarChar(32) @map("order_number_normalized")
+  normalizeVersion       Int     @default(0)     @map("normalize_version")
+
+  // ─── Stage (UX) ────────────────────────────────────────────────────
+  stageName  String? @db.VarChar(32) @map("stage_name")
+  stageOrder Int     @default(999)   @map("stage_order")
+  stageGroup String  @default("unknown") @db.VarChar(16) @map("stage_group")
+
+  // ─── Quantidades ──────────────────────────────────────────────────
+  quantity Decimal @db.Decimal(18, 4)
+
+  // ─── Estágio / Status ─────────────────────────────────────────────
+  stage             String? @db.VarChar(10)
+  operationalStatus String  @default("pending") @db.VarChar(20) @map("operational_status")
+
+  // ─── Flags calculadas ─────────────────────────────────────────────
+  isOpen               Boolean @default(true)  @map("is_open")
+  isLate               Boolean @default(false) @map("is_late")
+  isReady              Boolean @default(false) @map("is_ready")
+  isBlocked            Boolean @default(false) @map("is_blocked")
+  hasStockIssue        Boolean @default(false) @map("has_stock_issue")
+  hasMissingMaterials  Boolean @default(false) @map("has_missing_materials")
+  hasCriticalMaterial  Boolean @default(false) @map("has_critical_material")
+  hasPartialStock      Boolean @default(false) @map("has_partial_stock")
+  hasStructure         Boolean @default(false) @map("has_structure")
+
+  // ─── Prioridade ───────────────────────────────────────────────────
+  priority String @default("low") @db.VarChar(10)
+
+  // ─── Datas ────────────────────────────────────────────────────────
+  expectedAt  DateTime? @map("expected_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  daysOverdue Int @default(0) @map("days_overdue")
+
+  // ─── JSONs ────────────────────────────────────────────────────────
+  materialsJson        Json? @map("materials_json")
+  materialsSummaryJson Json? @map("materials_summary_json")
+  readinessJson        Json? @map("readiness_json")
+  alertsJson           Json? @map("alerts_json")
+
+  // ─── Metadados ────────────────────────────────────────────────────
+  lastSyncAt DateTime? @map("last_sync_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt      @map("updated_at")
+
+  @@index([isOpen])
+  @@index([isReady])
+  @@index([isBlocked])
+  @@index([operationalStatus])
+  @@index([priority])
+  @@index([expectedAt])
+  @@index([isLate])
+
+  // ─── Índices de busca — spec search UX (C0) ───────────────────────
+  @@index([productName], map: "idx_prorm_product_name")
+  @@index([productCode], map: "idx_prorm_product_code")
+  @@index([orderNumber], map: "idx_prorm_order_number")
+
+  // ─── Índices de performance — spec v2 (C0)
+  //       Mantidos no schema para evitar que o Prisma os drope — REGRA 7
+  @@index([materialsJson], type: Gin, map: "idx_prorm_materials_gin")
+  @@index([isOpen, priority(sort: Desc), expectedAt], map: "idx_prorm_open_priority_expected")
+  @@index([isOpen, expectedAt], map: "idx_prorm_open_expected")
+  @@index([isOpen, stage], map: "idx_prorm_open_stage")
+  @@index([hasStockIssue], map: "idx_prorm_has_stock_issue")
+  @@index([hasMissingMaterials], map: "idx_prorm_has_missing_materials")
+  @@index([hasCriticalMaterial], map: "idx_prorm_has_critical_material")
+
+  @@map("production_order_read_model")
+  @@schema("read_model")
+}
+
+model SalesOrderStageTransition {
+  id               String   @id @default(cuid())
+
+  salesOrderOmieId String   @db.VarChar(64)            @map("sales_order_omie_id")
+  fromStage        String?  @db.VarChar(10)            @map("from_stage")
+  toStage          String   @db.VarChar(10)            @map("to_stage")
+  detectedAt       DateTime @default(now())            @map("detected_at")
+
+  createdAt        DateTime @default(now())            @map("created_at")
+
+  @@index([salesOrderOmieId])
+  @@index([toStage])
+  @@index([detectedAt])
+  @@map("sales_order_stage_transition")
+  @@schema("read_model")
+}
+
+enum ProductStructureCommandType {
+  SYNC
+  SYNC_GLOBAL
+  APPLY
+  DELETE
+
+  @@schema("integration")
+}
+
+enum ProductStructureCommandStatus {
+  PENDING
+  PROCESSING
+  ACCEPTED
+  CONFIRMED
+  FAILED
+
+  @@schema("integration")
+}
+
+enum ProductStructureCommandSource {
+  API2
+  JOB
+  ADMIN
+
+  @@schema("integration")
+}
+
+model ProductStructureCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @map("external_request_id")
+  productCode       String @db.VarChar(64) @map("product_code")
+
+  commandType ProductStructureCommandType @map("command_type")
+  status      ProductStructureCommandStatus @default(PENDING)
+
+  source      ProductStructureCommandSource @default(API2)
+  lastError   Json? @map("last_error")
+  payload     Json? @map("payload")
+  retryCount  Int    @default(0) @map("retry_count")
+
+  executedAt  DateTime? @map("executed_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([productCode])
+  @@index([status])
+  @@index([commandType])
+  @@map("product_structure_command")
+  @@schema("integration")
+}
+
+model ProductStructureSyncState {
+  id         String   @id
+  lastSyncAt DateTime @map("last_sync_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("product_structure_sync_state")
+  @@schema("integration")
+}
+
+enum ProductCatalogCommandType {
+  SYNC
+
+  @@schema("integration")
+}
+
+enum ProductCatalogCommandStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+
+  @@schema("integration")
+}
+
+enum ProductCatalogCommandSource {
+  API2
+  JOB
+  ADMIN
+
+  @@schema("integration")
+}
+
+model ProductCatalogCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @map("external_request_id")
+  productCode       String @map("product_code")
+
+  commandType ProductCatalogCommandType @map("command_type")
+  status      ProductCatalogCommandStatus @default(ACCEPTED)
+
+  source    ProductCatalogCommandSource @default(API2)
+  lastError Json? @map("last_error")
+
+  executedAt  DateTime? @map("executed_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([productCode])
+  @@index([status])
+  @@map("product_catalog_command")
+  @@schema("integration")
+}
+
+// ---------------------------------------------------------------------------
+// ProductManagerCommand
+// ---------------------------------------------------------------------------
+
+enum ProductManagerCommandType {
+  CREATE
+  UPDATE
+  INACTIVATE
+
+  @@schema("integration")
+}
+
+enum ProductManagerCommandStatus {
+  PENDING
+  PROCESSING
+  ACCEPTED
+  CONFIRMED
+  FAILED
+
+  @@schema("integration")
+}
+
+enum ProductManagerCommandSource {
+  API2
+  JOB
+  ADMIN
+
+  @@schema("integration")
+}
+
+model ProductManagerCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @map("external_request_id")
+  productCode       String @map("product_code")
+
+  commandType ProductManagerCommandType @map("command_type")
+  status      ProductManagerCommandStatus @default(PENDING)
+
+  source    ProductManagerCommandSource @default(API2)
+  lastError Json? @map("last_error")
+  payload   Json? @map("payload")
+  retryCount Int @default(0) @map("retry_count")
+
+  executedAt  DateTime? @map("executed_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([productCode])
+  @@index([status])
+  @@index([commandType])
+  @@map("product_manager_command")
+  @@schema("integration")
+}
+
+// ---------------------------------------------------------------------------
+// ProductStockCommand
+// ---------------------------------------------------------------------------
+
+enum ProductStockCommandType {
+  REFRESH_STOCK
+
+  @@schema("integration")
+}
+
+enum ProductStockCommandStatus {
+  ACCEPTED
+  CONFIRMED
+  FAILED
+
+  @@schema("integration")
+}
+
+enum ProductStockCommandSource {
+  API2
+  JOB
+  ADMIN
+
+  @@schema("integration")
+}
+
+model ProductStockCommand {
+  id String @id @default(uuid())
+
+  externalRequestId String @unique @map("external_request_id")
+  productOmieId    String @db.VarChar(64) @map("product_omie_id")
+
+  commandType ProductStockCommandType @map("command_type")
+  status      ProductStockCommandStatus @default(ACCEPTED)
+
+  source    ProductStockCommandSource @default(API2)
+  lastError Json? @map("last_error")
+
+  executedAt  DateTime? @map("executed_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("product_stock_command")
+  @@schema("integration")
+}
+
+// ---------------------------------------------------------------------------
+// ProductStockFetchSyncState
+// ---------------------------------------------------------------------------
+
+model ProductStockFetchSyncState {
+  id         String   @id
+  lastSyncAt DateTime @map("last_sync_at")
+  updatedAt  DateTime @updatedAt
+
+  @@map("product_stock_fetch_sync_state")
+  @@schema("integration")
+}
+
+// ---------------------------------------------------------------------------
+// ProductCatalogSyncState
+// ---------------------------------------------------------------------------
+
+model ProductCatalogSyncState {
+  id         String   @id
+  lastSyncAt DateTime @map("last_sync_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("product_catalog_sync_state")
+  @@schema("integration")
+}
+

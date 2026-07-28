@@ -1,0 +1,322 @@
+```text
+apps/api/
+├─ dist/ # Build compilado (gerado)
+├─ docs/
+│  ├─ prompts/
+│  ├─ templates/
+│  │  └─ module/
+│  │     ├─ application/
+│  │     │  └─ use-cases/
+│  │     ├─ infrastructure/
+│  │     └─ presentation/
+│  │        └─ http/
+│  └─ typedoc/
+│     ├─ app/
+│     │  └─ functions/
+│     ├─ contracts/
+│     │  └─ publicProducts.contract/
+│     ├─ core/
+│     │  ├─ errors/
+│     │  │  └─ AppError/
+│     │  │     └─ classes/
+│     │  └─ SyncOmieProductsService/
+│     │     └─ classes/
+│     ├─ db/
+│     │  └─ variables/
+│     ├─ env/
+│     │  └─ variables/
+│     ├─ integrations/
+│     │  └─ omie/
+│     │     ├─ OmieAdapter/
+│     │     │  ├─ classes/
+│     │     │  └─ type-aliases/
+│     │     ├─ OmieClient/
+│     │     │  ├─ classes/
+│     │     │  └─ variables/
+│     │     └─ OmieStockCache/
+│     │        ├─ classes/
+│     │        └─ variables/
+│     ├─ jobs/
+│     │  ├─ omieProductSync.job/
+│     │  │  └─ functions/
+│     │  └─ stockRefresh.job/
+│     │     └─ functions/
+│     ├─ lib/
+│     │  ├─ errors/
+│     │  ├─ http/
+│     │  │  ├─ functions/
+│     │  │  └─ type-aliases/
+│     │  └─ logger/
+│     ├─ repositories/
+│     │  ├─ PlanRepository/
+│     │  │  └─ classes/
+│     │  ├─ ProductRepository/
+│     │  │  └─ classes/
+│     │  └─ SectorRepository/
+│     │     └─ classes/
+│     ├─ routes/
+│     │  ├─ functions/
+│     │  ├─ omie/
+│     │  │  └─ functions/
+│     │  ├─ plans/
+│     │  │  └─ functions/
+│     │  ├─ product-sector/
+│     │  │  └─ functions/
+│     │  ├─ products/
+│     │  │  └─ functions/
+│     │  └─ sectors/
+│     │     └─ functions/
+│     ├─ server/
+│     ├─ services/
+│     │  ├─ CreatePlanItemService/
+│     │  │  └─ classes/
+│     │  ├─ CreatePlanService/
+│     │  │  └─ classes/
+│     │  ├─ CreateSectorService/
+│     │  │  └─ classes/
+│     │  ├─ jobLock.service/
+│     │  │  └─ functions/
+│     │  ├─ omieProductRead.service/
+│     │  │  └─ functions/
+│     │  ├─ omieProductSync.service/
+│     │  │  └─ functions/
+│     │  ├─ omieStock.service/
+│     │  │  └─ functions/
+│     │  ├─ publicProductsRead.service/
+│     │  │  ├─ functions/
+│     │  │  └─ type-aliases/
+│     │  ├─ SetProductDefaultSectorService/
+│     │  │  └─ classes/
+│     │  └─ stockRefresh.service/
+│     │     └─ functions/
+│     └─ utils/
+│        ├─ backoff/
+│        │  └─ functions/
+│        ├─ domainErrors/
+│        │  └─ classes/
+│        └─ errors/
+│           ├─ functions/
+│           ├─ interfaces/
+│           ├─ type-aliases/
+│           └─ variables/
+├─ prisma/
+│  └─ migrations/
+├─ scripts/
+│  └─ metrics/
+├─ src/
+│  ├─ bootstrap/
+│  │  ├─ plugins/
+│  │  │  ├─ error-handler.ts
+│  │  │  ├─ job-lock.ts
+│  │  │  ├─ logger.ts
+│  │  │  └─ prisma.ts
+│  │  ├─ app.ts
+│  │  ├─ routes.ts
+│  │  └─ server.ts
+│  ├─ config/
+│  │  ├─ .env
+│  │  ├─ env.ts
+│  │  └─ index.ts
+│  ├─ contracts/
+│  │  └─ publicProducts.contract.ts
+│  ├─ dontev/
+│  │  └─ config.ts
+│  ├─ infra/
+│  │  └─ db.ts
+│  ├─ legacy/ # Projeto legado (não expandido)
+│  ├─ lib/
+│  │  └─ http.ts
+│  ├─ modules/
+│  │  ├─ omie-orders/
+│  │  │  ├─ application/
+│  │  │  │  └─ use-cases/
+│  │  │  │     ├─ fetch-omie-products-page.usecase.ts
+│  │  │  │     ├─ get-stage20-totals.usecase.ts
+│  │  │  │     ├─ list-omie-orders-page.usecase.ts
+│  │  │  │     ├─ list-orders.usecase.ts
+│  │  │  │     ├─ list-stage20-orders.usecase.ts
+│  │  │  │     ├─ sync-omie-products.usecase.ts
+│  │  │  │     └─ sync-stage20-orders.usecase.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/
+│  │  │  │  │  ├─ omie-orders.repo.prisma.ts
+│  │  │  │  │  ├─ omie-product.repo.prisma.ts
+│  │  │  │  │  └─ sync-lock.repo.prisma.ts
+│  │  │  │  └─ jobs/
+│  │  │  │     └─ omie-orders-stage20.job.ts
+│  │  │  ├─ presentation/
+│  │  │  │  └─ http/
+│  │  │  │     ├─ omie-orders.controller.ts
+│  │  │  │     └─ omie-orders.routes.ts
+│  │  │  ├─ index.ts
+│  │  │  └─ register.ts
+│  │  ├─ plans/
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/
+│  │  │  │  │  └─ product.dto.ts
+│  │  │  │  └─ use-cases/
+│  │  │  │     ├─ add-plan-item.usecase.ts
+│  │  │  │     ├─ create-plan.usecase.ts
+│  │  │  │     ├─ export-plan-csv.usecase.ts
+│  │  │  │     ├─ get-plan-by-id.usecase.ts
+│  │  │  │     ├─ get-product.usecase.ts
+│  │  │  │     ├─ list-plan-items-by-sector.usecase.ts
+│  │  │  │     ├─ list-plans.usecase.ts
+│  │  │  │     ├─ list-products.usecase.ts
+│  │  │  │     ├─ refresh-stock.usecase.ts
+│  │  │  │     ├─ set-default-sector.usecase.ts
+│  │  │  │     └─ sync-omie-products.usecase.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/
+│  │  │  │  │  ├─ plan.repo.prisma.ts
+│  │  │  │  │  └─ product.repo.prisma.ts
+│  │  │  │  ├─ integrations/
+│  │  │  │  │  └─ omie/
+│  │  │  │  │     ├─ omie-product.gateway.ts
+│  │  │  │  │     ├─ omie-stock-cache.ts
+│  │  │  │  │     ├─ omie.adapter.ts
+│  │  │  │  │     └─ omie.client.ts
+│  │  │  │  └─ jobs/
+│  │  │  │     ├─ refresh-stock.job.ts
+│  │  │  │     └─ sync-omie-products.job.ts
+│  │  │  ├─ presentation/
+│  │  │  │  └─ http/
+│  │  │  │     ├─ plans.controller.ts
+│  │  │  │     ├─ plans.routes.ts
+│  │  │  │     └─ plans.schemas.ts
+│  │  │  └─ index.ts
+│  │  ├─ product-sector/
+│  │  │  ├─ application/
+│  │  │  │  ├─ use-cases/
+│  │  │  │  │  ├─ get-product-default-sector.usecase.ts
+│  │  │  │  │  └─ set-product-default-sector.usecase.ts
+│  │  │  │  └─ set-product-default-sector.usecase.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  └─ db/
+│  │  │  │     └─ product-sector.repo.prisma.ts
+│  │  │  ├─ presentation/
+│  │  │  │  └─ http/
+│  │  │  │     ├─ product-sector.controller.ts
+│  │  │  │     ├─ product-sector.routes.ts
+│  │  │  │     └─ product-sector.schemas.ts
+│  │  │  └─ index.ts
+│  │  ├─ products/
+│  │  │  ├─ application/
+│  │  │  │  ├─ dtos/
+│  │  │  │  │  ├─ product.dto.ts
+│  │  │  │  │  └─ public-product.dto.ts
+│  │  │  │  ├─ use-cases/
+│  │  │  │  │  ├─ admin-omie/
+│  │  │  │  │  │  ├─ get-omie-product-by-code.usecase.ts
+│  │  │  │  │  │  ├─ get-omie-product-by-id.usecase.ts
+│  │  │  │  │  │  ├─ get-omie-product-stock.usecase.ts
+│  │  │  │  │  │  ├─ get-omie-stock-info.usecase.ts
+│  │  │  │  │  │  ├─ list-omie-categories.usecase.ts
+│  │  │  │  │  │  └─ search-omie-products.usecase.ts
+│  │  │  │  │  ├─ create-managed-product.usecase.ts
+│  │  │  │  │  ├─ create-managed-products-bulk.usecase.ts
+│  │  │  │  │  ├─ delete-managed-product.usecase.ts
+│  │  │  │  │  ├─ fetch-omie-products-page.usecase.ts
+│  │  │  │  │  ├─ get-managed-product-stock-history.usecase.ts
+│  │  │  │  │  ├─ get-managed-product-stock.usecase.ts
+│  │  │  │  │  ├─ get-managed-product.usecase.ts
+│  │  │  │  │  ├─ get-products.usecase.ts
+│  │  │  │  │  ├─ get-public-product-by-omie-code.usecase.ts
+│  │  │  │  │  ├─ get-stock-by-raw-payload.usecase.ts
+│  │  │  │  │  ├─ list-managed-products.usecase.ts
+│  │  │  │  │  ├─ list-omie-products-with-stock.usecase.ts
+│  │  │  │  │  ├─ list-products.usecase.ts
+│  │  │  │  │  ├─ list-public-products.usecase.ts
+│  │  │  │  │  ├─ patch-managed-product.usecase.ts
+│  │  │  │  │  ├─ refresh-stock.usecase.ts
+│  │  │  │  │  ├─ resolve-omie-code-from-product.usecase.ts
+│  │  │  │  │  ├─ set-default-sector.usecase.ts
+│  │  │  │  │  └─ sync-omie-products.usecase.ts
+│  │  │  │  └─ utils/
+│  │  │  │     └─ to-number.ts
+│  │  │  ├─ infrastructure/
+│  │  │  │  ├─ db/
+│  │  │  │  │  ├─ omie-product-read.repo.prisma.ts
+│  │  │  │  │  ├─ omie-product.repo.prisma.ts
+│  │  │  │  │  ├─ product-stock.repo.prisma.ts
+│  │  │  │  │  ├─ product.repo.prisma.ts
+│  │  │  │  │  ├─ public-products.repo.prisma.ts
+│  │  │  │  │  ├─ sync-lock-lease.repo.prisma.ts
+│  │  │  │  │  └─ sync-lock.repo.prisma.ts
+│  │  │  │  ├─ integrations/
+│  │  │  │  │  └─ omie/
+│  │  │  │  │     ├─ index.ts
+│  │  │  │  │     ├─ omie-product.gateway.ts
+│  │  │  │  │     ├─ omie-stock-cache.ts
+│  │  │  │  │     ├─ omie.adapter.ts
+│  │  │  │  │     └─ omie.client.ts
+│  │  │  │  └─ jobs/
+│  │  │  │     ├─ omie-product-sync.job.ts
+│  │  │  │     └─ stock-refresh.job.ts
+│  │  │  ├─ presentation/
+│  │  │  │  └─ http/
+│  │  │  │     ├─ products.controller.ts
+│  │  │  │     ├─ products.routes.ts
+│  │  │  │     └─ products.schemas.ts
+│  │  │  ├─ utils/
+│  │  │  │  └─ to-number.ts
+│  │  │  └─ index.ts
+│  │  └─ sectors/
+│  │     ├─ application/
+│  │     │  ├─ dtos/
+│  │     │  │  └─ product.dto.ts
+│  │     │  └─ use-cases/
+│  │     │     ├─ create-sector.usecase.ts
+│  │     │     ├─ delete-sector.usecase.ts
+│  │     │     ├─ get-product.usecase.ts
+│  │     │     ├─ list-products.usecase.ts
+│  │     │     ├─ list-sectors.usecase.ts
+│  │     │     ├─ refresh-stock.usecase.ts
+│  │     │     ├─ set-default-sector.usecase.ts
+│  │     │     ├─ sync-omie-products.usecase.ts
+│  │     │     └─ update-sector.usecase.ts
+│  │     ├─ infrastructure/
+│  │     │  ├─ db/
+│  │     │  │  ├─ product.repo.prisma.ts
+│  │     │  │  └─ sector.repo.prisma.ts
+│  │     │  ├─ integrations/
+│  │     │  │  └─ omie/
+│  │     │  │     ├─ omie-product.gateway.ts
+│  │     │  │     ├─ omie-stock-cache.ts
+│  │     │  │     ├─ omie.adapter.ts
+│  │     │  │     └─ omie.client.ts
+│  │     │  └─ jobs/
+│  │     │     ├─ refresh-stock.job.ts
+│  │     │     └─ sync-omie-products.job.ts
+│  │     ├─ presentation/
+│  │     │  └─ http/
+│  │     │     ├─ sectors.controller.ts
+│  │     │     ├─ sectors.routes.ts
+│  │     │     └─ sectors.schemas.ts
+│  │     └─ index.ts
+│  ├─ shared/
+│  │  ├─ errors/
+│  │  │  ├─ AppError.ts
+│  │  │  ├─ domain-errors.ts
+│  │  │  └─ http-errors.ts
+│  │  ├─ http/
+│  │  │  ├─ response.ts
+│  │  │  └─ validate.ts
+│  │  ├─ integrations/
+│  │  │  └─ omie/
+│  │  │     ├─ index.ts
+│  │  │     ├─ omie-orders.adapter.ts
+│  │  │     ├─ omie-stock-cache.ts
+│  │  │     ├─ omie.adapter.ts
+│  │  │     ├─ omie.client.ts
+│  │  │     ├─ omie.constants.ts
+│  │  │     └─ omie.utils.ts
+│  │  ├─ logger/
+│  │  │  ├─ index.ts
+│  │  │  └─ logger.ts
+│  │  └─ utils/
+│  │     ├─ backoff.ts
+│  │     └─ job-lock.ts
+│  └─ server.ts
+└─ tests/
+```

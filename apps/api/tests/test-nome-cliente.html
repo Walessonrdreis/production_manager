@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste nomeCliente</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Teste do campo nomeCliente</h1>
+    <p>Endpoint: <code>http://localhost:3333/v1/admin/orders/stage20/enriched?page=1&pageSize=5</code></p>
+    
+    <div id="result">
+        <p>Carregando...</p>
+    </div>
+    
+    <script>
+        async function testEndpoint() {
+            const url = 'http://localhost:3333/v1/admin/orders/stage20/enriched?page=1&pageSize=5';
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const resultDiv = document.getElementById('result');
+                
+                if (data.enrichedOrders && data.enrichedOrders.length > 0) {
+                    const firstOrder = data.enrichedOrders[0];
+                    
+                    let html = `<p class="success">✅ Endpoint funcionando!</p>`;
+                    html += `<p>Total de pedidos: ${data.enrichedOrders.length}</p>`;
+                    html += `<h3>Primeiro pedido:</h3>`;
+                    html += `<pre>${JSON.stringify({
+                        id: firstOrder.id,
+                        omieCode: firstOrder.omieCode,
+                        numeroPedido: firstOrder.numeroPedido,
+                        codigoCliente: firstOrder.codigoCliente,
+                        nomeCliente: firstOrder.nomeCliente,
+                        client: firstOrder.client
+                    }, null, 2)}</pre>`;
+                    
+                    // Verificar se nomeCliente está presente
+                    if (firstOrder.nomeCliente) {
+                        html += `<p class="success">✅ Campo nomeCliente presente: "${firstOrder.nomeCliente}"</p>`;
+                    } else {
+                        html += `<p class="error">❌ Campo nomeCliente NÃO presente</p>`;
+                    }
+                    
+                    // Verificar se client está presente
+                    if (firstOrder.client) {
+                        html += `<p class="success">✅ Campo client presente</p>`;
+                        html += `<pre>${JSON.stringify(firstOrder.client, null, 2)}</pre>`;
+                    } else {
+                        html += `<p class="error">❌ Campo client NÃO presente</p>`;
+                    }
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Nenhum pedido retornado</p>`;
+                }
+                
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    `<p class="error">❌ Erro ao acessar endpoint: ${error.message}</p>`;
+            }
+        }
+        
+        // Executar o teste
+        testEndpoint();
+    </script>
+</body>
+</html>

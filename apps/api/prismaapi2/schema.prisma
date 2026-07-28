@@ -1,0 +1,166 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["domain"]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Collaborator {
+  id        String   @id
+  name      String
+  role      String?
+  metrics   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  category  String?
+  dailyGoal Int?     @map("daily_goal")
+  sectorId  String?  @map("sector_id")
+  status    String?  @default("active")
+
+  @@map("collaborator")
+  @@schema("domain")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Goal {
+  id                 String   @id
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  collaboratorId     String?  @map("collaborator_id")
+  collaboratorName   String?  @map("collaborator_name")
+  isActive           Boolean  @default(true) @map("is_active")
+  lastModified       String?  @map("last_modified")
+  period             String
+  productCode        String?  @map("product_code")
+  productDescription String?  @map("product_description")
+  sectorId           String?  @map("sector_id")
+  sectorName         String?  @map("sector_name")
+  synced             Boolean  @default(true)
+  targetQuantity     Int      @map("target_quantity")
+  type               String?
+
+  @@map("goal")
+  @@schema("domain")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PlanningBatch {
+  id        String   @id
+  name      String
+  date      String
+  status    String
+  createdBy String   @map("created_by")
+  synced    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("planning_batch")
+  @@schema("domain")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PlanningItem {
+  id          String   @id
+  batchId     String   @map("batch_id")
+  productCode String   @map("product_code")
+  description String
+  unit        String?
+  quantity    Int
+  sectorId    String?  @map("sector_id")
+  sectorName  String?  @map("sector_name")
+  synced      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("planning_item")
+  @@schema("domain")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProducedRecord {
+  id          String   @id
+  description String
+  quantity    Int
+  orderId     String?  @map("order_id")
+  orderNumber String?  @map("order_number")
+  synced      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("produced_record")
+  @@schema("domain")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Product {
+  id        String   @id
+  name      String
+  code      String?
+  price     Float?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("product")
+  @@schema("domain")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductionOrder {
+  id                 String    @id
+  lote               String
+  productId          String?   @map("product_id")
+  productCode        String    @map("product_code")
+  productDescription String    @map("product_description")
+  quantity           Int
+  sectorId           String?   @map("sector_id")
+  sectorName         String?   @map("sector_name")
+  collaboratorId     String?   @map("collaborator_id")
+  collaboratorName   String?   @map("collaborator_name")
+  status             String
+  startDate          DateTime? @map("start_date")
+  endDate            DateTime? @map("end_date")
+  notes              String?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@map("production_order")
+  @@schema("domain")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductionSchedule {
+  id          String    @id
+  productCode String    @map("product_code")
+  description String
+  quantity    Int?
+  sectorId    String?   @map("sector_id")
+  sectorName  String?   @map("sector_name")
+  scheduledAt DateTime? @map("scheduled_at")
+  notes       String?
+  synced      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("production_schedule")
+  @@schema("domain")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Sector {
+  id         String   @id
+  name       String
+  isSystem   Boolean  @default(false) @map("is_system")
+  systemCode String?  @unique @map("system_code") // Ex: "REFINO", "TEMPERAGEM", "CONFEITARIA", "EMBALAGEM"
+  status     String?  @default("active") // "active" | "inactive"
+  
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("sector")
+  @@schema("domain")
+}

@@ -1,0 +1,1 @@
+export { createProductStructureIntegration } from "./product-structure-integration-register";
